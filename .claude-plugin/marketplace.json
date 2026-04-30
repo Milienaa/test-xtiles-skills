@@ -1,0 +1,11 @@
+{
+  "name": "test-xtiles-marketplace",
+  "owner": { "name": "Milienaa" },
+  "plugins": [
+    {
+      "name": "test-xtiles",
+      "source": "./",
+      "description": "Test xTiles plugin — break down ideas into tasks and save to xTiles workspace"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "xtiles": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp-stage.xtiles.app/mcp",
+        "--header",
+        "Authorization: Bearer ${з}"
+      ]
+    }
+  }
+}
