@@ -6,7 +6,7 @@
         "mcp-remote",
         "https://mcp-stage.xtiles.app/mcp",
         "--header",
-        "Authorization: Bearer ${з}"
+        "Authorization: Bearer ${XTILES_API_TOKEN}"
       ]
     }
   }
