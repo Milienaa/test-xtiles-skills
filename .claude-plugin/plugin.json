@@ -3,9 +3,17 @@
   "version": "1.0.0",
   "description": "Test xTiles plugin — break down ideas into tasks and save to xTiles workspace",
   "author": { "name": "Milienaa" },
-  "homepage": "https://github.com/Milienaa/test-skills",
-  "repository": "https://github.com/Milienaa/test-skills",
+  "homepage": "https://github.com/Milienaa/test-xtiles-skills",
+  "repository": "https://github.com/Milienaa/test-xtiles-skills",
   "license": "MIT",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "XTILES_API_TOKEN": {
+      "type": "string",
+      "title": "xTiles API Token",
+      "description": "Your personal xTiles API token. Get it at: https://stage.xtiles.app/ → Settings → Integrations → API Tokens → Create token",
+      "sensitive": true
+    }
+  }
 }
