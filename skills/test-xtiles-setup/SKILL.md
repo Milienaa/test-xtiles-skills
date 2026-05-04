@@ -1,46 +1,42 @@
 ---
 name: test-xtiles-setup
-description: Automatically help user fix xTiles MCP connection issues.
-             ALWAYS trigger when you see any of these signals:
-             "401", "unauthorized", "invalid token", "server disconnected",
-             "connection refused", "MCP error", "xTiles is not connected",
-             "failed to connect", "authentication failed", "Bearer",
-             "mcp-remote", "XTILES_API_TOKEN".
-             Do NOT wait for user to ask — trigger immediately when error appears.
-allowed-tools: Bash(cat *) Bash(echo *) Bash(mkdir *) Bash(touch *)
+description: >
+  Help user connect xTiles MCP on their own machine.
+  Trigger when user asks how to set up xTiles, connect MCP, or configure token.
+  Also trigger immediately on any of these errors without waiting for user to ask:
+  401, unauthorized, invalid token, server disconnected, MCP error,
+  xTiles is not connected, failed to connect, authentication failed,
+  Bearer, mcp-remote, XTILES_API_TOKEN.
 user-invocable: false
 ---
 
-# xTiles Auto Setup Guide
+# xTiles MCP Setup Guide
 
-You detected an xTiles MCP connection error.
-Stop what you were doing and show the user this message immediately:
+To use xTiles tools you need to configure the xTiles MCP server on your machine.
+Show the user this message:
 
 ---
 
-❌ xTiles is not connected.
+## Connect xTiles MCP
 
-This usually means your API token is missing or expired.
-
-⚙️ Fix in 3 steps:
-
-**Step 1 — Get your API token**
+### Step 1 — Get your API token
 1. Go to https://stage.xtiles.app
 2. Settings → Integrations → API Tokens
-3. Click "Create token" → copy it
-
-**Step 2 — Send me your token**
-
-Just paste the token here in the chat — I will configure everything
-automatically for both Claude Code and Claude Desktop.
+3. Click "Create token" → copy it (starts with `xt_`)
 
 ---
 
-When the user sends the token, detect the environment:
+### Step 2 — Add MCP config
 
-### Claude Code (terminal)
+#### Claude Desktop
+1. Open Claude Desktop → **Settings → Developer** (bottom of the sidebar)
+2. Click **Edit Config** — it opens the folder with the config file
+3. Open `claude_desktop_config.json` in any text editor
+   - macOS path: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows path: `%APPDATA%\Claude\claude_desktop_config.json`
+4. Add the block below. If the file is empty or has only `{}`, paste the full config.
+   If other servers already exist — add a new entry separated by a comma.
 
-Read current config:    cat ~/.claude/settings.json   Merge and write back mcpServers to ~/.claude/settings.json:
 ```json
 {
   "mcpServers": {
@@ -50,55 +46,27 @@ Read current config:    cat ~/.claude/settings.json   Merge and write back mcpSe
         "mcp-remote",
         "https://mcp-stage.xtiles.app/mcp",
         "--header",
-        "Authorization: Bearer <TOKEN_FROM_USER>"
+        "Authorization: Bearer YOUR_TOKEN_HERE"
       ]
     }
   }
 }
 ```
 
-### Claude Desktop / Cowork (macOS)
+Replace `YOUR_TOKEN_HERE` with the token from Step 1.
 
-Read current config:   cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
-   Merge and write back mcpServers to the same file:
-```json
-{
-  "mcpServers": {
-    "xtiles": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp-stage.xtiles.app/mcp",
-        "--header",
-        "Authorization: Bearer <TOKEN_FROM_USER>"
-      ]
-    }
-  }
-}
-```
-
-### Claude Desktop / Cowork (Windows)
-
-Read current config:   cat $APPDATA\Claude\claude_desktop_config.json
-  
-Merge and write back mcpServers to the same file.
+#### Claude Code
+Add the same `mcpServers` block to `~/.claude/settings.json`.
 
 ---
 
-After writing the config show:
-
-✅ Token configured successfully!
-
-**Step 3 — Restart to apply**
-
-- Claude Code → run /reload-plugins
-- Claude Desktop → restart the app
-
-I will retry your original request automatically after restart.
+### Step 3 — Restart to apply
+- **Claude Desktop** → quit and reopen the app
+- **Claude Code** → run `/reload-plugins`
 
 ---
 
 **Common errors:**
-❌ 401 Unauthorized → token is wrong or expired → repeat Step 1
-❌ Server disconnected → config file not found or wrong path → repeat Step 2
-❌ npx not found → install Node.js from https://nodejs.org
+- 401 Unauthorized → token wrong or expired → repeat Step 1
+- Server disconnected → config path wrong → check Step 2
+- `npx` not found → install Node.js from https://nodejs.org
