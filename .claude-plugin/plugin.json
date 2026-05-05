@@ -7,7 +7,6 @@
   "repository": "https://github.com/Milienaa/test-xtiles-skills",
   "license": "MIT",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "userConfig": {
     "XTILES_API_TOKEN": {
       "type": "string",
