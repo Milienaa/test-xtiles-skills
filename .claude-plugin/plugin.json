@@ -6,13 +6,5 @@
   "homepage": "https://github.com/Milienaa/test-xtiles-skills",
   "repository": "https://github.com/Milienaa/test-xtiles-skills",
   "license": "MIT",
-  "skills": "./skills/",
-  "userConfig": {
-    "XTILES_API_TOKEN": {
-      "type": "string",
-      "title": "xTiles API Token",
-      "description": "To get your token: open https://stage.xtiles.app/ → Settings → Integrations → API Tokens → API Tokens → click \"Create token\" → copy it. Then paste the token here.",
-      "sensitive": true
-    }
-  }
+  "skills": "./skills/"
 }
