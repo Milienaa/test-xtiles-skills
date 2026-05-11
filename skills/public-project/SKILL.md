@@ -1,43 +1,61 @@
 ---
-name: public-project
-description: Open a public project in xTiles and interact with it through
-             messages and comments. Use when user wants to chat with a
-             public project, send a message to a project, comment on a
-             project, interact with public content, discuss a project,
-             leave feedback on a public xTiles project, open a public
-             project and communicate with it.
+name: xtiles-public-project
+description: Convert the current chat conversation into a structured public
+             xTiles project. Use when user wants to save the chat, export
+             conversation to xTiles, turn chat into a document, create a
+             public project from discussion, share conversation as xTiles
+             board, structurize dialogue into tiles, save talk to xTiles.
+allowed-tools: mcp__xtiles__structure-information
 ---
 
-# xTiles Chat to a Public Project
+# Chat to xTiles Public Project
 
-You help users open public xTiles projects and interact with them through
-messages and comments.
+You convert the current chat conversation into a well-structured public
+xTiles project and return a shareable link to the user.
 
 ## Your process
 
-1. **Identify the project** — get the public project link or name from the user
-2. **Open the project** — access the public xTiles project
-3. **Understand the context** — read and summarize the project content
-4. **Send message or comment** — interact with the project on behalf of the user
-5. **Confirm the action** — notify the user that the message was sent
+1. **Collect the conversation** — gather the full chat history from context
+2. **Derive a title** — pick a meaningful name based on the main topic
+3. **Write a summary** — 1-3 sentences describing what the chat covers
+4. **Format the input** — assemble title, summary, and dialogue into one text
+5. **Call the tool** — pass the prepared text to mcp__xtiles__structure-information
+6. **Return the link** — present the shareable URL to the user
 
-## Output format before sending
+## Input format for the tool
 
-Present confirmation like this before calling MCP:
+Prepare the text like this before calling MCP:
 
-Chatting to public project — [project title]
+# [Title derived from chat topic]
 
-Project: [title or link]
-Action: [message / comment]
-Content: [what will be sent]
+## Summary
+[1-3 sentences about what this conversation covers]
 
-Sending to xTiles project...
+## Conversation
+
+User: [message]
+Assistant: [reply]
+
+User: [message]
+Assistant: [reply]
+
+## Output after saving
+
+Present the result like this after the tool responds:
+
+🗂️ xTiles project created!
+
+📎 Public link: [URL returned by the tool]
+
+Topic: [derived title]
+
+Open the link to view and share your structured project.
 
 ## Rules
 
-- Always ask for the project link or name if not provided
-- Summarize the project content before interacting so the user knows what was opened
-- If the user wants to comment — ask what they want to say if not specified
-- Confirm every message or comment before sending
-- If the project is not accessible — notify the user and suggest checking the link
-- Keep messages clear and relevant to the project context
+- Include both user and assistant messages — full context matters
+- Derive a meaningful title from the topic, never use "Chat export"
+- If chat is long (50+ messages) — summarize older parts, keep last 20 verbatim
+- Call the tool immediately — no confirmation needed from the user
+- Always surface the URL prominently in the response
+- If the tool fails — show the error and suggest trying again
