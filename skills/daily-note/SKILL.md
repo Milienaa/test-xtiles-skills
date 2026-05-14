@@ -12,12 +12,11 @@ allowed-tools: mcp__xtiles__create-tiles-from-markdown-in-my-planner
 
 ---
 name: daily-note
-description: Convert the current chat into a short note in xTiles daily
-note. Use when user wants to save the chat to daily note,
-add chat summary to diary, capture today's conversation,
-record chat result, write to daily log, save discussion
-to daily note, add chat to today's note.
-allowed-tools: mcp__xtiles__create-tiles-from-markdown-in-my-planner
+description: Saves the current chat to the xTiles daily planner as a
+personal note. Trigger when the user wants to save, remember, log,
+or capture this conversation for personal use. If the save intent
+is ambiguous — default to this skill unless there are clear signals
+of sharing, presenting, or exporting to others.
 ---
 
 # xTiles Chat to a Daily Note

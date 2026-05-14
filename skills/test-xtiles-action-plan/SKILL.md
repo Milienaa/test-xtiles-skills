@@ -44,21 +44,60 @@ For each task define:
 - **Description** — 1-2 sentences what exactly needs to be done
 - **Deadline** — suggested date based on logical sequence and complexity
 
+## Emoji selection
+
+Pick one emoji per task based on its content. Examples:
+- 🔧 fix, repair, debug, technical issue
+- 🧪 test, QA, check, verify
+- 📱 mobile, device, screen, UI
+- 📝 write, document, content, copy
+- 📋 review, audit, plan, organize
+- 🚀 launch, deploy, release, ship
+- 🎨 design, visual, layout, style
+- 📊 analytics, data, metrics, report
+- 💬 communication, email, message, notify
+- 🔍 research, investigate, find, explore
+
+If nothing fits — use 📌 as a safe default.
+
 ## Show the plan before saving
 
-Before calling MCP present the plan like this and wait for user confirmation:
+Before calling MCP, present the plan in the user's language and wait for confirmation.
 
-Action Plan — [goal title]
+Group tasks by week using this format (shown as a code block to avoid Markdown conflicts):
 
-Task 1: [Title]
-Description: [what to do]
-Deadline: [date]
+```
+📋 N завдань готові до збереження   ← header in user's language, N = task count
 
-Task 2: [Title]
-Description: [what to do]
-Deadline: [date]
+── Цей тиждень ────────────────────   ← or "Наступний тиждень", "Через два тижні" etc.
 
-Saving [N] tasks to xTiles workspace...
+[emoji] [Title]
+   [Short description — 1 sentence max]
+   └─ [weekday] [dd/mm]
+
+[emoji] [Title]
+   [Short description — 1 sentence max]
+   └─ [weekday] [dd/mm]
+
+── Наступний тиждень ──────────────
+
+[emoji] [Title]
+   ...
+
+Зберігаємо? Або щось змінити?   ← closing line in user's language
+```
+
+### Display rules
+
+- **Language**: write all labels (header, week groups, closing line) in the user's language
+- **Week groups**: show only groups that have tasks; skip empty ones
+- **Week label logic**:
+   - same calendar week as today → "Цей тиждень" / "This week" / etc.
+   - next calendar week → "Наступний тиждень" / "Next week" / etc.
+   - further out → use the week's Monday date: "Тиждень з 26/05" / "Week of May 26"
+- **Description**: compress to 1 sentence if the original is longer
+- **Weekday**: always show short weekday before the date (пн, вт, ср, чт, пт / Mon, Tue...)
+- **No task numbers** — never use "Task 1:", "Завдання 1:" or any numbered prefix
 
 ## Rules
 

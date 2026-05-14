@@ -1,10 +1,11 @@
 ---
 name: xtiles-public-project
-description: Convert the current chat conversation into a structured public
-  xTiles project. Use when user wants to save the chat, export
-  conversation to xTiles, turn chat into a document, create a
-  public project from discussion, share conversation as xTiles
-  board, structurize dialogue into tiles, save talk to xTiles.
+description: Publishes the current chat as a structured public xTiles
+   project with a shareable URL. Trigger when the user wants to share,
+   present, export, or format this conversation — including indirect
+   signals like "make a document", "show the team", "send this",
+   "format this nicely", "make this readable", "create a board",
+   "turn into a project", even without the word "share" explicitly.
 allowed-tools: mcp__xtiles__structure-information
 ---
 
