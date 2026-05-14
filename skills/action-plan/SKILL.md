@@ -1,5 +1,5 @@
 ---
-name: test-xtiles-action-plan
+name: action-plan
 description: Break down any message, idea, or information into actionable
    tasks and save them to xTiles workspace. Use when user wants
    to create tasks, break down a project, make an action plan,
