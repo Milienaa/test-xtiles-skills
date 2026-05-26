@@ -28,14 +28,15 @@ A ready action plan in xTiles with 3–7 tasks, each containing:
 - A short description of what exactly needs to be done
 - A realistic deadline based on logical sequence and complexity
 - The user assigned as the task owner
-
-After saving — a direct link to the xTiles tasks page.
+  After saving — a direct link to the xTiles tasks page.
 
 ## Your process
 
-1. **Resolve the current user** — call `mcp__xtiles__search-users` with the
-   user's name or email from context. If unknown, ask: "What is your name
-   or email in xTiles?" Extract `id` and `email` for `assignees`.
+1. **Resolve the current user** — call `mcp__xtiles__search_users` with the
+   user's name or email from context. If the user wrote `@username`, strip
+   the `@` and use the username as the query. If nothing is known, ask:
+   "What is your name or email in xTiles?" Extract `id` and `email` for
+   `assignees`. Use whichever field is returned — both are accepted.
 2. **Determine deadlines** — read the Deadline rules below before planning.
 3. **Analyze the input** — understand the goal and scope.
 4. **Break into tasks** — identify 3–7 concrete actionable steps.
@@ -46,7 +47,6 @@ After saving — a direct link to the xTiles tasks page.
 8. **Save selected tasks** — call `mcp__xtiles__create-tasks` with all selected
    tasks in a single call; include `assignees` and `due_date` for every task.
 9. **Confirm** — show the confirmation block with a link to xTiles.
-
 ## Deadline rules
 
 **Step 1 — Extract from user input.**
@@ -76,7 +76,7 @@ do not appear on daily pages. Call `mcp__xtiles__search-users` before
 creating tasks and pass both `id` and `email` in `assignees`.
 
 ## Show the plan before saving
-
+ 
 ---
 **Action Plan — [goal title]**
 

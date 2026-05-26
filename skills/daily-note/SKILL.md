@@ -23,8 +23,10 @@ always easy to find later.
 3. **Write a summary** — follow the Summary writing rules below.
 4. **Build the entry** — assemble markdown using the Entry format below.
 5. **Show the entry** — present what will be saved before calling the tool.
-6. **Save to xTiles** — call `mcp__xtiles__create_tiles_from_markdown_in_my_planner`
+6. **Save to xTiles** — call `mcp__xtiles__create_tiles-from_markdown-in-my_planner`
    with `date` = today (ISO 8601), `period` = `"day"`, `markdown` = the entry.
+   The tool returns `view_id` — use it to build the tile URL:
+   `https://app.xtiles.app/{view_id}`
 7. **Show the confirmation block**.
 ## Questions to ask
 
@@ -74,8 +76,11 @@ If unavailable, use `https://claude.ai` as a fallback — never omit the link.
  
 ---
 ✅ Note saved to today's daily page in xTiles.
-🔗 [Open xTiles daily note](https://app.xtiles.app/my/planner/day)
+🔗 [Open daily note](https://app.xtiles.app/{view_id from tool response})
 ---
+
+Build the URL as `https://app.xtiles.app/` + the `view_id` returned by the
+tool. This links directly to the daily page where the note was saved.
 
 ## Rules
 
