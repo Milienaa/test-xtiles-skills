@@ -76,11 +76,11 @@ If unavailable, use `https://claude.ai` as a fallback — never omit the link.
  
 ---
 ✅ Note saved to today's daily page in xTiles.
-🔗 [Open daily note](https://app.xtiles.app/{view_id from tool response})
+🔗 [Open daily note](https://xtiles.app/{view_id from tool response})
 ---
 
-Build the URL as `https://app.xtiles.app/` + the `view_id` returned by the
-tool. This links directly to the daily page where the note was saved.
+Build the link as https://xtiles.app/ + the view_id returned by the tool
+and render it as: 🔗 [Open daily note](https://xtiles.app/VIEW_ID)
 
 ## Rules
 

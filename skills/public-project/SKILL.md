@@ -7,7 +7,7 @@ description: Convert the current chat conversation into a structured public
    board, structurize dialogue into tiles, save talk to xTiles.
    Also use when user provides standalone content (notes, research,
    article, brief) and wants it structured as a multi-page xTiles project.
-allowed-tools: mcp__xtiles__structure-information, mcp__xtiles__create_project_from_markdown
+allowed-tools: mcp__xtiles__structure-information, mcp__xtiles__create-project-from-markdown
 ---
 
 # Chat to xTiles Project
@@ -15,27 +15,19 @@ allowed-tools: mcp__xtiles__structure-information, mcp__xtiles__create_project_f
 This skill takes the current chat (or any content the user provides) and
 transforms it into a structured xTiles project with a shareable link.
 
-## How the tool works — CRITICAL
+## Deciding the tool and structure
 
-`mcp__xtiles__create_project_from_markdown` uses Markdown heading levels
-to define structure:
-
-- `#` — project title (exactly one, at the top)
-- `##` — each heading becomes a separate page (view)
-- `###` — each heading becomes a tile inside the page above it
-
-## Deciding the structure
-
-**If the content is rich** (detailed chat, pasted notes, article, research)
-— create a multi-page project with 2–5 pages. Use the typical structures
-below as a guide.
-
-**If the content is short or thin** (brief chat, simple question/answer,
-small topic) — create a single-page project with well-organized tiles.
-Do not force multi-page structure where it is not needed.
-
-**If the user pastes additional content** alongside the chat — that content
-is the primary source. The chat provides intent context only.
+**If the content is short or thin** (brief chat, simple Q&A, small topic):
+- Use `mcp__xtiles__structure-information`
+- Pass a well-structured prompt (see Prompt format below)
+- The tool returns a ready public URL — use it directly
+  **If the content is rich** (detailed chat, pasted notes, article, research):
+- Use `mcp__xtiles__create-project-from-markdown`
+- Write Markdown with `#` / `##` / `###` hierarchy — see `xtiles-markdown-format` skill
+- The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
+- Plan 2–5 pages; do not force multi-page when single page is enough
+  **If the user pastes additional content** alongside the chat — that content
+  is the primary source. The chat provides intent context only.
 
 ## Typical page structures by content type
 
@@ -47,62 +39,52 @@ is the primary source. The chat provides intent context only.
 | Brainstorm          | Topic · Ideas · Shortlist · Action Items              |
 | Meeting notes       | Agenda · Discussion · Decisions · Follow-ups          |
 
-## Markdown format for the tool
+## Prompt format (for structure-information)
 
-Multi-page:
 ```
-# <Project title>
-
-## <Page 1 name>
-
-### <Tile title>
-<Tile content>
-
-### <Tile title>
-<Tile content>
-
-## <Page 2 name>
-
-### <Tile title>
-<Tile content>
-```
-
-Single-page:
-```
-# <Project title>
-
-## <Page name>
-
-### <Tile title>
-<Tile content>
-
-### <Tile title>
-<Tile content>
+Create an xTiles project titled "<title>".
+ 
+Summary: <2–3 sentences about what this covers>
+ 
+Content:
+<Organized and enriched content>
 ```
 
 ## Your process
 
 1. **Assess the content** — how much substance is there?
-2. **Choose the structure** — multi-page for rich content, single-page for thin
-3. **Write the Markdown** — curate and organize; do not paste raw chat messages
-4. **Call the tool** — pass the Markdown to `mcp__xtiles__create-project-from_markdown`
-5. **Build the URL** — the tool returns `project_id` and `view_id`; construct
-   the link as `https://app.xtiles.app/{view_id}`
-6. **Show the result**
+2. **Choose the tool** — see Deciding the tool and structure above
+3. **Prepare the input** — curate and organize; do not paste raw chat messages
+4. **Call the tool**
+5. **Build the link and show the result** — see After the tool responds below
+## After the tool responds
 
 ## After the tool responds
 
-Show this as the first thing in your reply:
+**If you used `structure-information`:**
 
-🔗 **[Open project in xTiles](https://app.xtiles.app/{view_id})**
+🔗 Open project in xTiles: https://xtiles.app/TOOL_RESPONSE_URL
 
-Then: project title and one-sentence description.
-For multi-page projects also list the pages: Page 1 · Page 2 · Page 3
+CRITICAL: ACTUAL_URL must be replaced with the real URL returned by the tool.
+Example: `https://xtiles.app/6a1803637baeda338dd82052`
+
+**[Project title]**
+2–3 sentences describing what the project contains.
+
+**If you used `create-project-from-markdown`:**
+
+🔗 **[Open project in xTiles](https://xtiles.app/VIEW_ID)**
+
+CRITICAL: VIEW_ID must be replaced with the real `view_id` returned by the tool.
+Example: `https://xtiles.app/6a180381f6c69705d68096c0`
+
+**[Project title]**
+2–3 sentences describing what the project contains.
+Pages: Page 1 · Page 2 · Page 3
 
 ## Rules
 
-- Always use `#` / `##` / `###` hierarchy — this is what creates pages and tiles
-- Match structure to content — don't force multi-page when single-page is enough
-- Curate content — organize and enrich before passing to the tool
+- Match tool and structure to content volume — see Deciding the tool above
+- Curate content before passing to the tool — organize and enrich first
 - Always show the link first after the tool responds
 - If the tool fails — show the error and suggest trying again
