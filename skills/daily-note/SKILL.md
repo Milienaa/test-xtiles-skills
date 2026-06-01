@@ -76,7 +76,7 @@ If unavailable, use `https://claude.ai` as a fallback — never omit the link.
  
 ---
 ✅ Note saved to today's daily page in xTiles.
-🔗 [Open daily note](https://xtiles.app/{view_id from tool response})
+🔗 [Open daily note] (https://xtiles.app/{view_id})
 ---
 
 Build the link as https://xtiles.app/ + the view_id returned by the tool
