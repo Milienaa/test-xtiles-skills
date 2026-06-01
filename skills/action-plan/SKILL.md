@@ -91,7 +91,7 @@ Reply with task numbers to save (e.g. `1,3`) or `all` / `none`.
 
 ---
 ✅ [N] tasks saved to xTiles.
-🔗 [View in xTiles](https://app.xtiles.app/my/tasks)
+🔗 [View in xTiles](https://xtiles.app/{view_id})
 ---
 
 ## Rules
