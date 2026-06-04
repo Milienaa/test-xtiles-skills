@@ -66,11 +66,11 @@ match the dominant language of the chat.
  
 [Summary — per depth, language, and format chosen by the user]
  
-🔗 [Full conversation](https://claude.ai/chat/CONVERSATION_ID)
+🔗 [Full conversation](https://claude.ai/chat/local_{conversation_id})
 ```
 
-Extract the conversation ID from the current context to build the URL.
-If unavailable, use `https://claude.ai` as a fallback — never omit the link.
+Look for the conversation ID in the current URL or system context.
+Build the URL as: https://claude.ai/chat/local_{conversation_id}
 
 ## Confirmation block
  

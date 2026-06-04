@@ -36,11 +36,11 @@ takes the current chat and turns it into a completed task in xTiles.
 [1–2 sentences describing what was done and the key outcome,
 written in the same language as the chat]
 
-🔗 [Open in xTiles](https://app.xtiles.app/my/tasks)
+🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
 ---
 
-Always use `https://app.xtiles.app/my/tasks` as the link — this is the
-correct stable URL for personal tasks. Never construct or guess other URLs.
+Build the link as https://xtiles.app/ + the view_id returned by the tool
+and render it as: 🔗 [Open completed task](https://xtiles.app/VIEW_ID)
 
 ## If update fails
 
