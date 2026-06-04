@@ -90,8 +90,8 @@ Reply with task numbers to save (e.g. `1,3`) or `all` / `none`.
 ## After saving
 
 ---
-✅ [N] tasks saved to xTiles.
-🔗 [View in xTiles](https://xtiles.app/{view_id})
+Build the link as https://xtiles.app/ + the view_id returned by the tool
+and render it as: 🔗 [Open action plan](https://xtiles.app/VIEW_ID)
 ---
 
 ## Rules
