@@ -30,17 +30,12 @@ takes the current chat and turns it into a completed task in xTiles.
 ## Confirmation block
 
 ---
-✅ **[Task title]**
-📅 [Today's date, human-readable — e.g. "May 20, 2026"]
-
-[1–2 sentences describing what was done and the key outcome,
-written in the same language as the chat]
-
 🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
 ---
 
 Build the link as https://xtiles.app/ + the view_id returned by the tool
 and render it as: 🔗 [Open completed task](https://xtiles.app/VIEW_ID)
+---
 
 ## If update fails
 
