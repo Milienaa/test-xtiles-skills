@@ -24,10 +24,6 @@ Bring every conversation into your xTiles workspace. Capture insights, plan work
 7. Click **Install** in the top right corner
 8. Enable the **Sync automatically** toggle so you always get the latest updates
 
-## Setup
-
-On first use, type `/xtiles-mcp-setup` to connect your xTiles account.
-
 ## Skills
 
 ### Capture & Save
@@ -63,8 +59,7 @@ Or naturally:
 
 ```
 Create an action plan for the onboarding project
-Save this conversation to my daily note
+Save this conversation to xTiles daily note
 Log this as a completed task
 Turn this research into a public xTiles project
-What do I need to know today?
 ```
