@@ -5,7 +5,7 @@
     {
       "name": "test-xtiles",
       "source": "./",
-      "description": "Test xTiles plugin — Break down ideas into tasks and save them directly to your xTiles workspace.\n\n  ⚙️  Setup required:\n  1. Go to https://stage.xtiles.app/ → Settings → Integrations → API Tokens\n  2. Click \"Create token\" and copy it\n  3. Paste it when prompted during installation\n\n  💡 Usage: /action-plan <your idea or project description>"
+      "description": "Bring every conversation into your xTiles workspace. Save daily notes, log completed work, build structured projects, create action plans, and get a personalized daily digest from Gmail, Slack, Calendar, and more."
     }
   ]
 }
