@@ -41,8 +41,9 @@ A ready action plan in xTiles with 3–7 tasks, each containing:
 3. **Analyze the input** — understand the goal and scope.
 4. **Break into tasks** — identify 3–7 concrete actionable steps.
 5. **Enrich each task** — add description and deadline.
-6. **Show the interactive plan** — present tasks as a numbered checklist;
-   ask the user to reply with numbers to save (e.g. "1,2,4") or `all` / `none`.
+6. **Show the interactive plan** — use `AskUserQuestion` with `multiSelect: true`;
+   each task is an option with `label` = task title and `description` = what to do + due date.
+   Question: "Which tasks would you like to save to xTiles?"
 7. **Wait for selection** — do not save anything until the user replies.
 8. **Save selected tasks** — call `mcp__xtiles__create-tasks` with all selected
    tasks in a single call; include `assignees` and `due_date` for every task.
@@ -76,16 +77,23 @@ do not appear on daily pages. Call `mcp__xtiles__search-users` before
 creating tasks and pass both `id` and `email` in `assignees`.
 
 ## Show the plan before saving
- 
----
-**Action Plan — [goal title]**
 
-- [ ] 1. **[Title]** — [what to do] *(due: [date])*
-- [ ] 2. **[Title]** — [what to do] *(due: [date])*
-- [ ] 3. **[Title]** — [what to do] *(due: [date])*
+Use `AskUserQuestion` with `multiSelect: true`:
 
-Reply with task numbers to save (e.g. `1,3`) or `all` / `none`.
----
+```
+question: "Which tasks would you like to save to xTiles?"
+multiSelect: true
+options: [
+  { label: "All tasks", description: "Save the entire plan to xTiles" },
+  { label: "[Task title]", description: "[What to do] · due: [date]" },
+  { label: "[Task title]", description: "[What to do] · due: [date]" },
+  ...
+]
+```
+
+Generate one option per task after "All tasks".
+If the user selects "All tasks" — save everything regardless of other selections.
+The built-in "Other" option lets the user type a custom reply if needed.
 
 ## After saving
 
