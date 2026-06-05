@@ -84,14 +84,14 @@ Use `AskUserQuestion` with `multiSelect: true`:
 question: "Which tasks would you like to save to xTiles?"
 multiSelect: true
 options: [
-  { label: "All tasks", description: "Save the entire plan to xTiles" },
   { label: "[Task title]", description: "[What to do] · due: [date]" },
   { label: "[Task title]", description: "[What to do] · due: [date]" },
   ...
+  { label: "All tasks", description: "Save the entire plan to xTiles" },
 ]
 ```
 
-Generate one option per task after "All tasks".
+Generate one option per task before "All tasks".
 If the user selects "All tasks" — save everything regardless of other selections.
 The built-in "Other" option lets the user type a custom reply if needed.
 
