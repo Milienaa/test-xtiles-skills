@@ -20,9 +20,22 @@ Handles post-setup adjustments. Never restarts the full setup — only updates w
 
 ## Starting point
 
-If invoked without a specific request — don't show a form or list of options. Just ask what they want to change. One sentence.
+If invoked without a specific request, use `AskUserQuestion` to show what can be changed:
 
-If the request is ambiguous — ask one clarifying question before doing anything.
+```
+question: "What would you like to adjust?"
+multiSelect: false
+options: [
+  { label: "Sources",       description: "Add or remove Gmail, Slack, Notion, GitHub, Figma, Analytics" },
+  { label: "Slack channels", description: "Update which channels are monitored" },
+  { label: "Gmail filters",  description: "Change priority senders or blacklist" },
+  { label: "Schedule",       description: "Switch between morning, evening, or weekly digest" },
+  { label: "Other",          description: "Describe any other change" }
+]
+```
+
+If the user already described what they want — skip the form and apply the change directly.
+If the selection is still ambiguous — ask one clarifying question before doing anything.
 
 ---
 
