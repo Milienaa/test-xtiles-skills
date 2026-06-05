@@ -30,17 +30,14 @@ always easy to find later.
 7. **Show the confirmation block**.
 ## Questions to ask
 
-Ask these three questions in a single message before writing anything:
+Use `AskUserQuestion` with all three questions in a single call before writing anything:
 
-> How would you like the note?
->
-> 1. **Depth** — brief (2–4 sentences) or detailed (full breakdown)?
-> 2. **Format** — prose, bullet points, or structured (Topic / Outcome / Next steps)?
-> 3. **Language** — same as the chat, or a specific language?
+- **Depth** — "How detailed should the note be?" → options: `Brief` (2–4 sentences) / `Detailed` (full breakdown)
+- **Format** — "What format do you prefer?" → options: `Prose` / `Bullet points` / `Structured (Topic · Outcome · Next steps)`
+- **Language** — "Which language for the note?" → options: `Same as chat` / `English` / `Ukrainian`
 
-If the user already specified any of these in their request, skip that
-question and apply what they said. If they answer partially (e.g. only
-depth), use defaults for the rest: `brief`, `prose`, chat language.
+If the user already specified any of these in their request, skip that question.
+If they answer partially, use defaults for the rest: `Brief`, `Prose`, `Same as chat`.
 
 ## Summary writing rules
 
@@ -73,14 +70,10 @@ Look for the conversation ID in the current URL or system context.
 Build the URL as: https://claude.ai/chat/local_{conversation_id}
 
 ## Confirmation block
- 
----
-✅ Note saved to today's daily page in xTiles.
-🔗 [Open daily note] (https://xtiles.app/{view_id})
----
 
-Build the link as https://xtiles.app/ + the view_id returned by the tool
-and render it as: 🔗 [Open daily note](https://xtiles.app/VIEW_ID)
+✅ Note saved to [today's daily page](https://xtiles.app/VIEW_ID) in xTiles.
+
+Replace `VIEW_ID` with the `view_id` returned by the tool.
 
 ## Rules
 

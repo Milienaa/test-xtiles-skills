@@ -48,9 +48,17 @@ Sources to probe:
 
 If `mcp__Control_Chrome__get_page_content` is available — also offer: LinkedIn, X, YouTube, Reddit, Hacker News, Substack, Product Hunt.
 
-Tell the user which sources are connected and which aren't — offer to add missing ones or skip. Show connected sources pre-checked, unavailable ones grayed out.
+Use `AskUserQuestion` with `multiSelect: true` — include only sources that are actually connected. Do not list unavailable ones.
 
-If nothing found — show popular list and call `suggest_connectors`. After connecting, re-probe and confirm what was added.
+```
+question: "Which sources would you like to include in your digest?"
+multiSelect: true
+options: [connected sources only, one per option]
+```
+
+Each option: `label` = source name, `description` = brief note on what will be fetched (e.g. "Unread important emails from the last 24h").
+
+If nothing is connected — tell the user and call `suggest_connectors` to help them add sources. After connecting, re-probe and show the form again.
 
 ---
 

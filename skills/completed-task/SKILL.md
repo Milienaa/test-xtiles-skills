@@ -29,13 +29,12 @@ takes the current chat and turns it into a completed task in xTiles.
 
 ## Confirmation block
 
----
+✅ **[Task title]** marked as completed.
+📋 [Page name or view returned by the tool]
+[Task description]
 🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
----
 
-Build the link as https://xtiles.app/ + the view_id returned by the tool
-and render it as: 🔗 [Open completed task](https://xtiles.app/VIEW_ID)
----
+Replace `VIEW_ID` with the `view_id` returned by the tool.
 
 ## If update fails
 
