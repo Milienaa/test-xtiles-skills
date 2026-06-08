@@ -34,6 +34,7 @@ takes the current chat and turns it into a completed task in xTiles.
 Here's what will be saved:
 
 **[Task title]**
+
 [Task description]
 
 Save it?
@@ -44,6 +45,7 @@ Claude waits for explicit confirmation before proceeding to step 4.
 ## Confirmation block
 
 ✅ **[Task title]** marked as completed.
+
 [Task description]
 
 🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
