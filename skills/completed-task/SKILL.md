@@ -5,7 +5,7 @@ description: Convert the current chat into a completed task in xTiles
   log what was done today, create completed task from chat,
   record finished work from discussion, turn conversation into
   a finished task, mark chat as done in xTiles.
-allowed-tools: mcp__xtiles__create-tasks, mcp__xtiles__update-task, mcp__xtiles__get-current-user, mcp__xtiles__get-user-timezone
+allowed-tools: mcp__xtiles__create-tasks, mcp__xtiles__update-task, mcp__xtiles__get-current-user, mcp__xtiles__get-user-timezone, mcp__xtiles__get-planner-content
 ---
 
 # xTiles Chat to a Completed Task
@@ -26,7 +26,7 @@ takes the current chat and turns it into a completed task in xTiles.
     - `assigneeId` — `userId` from step 1 (pass automatically, never ask the user)
 5. **Mark as completed** — call `mcp__xtiles__update-task` with `completed: true`
    using the `taskId` from the create response
-6. **Show the confirmation block**
+6. **Show the confirmation block** — call `mcp__xtiles__get-planner-content` with `date` = today (ISO 8601), `period` = `"day"` → use the returned `view_id` in the confirmation link
 
 ## Preview block
 
@@ -50,7 +50,7 @@ Claude waits for explicit confirmation before proceeding to step 4.
 
 🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
 
-Replace `VIEW_ID` with the `view_id` returned by the tool.
+Replace `VIEW_ID` with the `view_id` returned by `mcp__xtiles__get-planner-content`.
 
 ## If update fails
 
