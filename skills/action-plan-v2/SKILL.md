@@ -5,7 +5,7 @@ description: Break down any message, idea, or information into actionable
    user wants to create tasks, break down a project, make an action plan,
    split into steps, create to-do list, organize work, set deadlines,
    plan execution, turn idea into tasks.
-allowed-tools: mcp__xtiles__get-current-user, mcp__xtiles__get-user-timezone, mcp__xtiles__search-projects, mcp__xtiles__list-projects, mcp__xtiles__get-project-content, mcp__xtiles__create-tasks, mcp__xtiles__create-tiles-from-markdown-in-my-planner, mcp__xtiles__create-tiles-from-markdown-in-project-planner, mcp__xtiles__create-tiles-from-markdown-in-view
+allowed-tools: mcp__xtiles__get-current-user, mcp__xtiles__get-user-timezone, mcp__xtiles__search-projects, mcp__xtiles__list-projects, mcp__xtiles__get-project-content, mcp__xtiles__create-tasks, mcp__xtiles__create-tiles-from-markdown-in-my-planner, mcp__xtiles__create-tiles-from-markdown-in-project-planner, mcp__xtiles__create-tiles-from-markdown-by-view
 ---
 
 # xTiles Action Plan v2
@@ -19,8 +19,8 @@ page of your chosen destination.
 
 1. **Setup** — call `mcp__xtiles__get-current-user` → save the `id`
    field from the response as `userId` (string); call
-   `mcp__xtiles__get-user-timezone` → save today's local date in
-   ISO 8601 for `due_date` baseline.
+   `mcp__xtiles__get-user-timezone` → save today's local date as
+   `yyyy-MM-dd` (e.g. `2026-06-08`) for `due_date` baseline.
 
 2. **Find destination options** — call `mcp__xtiles__search-projects`
    with 2–3 keywords from the user's input:
@@ -65,29 +65,38 @@ page of your chosen destination.
    - If user replies via "Other" with deadline changes (e.g. "change
      Task 2 to Jun 20") → apply before saving, then proceed.
 
-6. **Create tasks** — for each selected task, call
-   `mcp__xtiles__create-tasks`:
-   - `title` — task title
-   - `description` — task description (omit if empty)
-   - `due_date` — confirmed deadline in ISO 8601 (omit if no date)
-   - `assigneeId` — `userId` string from step 1 (always, never ask)
+6. **Create tasks** — call `mcp__xtiles__create-tasks` once with all
+   selected tasks in the `tasks` array:
+   ```
+   tasks: [
+     {
+       title:       "<task title>",
+       description: "<task description>",   // omit if empty
+       due_date:    "<yyyy-MM-dd>",          // omit if no date
+       assignees:   [{ "id": "<userId>" }]
+     },
+     ...
+   ]
+   ```
 
-7. **Create tile** — build tile content (see Tile format below) and
-   save to the chosen destination:
+7. **Create tile** — compose the `markdown` from the confirmed task
+   list (see Tile format below), then save to the chosen destination:
 
    **My Planner:**
    → `mcp__xtiles__create-tiles-from-markdown-in-my-planner`
-     `date` = today (ISO 8601), `period` = `"day"`, `markdown` = tile content
+     `date` = today as `yyyy-MM-dd`, `period` = `"day"`,
+     `markdown` = tile markdown
 
    **Project (happy path):**
    → `mcp__xtiles__create-tiles-from-markdown-in-project-planner`
-     `project_id`, `date` = today, `period` = `"day"`, `markdown` = tile content
+     `projectId` = project id, `date` = today as `yyyy-MM-dd`,
+     `period` = `"day"`, `markdown` = tile markdown
 
    **Project (fallback — any 400/500 or "Invalid group" error):**
-   → `mcp__xtiles__get-project-content`(project_id) → take `view_id`
+   → `mcp__xtiles__get-project-content`(projectId) → take `viewId`
      of the first available page
-   → `mcp__xtiles__create-tiles-from-markdown-in-view`
-     `view_id`, `markdown` = tile content
+   → `mcp__xtiles__create-tiles-from-markdown-by-view`
+     `viewId` = viewId from above, `markdown` = tile markdown
    Do not surface the error to the user — silently fall back.
 
 8. **Show confirmation:**
@@ -101,25 +110,24 @@ page of your chosen destination.
 
 ## Tile format
 
-**Tile name** (≤35 characters):
+Build the `markdown` string dynamically from the confirmed task list.
+The `### heading` becomes the tile name; content beneath it becomes
+the body.
+
 ```
-Action Plan · [e.g. Jun 8]
-```
+### Action Plan
 
-**Tile content:**
-```markdown
-## Action Plan · Jun 8
+- <Title of confirmed task 1> 
+- <Title of confirmed task 2>
+- <Title of confirmed task 3>
 
-- [ ] Task 1 title · due: Jun 12
-- [ ] Task 2 title · due: Jun 15
-- [ ] Task 3 title
-
-🔗 [View conversation](https://claude.ai/chat/local_{conversation_id})
+🔗 [View conversation](https://claude.ai/chat/local_<conversation_id>)
 ```
 
-- Include `· due: DATE` inline for tasks that have a confirmed deadline; omit for no-date tasks.
-- Chat link is always the last element — required, never omit.
-- Tile name must be ≤35 characters.
+- List every confirmed task as a `- ` bullet in the same order as step 5.
+- Chat link is always the last line — required, never omit. Replace
+  `<conversation_id>` with the UUID from the current session URL
+  (last path segment of `https://claude.ai/chat/...`).
 
 ## Rules
 
@@ -130,5 +138,5 @@ Action Plan · [e.g. Jun 8]
 - Chat link always included in tile
 - If input is vague → ask one clarifying question before step 4
 - Maximum 7 tasks — if more needed, suggest splitting into phases
-- On project planner API error → silently fall back to `create-tiles-from-markdown-in-view`
+- On project planner API error → silently fall back to `create-tiles-from-markdown-by-view`
 - If user selects zero tasks in step 5 → regenerate and show the plan again and ask once more
