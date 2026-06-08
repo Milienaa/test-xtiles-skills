@@ -26,18 +26,18 @@ always easy to find later.
 6. **Save to xTiles** — call `mcp__xtiles__create_tiles-from_markdown-in-my_planner`
    with `date` = today (ISO 8601), `period` = `"day"`, `markdown` = the entry.
    The tool returns `view_id` — use it to build the tile URL:
-   `https://app.xtiles.app/{view_id}`
+   `https://xtiles.app/{view_id}`
 7. **Show the confirmation block**.
 ## Questions to ask
 
-Use `AskUserQuestion` with all three questions in a single call before writing anything:
+Detect the dominant language of the current conversation. Ask all three questions in that language using `AskUserQuestion` in a single call before writing anything.
 
-- **Depth** — "How detailed should the note be?" → options: `Brief` (2–4 sentences) / `Detailed` (full breakdown)
-- **Format** — "What format do you prefer?" → options: `Prose` / `Bullet points` / `Structured (Topic · Outcome · Next steps)`
-- **Language** — "Which language for the note?" → options: `Same as chat` / `English` / `Ukrainian`
+- **Depth** — "How detailed should the note be?" → options: `Brief` (2–4 sentences, main topic and outcome) / `Detailed` (full breakdown: topics, decisions, next steps)
+- **Format** — "How should the note be structured?" → options: `Narrative` (flowing text, one or two paragraphs) / `Bulleted list` (3–6 key points, quick to scan) / `Structured` (three sections: Topic · Outcome · Next steps)
+- **Language** — "What language for the note?" → options: `Auto` (matches the conversation language) / `English` (always write in English)
 
 If the user already specified any of these in their request, skip that question.
-If they answer partially, use defaults for the rest: `Brief`, `Prose`, `Same as chat`.
+If they answer partially, use defaults for the rest: `Brief`, `Narrative`, `Auto`.
 
 ## Summary writing rules
 
@@ -49,8 +49,8 @@ Do not copy messages verbatim — summarize the essence.
 - What was discussed
 - Decisions made
 - Open questions or next steps
-  **Prose:** Flowing sentences, no bullet points.
-  **Bullets:** 3–6 bullet points covering the key moments.
+  **Narrative:** Flowing sentences, no bullet points.
+  **Bulleted list:** 3–6 bullet points covering the key moments.
   **Structured:** Three sections — **Topic** / **Outcome** / **Next steps**
 
 **Language:** Write in the language the user specified. If not specified,
