@@ -5,7 +5,7 @@ description: Break down any message, idea, or information into actionable
    to create tasks, break down a project, make an action plan,
    split into steps, create to-do list, organize work, set
    deadlines, plan execution, turn idea into tasks.
-allowed-tools: mcp__xtiles__search-users, mcp__xtiles__create-tasks
+allowed-tools: mcp__xtiles__search-users, mcp__xtiles__create-tasks, mcp__xtiles__list-projects, mcp__xtiles__search-project, mcp__xtiles__get-planner-content
 ---
 
 # xTiles Action Plan
@@ -32,43 +32,86 @@ A ready action plan in xTiles with 3–7 tasks, each containing:
 
 ## Your process
 
-1. **Resolve the current user** — call `mcp__xtiles__search_users` with the
-   user's name or email from context. If the user wrote `@username`, strip
-   the `@` and use the username as the query. If nothing is known, ask:
-   "What is your name or email in xTiles?" Extract `id` and `email` for
-   `assignees`. Use whichever field is returned — both are accepted.
-2. **Determine deadlines** — read the Deadline rules below before planning.
-3. **Analyze the input** — understand the goal and scope.
-4. **Break into tasks** — identify 3–7 concrete actionable steps.
-5. **Enrich each task** — add description and deadline.
-6. **Show the interactive plan** — use `AskUserQuestion` with `multiSelect: true`;
-   each task is an option with `label` = task title and `description` = what to do + due date.
-   Question: "Which tasks would you like to save to xTiles?"
-7. **Wait for selection** — do not save anything until the user replies.
-8. **Save selected tasks** — call `mcp__xtiles__create-tasks` with all selected
-   tasks in a single call; include `assignees` and `due_date` for every task.
-9. **Confirm** — show the confirmation block with a link to xTiles.
-## Deadline rules
+1. **Ask what to create** — first thing, before any tool calls:
+   ```
+   question: "How would you like to save this plan?"
+   options:
+     - Note in Planner (a tile on the daily page)
+     - Page in Project (a new view inside the project)
+   ```
+   Wait for the answer. Everything below depends on this choice.
+2. **Find relevant projects** — call `mcp__xtiles__search-projects` with
+   2–3 keywords from the user's input.
+   - If results found: take top 2–3 matching projects.
+   - If no results: call `mcp__xtiles__list-projects` and pick 2–3 most
+     plausibly related projects by name.
+   - If still nothing: offer only "My Planner" as the destination.
 
-**Step 1 — Extract from user input.**
-Look for explicit dates, relative references ("by Friday", "next week",
-"until the 25th", "in 3 days"), or an overall project deadline. If found,
-distribute tasks evenly up to that date.
-
-**Step 2 — Infer from context.**
-If no date is stated but the scope implies one (e.g. "prepare for tomorrow's
-meeting"), use that implied deadline.
-
-**Step 3 — Ask if unclear.**
-If the input gives no indication of timing and the scope is ambiguous,
-ask one question before planning:
-> "What is the target date or deadline for this?"
-
-Do not guess arbitrarily. A missing deadline is better caught here than
-wrong dates saved to xTiles.
-
-**Formatting:** Always use full ISO 8601: `YYYY-MM-DD`. Space tasks logically
-— the exact interval depends on the total timeframe and task complexity.
+3. **Ask where to save** — only if "Page in Project" was chosen in step 1.
+   Use `AskUserQuestion` with single select:
+   ```
+   question: "Where would you like to save this plan?"
+   options:
+     - [Project name 1]
+     - [Project name 2]
+     - [Project name 3]
+   ```
+     If "Note in Planner" was chosen — skip this step entirely,
+     destination is always My Planner.
+   Wait for the answer before proceeding.
+4. **Resolve the current user** — call `mcp__xtiles__search-users` with the
+   user's name or email from context. If nothing is known, ask via
+   `AskUserQuestion`: "What is your name or email in xTiles?"
+   Extract `id` and `email` for `assignees`.
+5. **Ask about deadlines** — use `AskUserQuestion` with single select:
+   ```
+   question: "Do these tasks have a deadline?"
+   options:
+     - No deadline
+     - In 3 days  (YYYY-MM-DD)
+     - In 7 days  (YYYY-MM-DD)
+     - In 14 days (YYYY-MM-DD)
+     - Other
+   ```
+   Compute and show actual dates for the relative options.
+   If "Other" — follow up via `AskUserQuestion` with a date input.
+   If "No deadline" — create tasks without `due_date`.
+   Never infer or guess dates.
+6. **Analyze the input** — understand the goal and scope.
+7. **Break into steps** — identify 3–7 concrete actionable items.
+   Each title starts with a verb (Create, Write, Review, Set up…).
+8. **Show the plan** — use `AskUserQuestion` with `multiSelect: true`:
+   ```
+   question: "Which items would you like to save to xTiles?"
+   multiSelect: true
+   options: [
+     { label: "[Item title]", description: "[What to do][ · due: DATE]" },
+     ...
+     { label: "Save all", description: "Save the entire plan to xTiles" },
+   ]
+   ```
+   If the user selects "Save all" — save everything regardless of other
+   selections. Wait for the answer before saving anything.
+9. **Save** — depends on the format chosen in step 1:
+   **"Note in Planner"**
+   - Create a tile with:
+      - Title: derived from topic, max 35 characters, title case
+      - Content: list of selected items in Markdown
+         + `🔗 [View conversation](https://claude.ai/chat/local_{conversation_id})` at the bottom
+   - Destination:
+      - "My Planner" → `mcp__xtiles__create-tiles-from-markdown-in-my-planner`
+      - Project selected → `mcp__xtiles__create-tiles-from-markdown-in-project-planner`
+        **"Page in Project"**
+   - Requires a project selected in step 3. If "My Planner" was chosen,
+     ask again via `AskUserQuestion` to pick a project.
+   - Call `mcp__xtiles__create-view-from-markdown` with `projectId`.
+   - Structure the Markdown as:
+     ```
+     ## [Plan title]
+     ### [Section or task group]
+     [Items as bullet list]
+     🔗 [View conversation](https://claude.ai/chat/local_{conversation_id})
+     ```
 
 ## Assignee rules — CRITICAL
 
