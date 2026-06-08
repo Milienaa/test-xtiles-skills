@@ -5,7 +5,7 @@ description: Break down any message, idea, or information into actionable
    to create tasks, break down a project, make an action plan,
    split into steps, create to-do list, organize work, set
    deadlines, plan execution, turn idea into tasks.
-allowed-tools: mcp__xtiles__search-users, mcp__xtiles__create-tasks, mcp__xtiles__list-projects, mcp__xtiles__search-project
+allowed-tools: mcp__xtiles__search-users, mcp__xtiles__create-tasks, mcp__xtiles__list-projects, mcp__xtiles__search-project, mcp__xtiles__get-planner-content
 ---
 
 # xTiles Action Plan
@@ -46,7 +46,6 @@ A ready action plan in xTiles with 3–7 tasks, each containing:
    - If no results: call `mcp__xtiles__list-projects` and pick 2–3 most
      plausibly related projects by name.
    - If still nothing: offer only "My Planner" as the destination.
-
 
 3. **Ask where to save** — only if "Page in Project" was chosen in step 1.
    Use `AskUserQuestion` with single select:
