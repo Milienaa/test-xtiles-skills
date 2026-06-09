@@ -11,37 +11,138 @@ user-invocable: false
 This document describes how `mcp__xtiles__create-project-from-markdown` interprets
 Markdown heading levels to build project structure.
 
-## Heading hierarchy
+markdown## Conversion to MD Structure Rules
 
-- `#` — project title (exactly one, at the very top)
-- `##` — each heading becomes a separate page (view) inside the project
-- `###` — each heading becomes a tile inside the page above it
-- Body text under `###` becomes the tile content
-## Example
+---
 
-```markdown
-# Project Title
- 
-## Page One
- 
-### Tile A
-Content for tile A.
- 
-### Tile B
-Content for tile B.
- 
-## Page Two
- 
-### Tile C
-Content for tile C.
-```
+### Overall Structure
 
-This produces one project with two pages: "Page One" (tiles A, B) and "Page Two" (tile C).
+- Start with `# [Project Name]`
+- Then `## [UPD n:Theme]` — the view for this topic
+- Add cover: `@cover: [keyword]`
+- Structure content into `### Tile` sections
 
-## Rules
+---
 
-- Always start with exactly one `#` — the project title
-- Always have at least one `##` — at least one page is required
-- Every `###` must be under a `##` — never use `###` at the top level
-- Do not skip levels — never go from `#` directly to `###`
-- Body text outside of `###` tiles is ignored or treated as page description
+### Tile Rules
+
+- Each tile needs a meaningful title with emoji
+- Metadata goes right after the title (no blank line between title and metadata):
+    - `@position: x, y, w, h`
+    - `@colorSize: [style from available]`
+    - `@color: [color]`
+- One empty line after metadata before content
+- NO subheadings (`####`) inside tiles — use **bold** instead
+
+---
+
+### Tile Content Rules
+
+- `- [ ]` task items for actionable steps — one empty line between each
+- `-` bullet points for lists and ideas
+- **Bold text** for emphasis and section headers within tiles
+- `>` quotes for motivational phrases
+- NO nested lists
+
+---
+
+### Canvas & Positioning
+
+- Grid is 48 units wide
+- All tiles: `h=12` (fixed height)
+- Allowed widths: `16`, `24`, `32`, `48`
+- Each row must sum to exactly 48:
+
+| Combination     |
+|-----------------|
+| 48              |
+| 32 + 16         |
+| 24 + 24         |
+| 24 + 16 + 16    |
+| 16 + 16 + 16    |
+
+---
+
+### Styling Rules
+
+- Analyze the conversation theme
+- Select two complementary colors from the list below
+- Use ONLY those two colors for all tiles
+- Alternate them for visual variety
+
+---
+
+### Available Colors
+GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH,
+HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA,
+PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR
+
+### Available Styles
+LIGHTER, HEADER, LIGHTER_HEADER, LIGHTER_CONTOUR_LINE_BORDERmarkdown## Conversion to MD Structure Rules
+
+---
+
+### Overall Structure
+
+- Start with `# [Project Name]`
+- Then `## [UPD n:Theme]` — the view for this topic
+- Add cover: `@cover: [mood keyword: productivity, creativity, planning, growth, success]`
+- Structure content into `### Tile` sections
+
+---
+
+### Tile Rules
+
+- Each tile needs a meaningful title with emoji
+- Metadata goes right after the title (no blank line between title and metadata):
+    - `@position: x, y, w, h`
+    - `@colorSize: [style from available]`
+    - `@color: [color]`
+- One empty line after metadata before content
+- NO subheadings (`####`) inside tiles — use **bold** instead
+
+---
+
+### Tile Content Rules
+
+- `- [ ]` task items for actionable steps — one empty line between each
+- `-` bullet points for lists and ideas
+- **Bold text** for emphasis and section headers within tiles
+- `>` quotes for motivational phrases
+- NO nested lists
+
+---
+
+### Canvas & Positioning
+
+- Grid is 48 units wide
+- All tiles: `h=12` (fixed height)
+- Allowed widths: `16`, `24`, `32`, `48`
+- Each row must sum to exactly 48:
+
+| Combination     |
+|-----------------|
+| 48              |
+| 32 + 16         |
+| 24 + 24         |
+| 24 + 16 + 16    |
+| 16 + 16 + 16    |
+
+---
+
+### Styling Rules
+
+- Analyze the conversation theme
+- Select two complementary colors from the list below
+- Use ONLY those two colors for all tiles
+- Alternate them for visual variety
+
+---
+
+### Available Colors
+GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH,
+HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA,
+PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR
+
+### Available Styles
+LIGHTER, HEADER, LIGHTER_HEADER, LIGHTER_CONTOUR_LINE_BORDER
