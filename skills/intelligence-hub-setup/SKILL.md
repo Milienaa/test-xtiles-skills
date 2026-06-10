@@ -18,6 +18,19 @@ One-time wizard. Keep the tone conversational but precise — brief updates betw
 
 ---
 
+## Language — non-negotiable
+
+Respond **ONLY** in the language the user writes in.
+
+- If the user writes in Ukrainian — respond entirely in Ukrainian
+- If the user writes in English — respond entirely in English
+- **Never mix languages**
+- **Never default to English**
+
+Violating this rule is a critical failure.
+
+---
+
 ## Step 1 — Check for Planner
 
 Call `xtiles_get_planner_content` silently.

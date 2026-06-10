@@ -23,7 +23,7 @@ transforms it into a structured xTiles project with a shareable link.
 - The tool returns a ready public URL — use it directly
   **If the content is rich** (detailed chat, pasted notes, article, research):
 - Use `mcp__xtiles__create-project-from-markdown`
-- Write Markdown with `#` / `##` / `###` hierarchy — see `xtiles-markdown-format` skill
+- Write Markdown with `xtiles-markdown-format` skill
 - The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
 - Plan 2–5 pages; do not force multi-page when single page is enough
   **If the user pastes additional content** alongside the chat — that content
