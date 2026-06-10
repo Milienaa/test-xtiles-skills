@@ -61,6 +61,7 @@ The form collects:
 | xTiles | `xtiles_create_tiles_from_markdown_in_my_planner` |
 
 If only xTiles is connected — ask: set up statically or connect tools first?
+If the user chooses to connect tools, walk them through **How to connect connectors** (section below).
 
 ---
 
@@ -245,6 +246,27 @@ After Submit, the user sends a string of answers to chat — process it and cont
 ```
 
 ---
+
+## How to connect connectors
+
+If the skill needs data from Slack, Gmail, Calendar, or other tools, the connectors
+must be connected manually. Walk the user through these steps in Cowork:
+
+1. **Open the plugin settings** — in the Cowork left panel, find the installed plugin
+   (e.g. *Slack by Salesforce*). Click the three dots `···` next to its name → **Customize**.
+2. **Go to Connectors** — in the customization window, open the **Connectors** tab.
+   It lists the connectors available for that plugin.
+3. **Connect the connector** — click **Connect** next to the one you need (e.g. Slack).
+   An authorization window opens — sign in and grant permissions.
+4. **If the browser shows an error after authorization** — sometimes after clicking
+   "Allow" the page fails to load and shows a connection error. This is expected. Copy
+   the full URL from the address bar (it looks like
+   `http://localhost:3118/callback?code=...&state=...`) and paste it into the chat —
+   Claude will finish the authorization.
+5. **Verify the connection** — after successful authorization the connector shows as
+   **Connected**. The skill can now read data from that tool.
+
+After connecting, re-run connector detection (the table in step 2) and continue the flow.
 
 ## How to behave
 
