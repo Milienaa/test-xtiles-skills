@@ -1,10 +1,10 @@
 ---
 name: daily-note
 description: Convert the current chat into a short note in xTiles daily
-   note. Use when user wants to save the chat to daily note,
-   add chat summary to diary, capture today's conversation,
-   record chat result, write to daily log, save discussion
-   to daily note, add chat to today's note.
+  note. Use when user wants to save the chat to daily note,
+  add chat summary to diary, capture today's conversation,
+  record chat result, write to daily log, save discussion
+  to daily note, add chat to today's note.
 allowed-tools: mcp__xtiles__create-tiles-from-markdown-in-my-planner
 ---
 
@@ -63,11 +63,7 @@ match the dominant language of the chat.
  
 [Summary — per depth, language, and format chosen by the user]
  
-🔗 [Full conversation](https://claude.ai/chat/local_{conversation_id})
 ```
-
-Look for the conversation ID in the current URL or system context.
-Build the URL as: https://claude.ai/chat/local_{conversation_id}
 
 ## Confirmation block
 
