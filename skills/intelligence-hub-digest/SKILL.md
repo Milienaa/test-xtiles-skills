@@ -1,332 +1,258 @@
 ---
 name: intelligence-hub-digest
 description: >
-  Fetches data from connected sources (Gmail, Slack, Google Calendar, Notion, GitHub, Figma, Analytics, and others),
-  classifies items by priority, formats a digest, and writes it to the user's xTiles Planner.
+  Use when the user wants to set up OR run their xTiles cascading planner —
+  a Month → Week → Day system where the Day is a live brief from connected tools
+  (Slack, Gmail, Calendar, Analytics) plus signals that need attention.
 
-  Runs automatically via scheduled tasks. Also trigger when the user says:
-  "show me my morning brief", "what do I need to know today", "run my digest", "what happened today".
+  Setup triggers: "set up my planner", "personalize my workspace",
+  "connect my planner to my tools", "create daily/weekly/monthly",
+  "onboard a new xTiles user into the Planner".
+
+  Digest triggers: "show me my morning brief", "what do I need to know today",
+  "run my digest". Also runs automatically via scheduled tasks.
 
   Config is read from the scheduled task prompt — no separate file needed.
-  For manual runs: look for config in today's Planner. If not found — suggest running intelligence-hub-setup first.
+  For manual runs: look for config in today's Planner; if there's none, start
+  from the survey flow below.
 allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner
 ---
 
-# Intelligence Hub — Digest
+# xTiles Cascading Planner — Setup & Daily Digest
 
-Runs on schedule or on demand. No questions — just fetch, classify, write.
+## Three principles
+
+1. **Survey first, write to xTiles last.** Nothing gets created until the user has seen the preview and said "yes".
+2. **Daily ≠ Weekly ≠ Monthly.** Each period solves a different problem — content and questions differ accordingly.
+3. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
+
+**Language:** match the language of the user's first message.
 
 ---
 
-## Config
+## Algorithm
 
-Read from the scheduled task prompt body:
+### 1. Fast-track
 
-```json
-{
-  "user": { "timezone": "...", "language": "detect from conversation" },
-  "sources": {
-    "gmail":     { "enabled": true,  "watchlist": [], "blacklist": [] },
-    "slack":     { "enabled": true,  "watchlist": ["#general"], "blacklist": [] },
-    "calendar":  { "enabled": true,  "upcoming_days": 1 },
-    "notion":    { "enabled": false, "watchlist": [] },
-    "github":    { "enabled": false, "watchlist": [] },
-    "figma":     { "enabled": false, "watchlist": [] },
-    "analytics": { "enabled": false, "watchlist": [] }
-  }
-}
+If the user is specific ("give me daily for today", "I want to see Slack in the morning") — skip the full flow. Collect the minimum needed and jump to Preview (step 4).
+
+If the request is general — run the full flow.
+
+---
+
+### 2. Survey — who are you and what's connected
+
+**Show the survey widget** (HTML form) if in Cowork. Fallback — AskUserQuestion batches.
+
+The form collects:
+- Role (single select + Other)
+- Tools (multi select: Slack, Gmail, Calendar, Analytics, Figma, Linear/Jira, Notion, Other)
+- Which pages (Daily / Weekly / Monthly)
+
+**After receiving answers — detect connectors:**
+
+| Connector | Identifying MCP tools |
+|-----------|----------------------|
+| Slack | `slack_send_message`, `slack_read_channel` |
+| Gmail | `search_threads`, `list_labels`, `get_thread` |
+| Calendar | `list_events`, `create_event` |
+| PostHog | `query_chart` + `get_from_url` + `get_events` |
+| Amplitude | `query_chart` + `get_experiments` without `get_from_url` |
+| xTiles | `xtiles_create_tiles_from_markdown_in_my_planner` |
+
+If only xTiles is connected — ask: set up statically or connect tools first?
+
+---
+
+### 3. Per-period clarification
+
+**For each selected period — a separate question about content.**
+Each period solves a different problem, so ask separately and don't impose structure.
+
+Use AskUserQuestion with multiSelect. For each question —
+4 suggestion options + Other where the user can write anything custom.
+
+#### Daily
+
+Question: "What do you want to see on your Daily each morning?"
+
+Suggested options (pick the ones relevant to connected connectors):
+- Important emails — unread messages that need a reply
+- Chat messages — Slack or another work messenger
+- Today's meetings — what's in Calendar today
+- Metrics — key numbers if you check them daily
+- Evening reflection — questions for yourself at end of day
+
+Do NOT suggest tasks — they're already in xTiles by default.
+If the user writes something custom via Other — fine, add it.
+
+#### Weekly
+
+Question: "What do you want to see on your Weekly?"
+
+Suggested options:
+- Weekly focus — main priorities
+- Week's meetings — schedule from Calendar
+- Team updates — key things to know from chat
+- Week summary — Friday reflection
+
+User can pick any combination or write their own.
+
+#### Monthly
+
+Question: "What do you want to see on your Monthly?"
+
+Suggested options:
+- Goals or intention for the month
+- Meetings and events — full list from Calendar
+- Project status — where things stand
+- Retrospective — what worked, what didn't
+
+User can pick any combination or write their own.
+
+---
+
+**General rule for all three:** don't box the user in.
+If the user says "I want to see X" and X isn't in the list — fine, add X.
+If something is unclear after the questions — ask directly, don't guess.
+
+**Additional clarification if connectors are present:**
+
+- **Slack connected** → call `slack_search_channels`, show top 4 channels, ask which ones they open first each morning
+- **Amplitude/PostHog connected and user wants metrics** → ask for chart links or metric names
+- **PostHog**: use `get_from_url` + `query_chart`
+- **Amplitude**: `get_from_url` is unavailable — save URL as text, fetch data via `query_chart` / `get_experiments`
+
+---
+
+### 4. Silent data fetch
+
+**Silently, without messaging the user**, pull fresh data from connectors:
+
+- **Calendar**: events today, this week, this month (depending on selected pages)
+- **Gmail**: unread important messages (`is:unread is:important in:inbox newer_than:3d`)
+- **Slack**: messages from the user's chosen channels (top 20–30 most recent)
+
+Analyze what you get — identify what needs the user's attention:
+- 🔴 needs a decision / reply / deadline today
+- 🟡 FYI / can wait / informational
+
+---
+
+### 5. Preview — show the content as text in chat
+
+**This is the most important step.** Generate real content — not structure, not headings, but live text with real data.
+
+Preview format in chat:
+
+```
+Here's what I've prepared for you:
+
+---
+📅 DAILY — May 7
+
+### Chat signals
+🔴 #team-sales · Iryna: agency mock-up is ready — can you help with the demo account? | [xTiles](...)
+🔴 #team-sales · Iryna: your task — MCP Authorization, critical priority
+🟡 #team-growth · Andrew: feedback needed on MCP landing mock | [link](...)
+
+### Today's meetings
+09:30 Growth-Sync · Andrey, Vadym, Iryna | [Meet](...)
+16:30 Sync: Product plan · Volokovykh | [Meet](...)
+
+### Gmail
+No important unread emails — inbox clear
+
+---
+📆 WEEKLY — May 4–10
+
+### Weekly focus
+[what the user named as priorities]
+
+### Week's meetings
+Mon: Product marketing sync (1:00 PM)
+...
+
+---
+🗓 MONTHLY — May
+
+### Monthly goals
+[what the user formulated]
+
+### Meetings & events
+May 1 Growth weekly meet ✓
+May 8 Team Bi-weekly Sync
+...
 ```
 
-**Manual trigger:** call `xtiles_get_planner_content` for today and look for a config block. If not found — tell the user to run intelligence-hub-setup first.
-
-**Preview from setup:** use sources and watchlists passed as context. Skip deduplication.
-
----
-
-## Deduplication
-
-Before fetching, call `xtiles_get_planner_content` for today. If the relevant `###` sections already exist — stop silently. Re-run only if the user explicitly asks.
+**Preview rules:**
+- Show only the selected pages
+- Content is live — from real connector data, no placeholders
+- If there's no data for a section — either skip it or explain why it's empty
+- After the preview ask: "Does this look right? Or anything to change?"
 
 ---
 
-## Fetch
+### 6. Approval
 
-Don't narrate the fetching process.
+AskUserQuestion (single select):
+- **"Yes, create it"** — proceed to write
+- **"Change something"** — user says what, update only that part of the preview without restarting
+- **"Cancel"** — stop
 
-**Gmail** (if enabled):
-`search_threads` with `query="is:unread is:important in:inbox newer_than:1d"` → `get_thread` for each result.
-Boost watchlist senders, filter blacklist.
-
-**Slack** (if enabled):
-`slack_read_channel` for each channel in watchlist.
-Today only — discard older messages.
-Flag: direct mentions, open questions, decisions, deadlines.
-
-**Google Calendar** (if enabled):
-`list_events` — today + tomorrow for morning brief, today only for evening.
-Extract: time, title, participants, link.
-
-**Notion** (if enabled):
-`notion-search` filtered to watchlist workspaces/pages. Today only.
-
-**GitHub** (if enabled):
-GitHub MCP tools. Fetch: open PRs assigned to user, review requests, @mentions in issues.
-Filter by watchlist repos if set.
-
-**Figma** (if enabled):
-`get_metadata` for watchlist files. Flag new comments and recent changes.
-
-**Analytics** (if enabled):
-`get_context` or `query_chart` for watchlist dashboards/metrics.
-Flag changes >10% vs yesterday.
-
-**Chrome MCP sources** (if enabled and `mcp__Control_Chrome__get_page_content` available):
-LinkedIn, X, Reddit, YouTube, Hacker News, Substack, Product Hunt.
-Fetch via `open_url` + `get_page_content`. Today only. Filter by watchlist.
+If the user wants a change — clarify exactly what, update only that section, show the preview again and ask again.
 
 ---
 
-## Classify
+### 7. Write to xTiles
 
-- 🔴 high — needs decision, reply, or action today
-- 🟡 medium — useful context, no urgency
-- ⚪ low — omit
+**Only after explicit "yes" from the user.**
 
----
+Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
+- `period`: "day" / "week" / "month"
+- `date`: current date in ISO 8601
 
-## Formats
+**Order:** day → week → month.
 
-### daily-morning-brief
-```markdown
-## Morning Brief — [date]
+**If the page already exists:**
+1. Call `xtiles_get_planner_content`
+2. Compare existing H3 headers (`###`) with what you're about to add
+3. Append only sections whose headers don't exist yet
+4. If everything already exists — ask the user whether they want to replace it
 
-### 📅 Today
-[time · title · participants · link]
-
-### 🔔 Needs attention
-[all 🔴 items across sources]
-
-### 📬 Gmail
-[top 5 — subject · summary · link]
-
-### 💬 Slack
-[by channel — key messages only]
-
-### 📋 Notion
-[recently updated pages]
-
-### 🐙 GitHub
-[open PRs · review requests · mentions]
-
-### 🎨 Figma
-[new comments · recent changes]
-
-### 📊 Analytics
-[key metrics · delta vs yesterday]
-```
-Include only enabled sources. Skip empty sections silently.
-
-### daily-evening-digest
-Same structure, shorter. Only 🔴 and 🟡. Skip what was already in the morning brief.
-
-### weekly-pulse
-```markdown
-## Weekly Pulse — [Mon–Fri]
-
-### Key highlights
-### Recurring themes
-### Important communications
-### Next week
-```
-Reads daily Planner tiles Mon–Fri via `xtiles_get_planner_content`. Does not call source APIs.
-
-### monthly-recap
-```markdown
-## Monthly Recap — [Month Year]
-
-### Progress on goals
-### Key insights
-### Important decisions
-### Month's trends
-```
-Reads weekly tiles via `xtiles_get_planner_content`. Does not call source APIs.
+**If an error occurs:** briefly say what went wrong, offer to retry or skip.
 
 ---
 
-## Write
+### 8. Schedule (optional)
 
-Call `xtiles_create_tiles_from_markdown_in_my_planner` (period: `"day"` / `"week"` / `"month"`, date: ISO 8601).
-
-Before writing: check existing `###` headers via `xtiles_get_planner_content` — skip sections already present.
-If write fails — tell the user briefly and offer to retry.
-
----
-
-## After writing
-
-Briefly confirm what was written. Let the user know they can adjust anything anytime.---
-name: intelligence-hub-digest
-description: >
-Fetches data from connected sources (Gmail, Slack, Google Calendar, Notion, GitHub, Figma, Analytics, and others),
-classifies items by priority, formats a digest, and writes it to the user's xTiles Planner.
-
-Runs automatically via scheduled tasks. Also trigger when the user says:
-"show me my morning brief", "what do I need to know today", "run my digest", "what happened today".
-
-Config is read from the scheduled task prompt — no separate file needed.
-For manual runs: look for config in today's Planner. If not found — suggest running intelligence-hub-setup first.
----
-
-# Intelligence Hub — Digest
-
-Runs on schedule or on demand. No questions — just fetch, classify, write.
+If the user opted for an automatic schedule — after successful creation, run the `schedule` skill.
+Only show relevant options:
+- Daily at 9:00 AM — only if Daily was selected
+- Weekly Mon 9:00 AM and Fri 5:00 PM — only if Weekly was selected
+- Monthly summary — only if Monthly was selected
 
 ---
 
-## Config
+## Survey widget HTML
 
-Read from the scheduled task prompt body:
+Show this form via `show_widget` at the start of setup in Cowork.
+After Submit, the user sends a string of answers to chat — process it and continue the flow.
 
-```json
-{
-  "user": { "timezone": "...", "language": "detect from conversation" },
-  "sources": {
-    "gmail":     { "enabled": true,  "watchlist": [], "blacklist": [] },
-    "slack":     { "enabled": true,  "watchlist": ["#general"], "blacklist": [] },
-    "calendar":  { "enabled": true,  "upcoming_days": 1 },
-    "notion":    { "enabled": false, "watchlist": [] },
-    "github":    { "enabled": false, "watchlist": [] },
-    "figma":     { "enabled": false, "watchlist": [] },
-    "analytics": { "enabled": false, "watchlist": [] }
-  }
-}
+```html
+<!-- [full HTML form from v4 — role, tools, pages] -->
+<!-- Use the latest version of the form from previous iterations -->
 ```
 
-**Manual trigger:** call `xtiles_get_planner_content` for today and look for a config block. If not found — tell the user to run intelligence-hub-setup first.
-
-**Preview from setup:** use sources and watchlists passed as context. Skip deduplication.
-
 ---
 
-## Deduplication
+## How to behave
 
-Before fetching, call `xtiles_get_planner_content` for today. If the relevant `###` sections already exist — stop silently. Re-run only if the user explicitly asks.
+You're an assistant helping someone set up a planner that fits their real work rhythm.
 
----
-
-## Fetch
-
-Don't narrate the fetching process.
-
-**Gmail** (if enabled):
-`search_threads` with `query="is:unread is:important in:inbox newer_than:1d"` → `get_thread` for each result.
-Boost watchlist senders, filter blacklist.
-
-**Slack** (if enabled):
-`slack_read_channel` for each channel in watchlist.
-Today only — discard older messages.
-Flag: direct mentions, open questions, decisions, deadlines.
-
-**Google Calendar** (if enabled):
-`list_events` — today + tomorrow for morning brief, today only for evening.
-Extract: time, title, participants, link.
-
-**Notion** (if enabled):
-`notion-search` filtered to watchlist workspaces/pages. Today only.
-
-**GitHub** (if enabled):
-GitHub MCP tools. Fetch: open PRs assigned to user, review requests, @mentions in issues.
-Filter by watchlist repos if set.
-
-**Figma** (if enabled):
-`get_metadata` for watchlist files. Flag new comments and recent changes.
-
-**Analytics** (if enabled):
-`get_context` or `query_chart` for watchlist dashboards/metrics.
-Flag changes >10% vs yesterday.
-
-**Chrome MCP sources** (if enabled and `mcp__Control_Chrome__get_page_content` available):
-LinkedIn, X, Reddit, YouTube, Hacker News, Substack, Product Hunt.
-Fetch via `open_url` + `get_page_content`. Today only. Filter by watchlist.
-
----
-
-## Classify
-
-- 🔴 high — needs decision, reply, or action today
-- 🟡 medium — useful context, no urgency
-- ⚪ low — omit
-
----
-
-## Formats
-
-### daily-morning-brief
-```markdown
-## Morning Brief — [date]
-
-### 📅 Today
-[time · title · participants · link]
-
-### 🔔 Needs attention
-[all 🔴 items across sources]
-
-### 📬 Gmail
-[top 5 — subject · summary · link]
-
-### 💬 Slack
-[by channel — key messages only]
-
-### 📋 Notion
-[recently updated pages]
-
-### 🐙 GitHub
-[open PRs · review requests · mentions]
-
-### 🎨 Figma
-[new comments · recent changes]
-
-### 📊 Analytics
-[key metrics · delta vs yesterday]
-```
-Include only enabled sources. Skip empty sections silently.
-
-### daily-evening-digest
-Same structure, shorter. Only 🔴 and 🟡. Skip what was already in the morning brief.
-
-### weekly-pulse
-```markdown
-## Weekly Pulse — [Mon–Fri]
-
-### Key highlights
-### Recurring themes
-### Important communications
-### Next week
-```
-Reads daily Planner tiles Mon–Fri via `xtiles_get_planner_content`. Does not call source APIs.
-
-### monthly-recap
-```markdown
-## Monthly Recap — [Month Year]
-
-### Progress on goals
-### Key insights
-### Important decisions
-### Month's trends
-```
-Reads weekly tiles via `xtiles_get_planner_content`. Does not call source APIs.
-
----
-
-## Write
-
-Call `xtiles_create_tiles_from_markdown_in_my_planner` (period: `"day"` / `"week"` / `"month"`, date: ISO 8601).
-
-Before writing: check existing `###` headers via `xtiles_get_planner_content` — skip sections already present.
-If write fails — tell the user briefly and offer to retry.
-
----
-
-## After writing
-
-Briefly confirm what was written. Let the user know they can adjust anything anytime.
+- Don't create anything without a preview and approval
+- If context is missing — ask, don't guess
+- If the user gives new information along the way — pick it up, don't wait for the "right step"
+- Real data from connectors always beats placeholders
+- Daily, Weekly, Monthly — different tasks, different content, different questions
+- Match the user's language (EN/UA), adapt if they switch
