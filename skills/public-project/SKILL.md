@@ -1,12 +1,11 @@
----
 name: xtiles-public-project
 description: Convert the current chat conversation into a structured public
-   xTiles project. Use when user wants to save the chat, export
-   conversation to xTiles, turn chat into a document, create a
-   public project from discussion, share conversation as xTiles
-   board, structurize dialogue into tiles, save talk to xTiles.
-   Also use when user provides standalone content (notes, research,
-   article, brief) and wants it structured as a multi-page xTiles project.
+xTiles project. Use when user wants to save the chat, export
+conversation to xTiles, turn chat into a document, create a
+public project from discussion, share conversation as xTiles
+board, structurize dialogue into tiles, save talk to xTiles.
+Also use when user provides standalone content (notes, research,
+article, brief) and wants it structured as a multi-page xTiles project.
 allowed-tools: mcp__xtiles__structure-information, mcp__xtiles__create-project-from-markdown
 ---
 
@@ -73,14 +72,17 @@ Example: `https://xtiles.app/6a1803637baeda338dd82052`
 
 **If you used `create-project-from-markdown`:**
 
-🔗 **[Open project in xTiles](https://xtiles.app/VIEW_ID)**
+🔗 **[Share it with your team](https://xtiles.app/VIEW_ID), or keep building — add another page anytime by running this again in a new chat.**
 
 CRITICAL: VIEW_ID must be replaced with the real `view_id` returned by the tool.
 Example: `https://xtiles.app/6a180381f6c69705d68096c0`
 
 **[Project title]**
 2–3 sentences describing what the project contains.
-Pages: Page 1 · Page 2 · Page 3
+Pages:
+Page 1
+Page 2
+Page 3
 
 ## Rules
 
