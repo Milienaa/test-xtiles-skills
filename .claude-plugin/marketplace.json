@@ -4,7 +4,7 @@
   "plugins": [
     {
       "name": "test-xtiles",
-      "source": "./",
+      "source": "./plugin",
       "description": "Bring every conversation into your xTiles workspace. Save daily notes, log completed work, build structured projects, create action plans, and get a personalized daily digest from Gmail, Slack, Calendar, and more."
     }
   ]

@@ -2,7 +2,9 @@
   "name": "test-xtiles",
   "version": "1.2.0",
   "description": "Bring every conversation into your xTiles workspace. Save daily notes, log completed work, build structured projects, create action plans, and get a personalized daily digest from Gmail, Slack, Calendar, and more.",
-  "author": { "name": "Milienaa" },
+  "author": {
+    "name": "Milienaa"
+  },
   "homepage": "https://github.com/Milienaa/test-xtiles-skills",
   "repository": "https://github.com/Milienaa/test-xtiles-skills",
   "license": "MIT",
