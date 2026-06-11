@@ -7,8 +7,8 @@ Bring every conversation into your xTiles workspace. Capture insights, plan work
 ### Claude Code
 
 ```
-/plugin marketplace add Milienaa/test-xtiles-skills
-/plugin install test-xtiles@test-xtiles-marketplace
+/plugin marketplace add xTiles-org/skills
+/plugin install productivity
 /reload-plugins
 ```
 
@@ -17,10 +17,10 @@ Bring every conversation into your xTiles workspace. Capture insights, plan work
 1. In the left sidebar, go to **Customize** → **Personal plugins** and click **+**
 2. Click **Create plugin** → **Add marketplace**
 3. In the **Add marketplace** window, paste the repository URL:
-   `https://github.com/Milienaa/test-xtiles-skills.git`
+   `https://github.com/xTiles-org/skills.git`
 4. Click **Sync**
 5. In the **Directory** window, go to the **Personal** tab
-6. Find **test xTiles** in the list and click it
+6. Find **productivity** in the list and click it
 7. Click **Install** in the top right corner
 8. Enable the **Sync automatically** toggle so you always get the latest updates
 
