@@ -24,6 +24,14 @@ Bring every conversation into your xTiles workspace. Capture insights, plan work
 7. Click **Install** in the top right corner
 8. Enable the **Sync automatically** toggle so you always get the latest updates
 
+## MCP Server
+
+The plugin ships with the xTiles MCP server preconfigured, so its tools are available the moment you install — no manual setup required.
+
+- **Auto-connect** — installing the plugin registers the `xtiles-mcp` server automatically (declared in `.mcp.json` at the plugin root). The server is remote and hosted at `https://mcp.xtiles.app/mcp`, so nothing is bundled or run locally.
+- **One-time sign-in** — the first time a skill or you call an xTiles tool, Claude Code / Cowork opens your browser for a one-time OAuth login to xTiles. No tokens, API keys, or secrets are stored in the plugin — authorization is handled entirely by the host.
+- **Ready to use** — after sign-in, the xTiles tools (create projects, tasks, tiles, etc.) work seamlessly alongside the skills above.
+
 ## Skills
 
 ### Capture & Save
