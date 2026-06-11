@@ -1,5 +1,5 @@
 ---
-name: xtiles-public-project
+name: public-project
 description: Convert the current chat conversation into a structured public
   xTiles project. Use when user wants to save the chat, export
   conversation to xTiles, turn chat into a document, create a
@@ -31,7 +31,7 @@ Violating this rule is a critical failure.
 - The tool returns a ready public URL — use it directly
   **If the content is rich** (detailed chat, pasted notes, article, research):
 - Use `mcp__xtiles__create-project-from-markdown`
-- Write Markdown with `xtiles-markdown-format` skill
+- Write Markdown with `markdown-format` skill
 - The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
 - Plan 2–5 pages; do not force multi-page when single page is enough
   **If the user pastes additional content** alongside the chat — that content

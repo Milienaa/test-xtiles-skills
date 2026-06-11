@@ -1,5 +1,5 @@
 ---
-name: xtiles-markdown-format
+name: markdown-format
 description: >
   Reference guide for xTiles Markdown structure used by create_project_from_markdown.
   Not user-invocable — used internally by other skills.

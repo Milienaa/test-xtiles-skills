@@ -1,5 +1,5 @@
 ---
-name: xtiles-mcp-setup
+name: mcp-setup
 description: >
   Help user connect xTiles MCP on their own machine.
   Trigger when user asks how to set up xTiles, connect MCP, or configure token.
