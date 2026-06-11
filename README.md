@@ -41,32 +41,23 @@ The plugin ships with the xTiles MCP server preconfigured, so its tools are avai
 | `/completed-task` | Log finished work from the current chat as a completed task |
 | `/public-project` | Turn a conversation or content into a structured public xTiles project |
 
-### Plan & Execute
-| Skill | Description |
-|---|---|
-| `/action-plan` | Break any idea or project into actionable tasks with deadlines |
-
 ### Intelligence Hub
 | Skill | Description |
 |---|---|
-| `/intelligence-hub-setup` | Connect Gmail, Slack, Calendar, Notion, GitHub, Figma, and more to get a personalized daily digest |
-| `/intelligence-hub-digest` | Run your digest on demand |
-| `/intelligence-hub-tune` | Adjust sources, watchlists, and schedule at any time |
+| `/intelligence-hub-digest` | Set up your cascading Month → Week → Day planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, Notion, and more |
 
 ## Examples
 
 ```
-/action-plan Launch user onboarding feature by end of Q2
 /daily-note Save today's key decisions and outcomes
 /completed-task Log the API integration we just finished
 /public-project Turn this research into a shareable xTiles board
-/intelligence-hub-setup Connect Gmail, Slack, and Calendar for a daily digest
+/intelligence-hub-digest Connect Gmail, Slack, and Calendar for a daily digest
 ```
 
-Or naturally:
+## Or naturally:
 
 ```
-Create an action plan for the onboarding project
 Save this conversation to xTiles daily note
 Log this as a completed task
 Turn this research into a public xTiles project
