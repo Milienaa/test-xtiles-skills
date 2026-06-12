@@ -78,7 +78,10 @@ Offer after moments like these:
 - You produced a plan, design, or step-by-step approach
 - You reached a decision or gave a clear, final answer
 
-The offer (one line, in the conversation's language):
+The offer — make it the last line of your reply, written IN THE SAME LANGUAGE as
+the user's last message (translate the template below; never paste the English
+verbatim when the user is writing in another language). Keep `/completed-task`
+and `/daily-note` unchanged. Template:
 "Want me to capture this in xTiles? → /completed-task for finished work, or
 /daily-note for a summary in today's note."
 
