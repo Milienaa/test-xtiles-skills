@@ -1,10 +1,11 @@
 ---
 name: daily-note
-description: Convert the current chat into a short note in xTiles daily
-  note. Use when user wants to save the chat to daily note,
-  add chat summary to diary, capture today's conversation,
-  record chat result, write to daily log, save discussion
-  to daily note, add chat to today's note.
+description: Convert the current chat into a note in today's xTiles daily note.
+  Use when the user wants to save a chat summary to their daily note, journal,
+  diary, or daily log, capture today's conversation, or record the outcome of
+  research, planning, or a discussion. Trigger on phrases like "save this to my
+  daily note", "add a summary to today's note", "log this in my journal",
+  "capture today's conversation", "write this to my daily log".
 allowed-tools: mcp__xtiles__create-tiles-from-markdown-in-my-planner, Read, Write, Edit, AskUserQuestion
 ---
 
@@ -98,13 +99,23 @@ like this to xTiles from now on?" with two options: `Yes, remember it` and
 
 ```markdown
 ## xTiles capture habit
-When a conversation reaches a concrete result (a decision, finished work, or a
-clear answer) AND it has not already been saved this session, proactively offer
-ONCE: "Want me to capture this? → completed task (/completed-task) or today's
-daily note (/daily-note)?"
+After you finish delivering a substantive result, proactively offer ONCE to save
+it in xTiles — unless it was already saved this session. Put the offer as the
+last line of your reply.
 
-Do NOT offer when: the user is mid-task, the message is a clarifying/follow-up
-question, there is no concrete outcome yet, or the chat was already saved.
+Offer after moments like these:
+- You completed a piece of work (wrote code, fixed a bug, produced a file/document)
+- You finished research or an investigation (findings, comparison, recommendation)
+- You produced a plan, design, or step-by-step approach
+- You reached a decision or gave a clear, final answer
+
+The offer (one line, in the conversation's language):
+"Want me to capture this in xTiles? → /completed-task for finished work, or
+/daily-note for a summary in today's note."
+
+Do NOT offer when: you are still mid-task, the user's last message is a
+clarifying/follow-up question, there is no concrete outcome yet, or this result
+was already saved this session.
 ```
 
 Then confirm in one line: "Done — I'll suggest capturing meaningful chats from
