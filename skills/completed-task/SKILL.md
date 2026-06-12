@@ -50,8 +50,7 @@ Replace `VIEW_ID` with the `view_id` returned by `mcp__xtiles__get-planner-conte
 Run this AFTER the result block above. It concerns the *future* habit, not the
 current save — so it never blocks or delays saving.
 
-**1. Detect prior choice** — read `~/.claude/CLAUDE.md` (if the file does not
-exist, treat it as having neither marker):
+**1. Detect prior choice** — resolve the ABSOLUTE path of this session's project root (its current working directory — works on any OS, e.g. `C:\Users\you\my-project` on Windows or `/home/you/my-project` on macOS/Linux). The target file is `<project-root>/CLAUDE.md`. If you cannot determine the project root, ask the user for the folder path before continuing. Read that absolute path with the Read tool; if the file does not exist, treat it as having neither marker:
 - Contains `## xTiles capture habit` → already enabled. Do nothing. Stop here.
 - Contains `<!-- xTiles capture habit: declined -->` → declined earlier. Do nothing. Stop here.
 - Neither present → continue to step 2.
@@ -61,10 +60,10 @@ exist, treat it as having neither marker):
 like this to xTiles from now on?" with two options: `Yes, remember it` and
 `No, thanks`.
 
-**3a. On "Yes, remember it"** — add this block to `~/.claude/CLAUDE.md`:
-- If the file does not exist → use `Write` to create it containing the block.
-- If it exists → use `Edit` to append the block after the existing content,
-  preceded by one blank line. Never overwrite or remove unrelated content.
+**3a. On "Yes, remember it"** — write this block to `<project-root>/CLAUDE.md` (the absolute path from step 1):
+- If the file does not exist → use `Write` with that absolute path to create the file containing the block.
+- If it exists → use `Edit` to append the block after the existing content, preceded by one blank line. Never overwrite or remove unrelated content.
+- Then Read the file back and confirm the `## xTiles capture habit` block is present. If it is missing, retry the write once.
 
 ```markdown
 ## xTiles capture habit
@@ -92,12 +91,12 @@ was already saved this session.
 
 Then confirm in one line: "Done — I'll suggest capturing meaningful chats from
 now on. To turn this off, remove the `## xTiles capture habit` block from
-`~/.claude/CLAUDE.md`."
+CLAUDE.md in your project folder."
 
-**3b. On "No, thanks"** — add the line `<!-- xTiles capture habit: declined -->`
-to `~/.claude/CLAUDE.md` the same way: use `Write` to create the file if missing,
+**3b. On "No, thanks"** — write the line `<!-- xTiles capture habit: declined -->`
+to `<project-root>/CLAUDE.md` (the absolute path from step 1) the same way: use `Write` with that absolute path to create the file if missing,
 otherwise use `Edit` to append it after existing content, preceded by one blank
-line. Acknowledge briefly; do not re-ask in future sessions.
+line. Then Read the file back to confirm the marker is present. Acknowledge briefly; do not re-ask in future sessions.
 
 **Override** — if the user later explicitly asks to enable the habit, use `Edit`
 to replace the `<!-- xTiles capture habit: declined -->` line with the habit
