@@ -1,10 +1,11 @@
 ---
 name: completed-task
-description: Convert the current chat into a completed task in xTiles
-  workspace. Use when user wants to save chat as completed task,
-  log what was done today, create completed task from chat,
-  record finished work from discussion, turn conversation into
-  a finished task, mark chat as done in xTiles.
+description: Convert the current chat into a completed task in xTiles. Use
+  when the user wants to save or log finished work, record what was done or
+  accomplished, or turn a discussion, research result, executed plan, or solved
+  problem into a done task in xTiles. Trigger on phrases like "save this as a
+  completed task", "log what I did", "mark this done", "add this to my completed
+  tasks", "record this finished work", "track today's accomplishment".
 allowed-tools: mcp__xtiles__create-tasks, mcp__xtiles__update-task, mcp__xtiles__get-current-user, mcp__xtiles__get-user-timezone, mcp__xtiles__get-planner-content, Read, Write, Edit, AskUserQuestion
 ---
 
@@ -67,13 +68,23 @@ like this to xTiles from now on?" with two options: `Yes, remember it` and
 
 ```markdown
 ## xTiles capture habit
-When a conversation reaches a concrete result (a decision, finished work, or a
-clear answer) AND it has not already been saved this session, proactively offer
-ONCE: "Want me to capture this? → completed task (/completed-task) or today's
-daily note (/daily-note)?"
+After you finish delivering a substantive result, proactively offer ONCE to save
+it in xTiles — unless it was already saved this session. Put the offer as the
+last line of your reply.
 
-Do NOT offer when: the user is mid-task, the message is a clarifying/follow-up
-question, there is no concrete outcome yet, or the chat was already saved.
+Offer after moments like these:
+- You completed a piece of work (wrote code, fixed a bug, produced a file/document)
+- You finished research or an investigation (findings, comparison, recommendation)
+- You produced a plan, design, or step-by-step approach
+- You reached a decision or gave a clear, final answer
+
+The offer (one line, in the conversation's language):
+"Want me to capture this in xTiles? → /completed-task for finished work, or
+/daily-note for a summary in today's note."
+
+Do NOT offer when: you are still mid-task, the user's last message is a
+clarifying/follow-up question, there is no concrete outcome yet, or this result
+was already saved this session.
 ```
 
 Then confirm in one line: "Done — I'll suggest capturing meaningful chats from
