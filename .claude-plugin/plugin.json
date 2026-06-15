@@ -1,10 +1,10 @@
 {
-  "name": "test-xtiles",
+  "name": "productivity",
   "version": "1.0.0",
-  "description": "Bring every conversation into your xTiles workspace. Save daily notes, log completed work, build structured projects, create action plans, and get a personalized daily digest from Gmail, Slack, Calendar, and more.",
-  "author": { "name": "Milienaa" },
-  "homepage": "https://github.com/Milienaa/test-xtiles-skills",
-  "repository": "https://github.com/Milienaa/test-xtiles-skills",
+  "description": "Run your day from xTiles. A cascading planner (month → week → day) turns goals into focus, and your daily page becomes a live brief — pulling in Gmail, Slack, and Calendar, plus capturing notes, completed work, and action plans from any conversation.",
+  "author": { "name": "xTiles-org" },
+  "homepage": "https://github.com/xTiles-org/skills",
+  "repository": "https://github.com/xTiles-org/skills",
   "license": "MIT",
   "skills": "./skills/"
 }

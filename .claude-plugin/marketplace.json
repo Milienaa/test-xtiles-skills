@@ -1,11 +1,11 @@
 {
-  "name": "test-xtiles-marketplace",
-  "owner": { "name": "Milienaa" },
+  "name": "xtiles-marketplace",
+  "owner": { "name": "xTiles-org" },
   "plugins": [
     {
-      "name": "test-xtiles",
+      "name": "productivity",
       "source": "./",
-      "description": "Official xTiles plugins for Claude. Connect your conversations to xTiles — a visual workspace for notes, projects, and tasks"
+      "description": "Connect Claude to xTiles — your visual workspace for notes, projects, and tasks. Let Claude create projects, structure pages, manage tasks, and fill your planner directly in xTiles, all from natural language."
     }
   ]
 }
