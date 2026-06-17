@@ -23,8 +23,7 @@ allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_crea
 ## Three principles
 
 1. **Survey first, write to xTiles last.** Nothing gets created until the user has seen the preview and said "yes".
-2. **Daily ≠ Weekly ≠ Monthly.** Each period solves a different problem — content and questions differ accordingly.
-3. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
+2. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
 
 **Language:** match the language of the user's first message throughout the entire flow.
 
@@ -168,22 +167,6 @@ Here's what I've prepared:
 [Real unread threads or "Inbox clear — no important unread email"]
 
 ---
-📆 WEEKLY — [actual date range]
-
-### Weekly focus
-[What the user named as priorities, or leave blank with note]
-
-### This week's meetings
-[Real events from Calendar]
-
----
-🗓 MONTHLY — [actual month]
-
-### Monthly goals
-[What the user formulated]
-
-### Events this month
-[Real events from Calendar]
 ```
 
 **Rules:**
@@ -210,7 +193,7 @@ If the user asks for a change — clarify exactly what, update only that section
 **Only after explicit approval.**
 
 Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
-- `period`: "day" / "week" / "month"
+- `period`: "day"
 - `date`: current date in ISO 8601
 
 **Order:** day → week → month.
@@ -242,9 +225,7 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 If the user opted for an automatic schedule — after successful creation, run the `schedule` skill.
 Only show relevant options:
-- Daily at 9:00 AM — only if Daily was selected
-- Weekly Mon 9:00 AM and Fri 5:00 PM — only if Weekly was selected
-- Monthly summary — only if Monthly was selected
+- Daily at 9:00 AM
 
 ---
 
@@ -254,8 +235,6 @@ Only if the user selected "Schedule automatic daily creation" in the mini-survey
 
 Show only relevant options:
 - Daily at 9:00 AM — only if Daily was created
-- Weekly Mon 9:00 AM and Fri 5:00 PM — only if Weekly was created
-- Monthly 1st of month — only if Monthly was created
 
 After confirming schedule, run the `schedule` skill.
 
