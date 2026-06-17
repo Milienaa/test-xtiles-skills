@@ -45,6 +45,8 @@ Don't ask "Save it?" or wait for approval.
 
 Replace `VIEW_ID` with the `view_id` returned by `mcp__xtiles__get-planner-content`.
 
+Translate the link label ("Open in xTiles") into the dominant language of the conversation.
+
 ## Capture habit opt-in (one-time)
 
 Run this AFTER the result block above. It concerns the *future* habit, not the

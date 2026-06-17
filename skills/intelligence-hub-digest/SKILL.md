@@ -26,7 +26,7 @@ allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_crea
 2. **Daily ≠ Weekly ≠ Monthly.** Each period solves a different problem — content and questions differ accordingly.
 3. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
 
-**Language:** match the language of the user's first message.
+**Language:** match the language of the user's first message throughout the entire flow.
 
 ---
 
@@ -44,12 +44,20 @@ If the request is general — run the full flow.
 
 **Show the survey widget** (HTML form) if in Cowork. Fallback — AskUserQuestion batches.
 
-The form collects:
-- Role (single select + Other)
-- Tools (multi select: Slack, Gmail, Calendar, Analytics, Figma, Linear/Jira, Notion, Other)
-- Which pages (Daily / Weekly / Monthly)
+**Step 2c — Connected tools** (multi select, show all regardless of what's actually detected):
+- Slack
+- Gmail
+- Google Calendar
+- PostHog
+- Amplitude
+- Notion
+- Linear / Jira
+- Figma
+- Other (describe in next message)
 
-**After receiving answers — detect connectors:**
+If "Other" is selected — ask a follow-up: "Which tool(s)? Just name them — I'll figure out what's available."
+
+After receiving answers — detect which MCP tools are actually available:
 
 | Connector | Identifying MCP tools |
 |-----------|----------------------|
@@ -60,154 +68,146 @@ The form collects:
 | Amplitude | `query_chart` + `get_experiments` without `get_from_url` |
 | xTiles | `xtiles_create_tiles_from_markdown_in_my_planner` |
 
+If a tool the user selected isn't actually connected — note it and offer to walk them through connecting it (see **How to connect connectors** below).
+
 If only xTiles is connected — ask: set up statically or connect tools first?
-If the user chooses to connect tools, walk them through **How to connect connectors** (section below).
 
 ---
 
 ### 3. Per-period clarification
 
-**For each selected period — a separate question about content.**
-Each period solves a different problem, so ask separately and don't impose structure.
-
-Use AskUserQuestion with multiSelect. For each question —
-4 suggestion options + Other where the user can write anything custom.
+**For each selected period — ask separately.** Each period solves a different problem, so ask with `AskUserQuestion` (multiSelect). Offer 4–5 relevant options based on what's connected, always include "Other".
 
 #### Daily
 
 Question: "What do you want to see on your Daily each morning?"
 
-Suggested options (pick the ones relevant to connected connectors):
-- Important emails — unread messages that need a reply
-- Chat messages — Slack or another work messenger
-- Today's meetings — what's in Calendar today
-- Metrics — key numbers if you check them daily
-- Evening reflection — questions for yourself at end of day
+Options — include only those relevant to connected tools:
+- Unread emails that need a reply *(only if Gmail connected)*
+- Slack messages from key channels *(only if Slack connected)*
+- Today's meetings *(only if Calendar connected)*
+- Key metrics *(only if PostHog or Amplitude connected)*
+- Evening reflection prompts
+- Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
-If the user writes something custom via Other — fine, add it.
+
+**If Slack is selected — always ask, without exception:**
+Call `slack_search_channels`, show up to 6 channel names. Ask (single select, multi allowed):
+"Which channels do you open first each morning? Pick all that matter."
+Also offer: "Other / I'll type the names"
+
+**If metrics are selected and PostHog/Amplitude is connected:**
+Ask for chart links or metric names to pull.
+- PostHog: use `get_from_url` + `query_chart`
+- Amplitude: `get_from_url` unavailable — save URL as text, fetch via `query_chart` / `get_experiments`
 
 #### Weekly
 
 Question: "What do you want to see on your Weekly?"
 
-Suggested options:
+Options:
 - Weekly focus — main priorities
-- Week's meetings — schedule from Calendar
-- Team updates — key things to know from chat
-- Week summary — Friday reflection
-
-User can pick any combination or write their own.
+- This week's meetings *(only if Calendar connected)*
+- Team updates from Slack *(only if Slack connected)*
+- Week summary / Friday reflection
+- Other (describe in next message)
 
 #### Monthly
 
 Question: "What do you want to see on your Monthly?"
 
-Suggested options:
+Options:
 - Goals or intention for the month
-- Meetings and events — full list from Calendar
-- Project status — where things stand
-- Retrospective — what worked, what didn't
+- All meetings and events *(only if Calendar connected)*
+- Project status
+- Monthly retrospective
+- Other (describe in next message)
 
-User can pick any combination or write their own.
-
----
-
-**General rule for all three:** don't box the user in.
-If the user says "I want to see X" and X isn't in the list — fine, add X.
-If something is unclear after the questions — ask directly, don't guess.
-
-**Additional clarification if connectors are present:**
-
-- **Slack connected** → call `slack_search_channels`, show top 4 channels, ask which ones they open first each morning
-- **Amplitude/PostHog connected and user wants metrics** → ask for chart links or metric names
-- **PostHog**: use `get_from_url` + `query_chart`
-- **Amplitude**: `get_from_url` is unavailable — save URL as text, fetch data via `query_chart` / `get_experiments`
+**General rule:** if the user writes something custom — add it as-is. Don't reshape it into a predefined option.
 
 ---
 
 ### 4. Silent data fetch
 
-**Silently, without messaging the user**, pull fresh data from connectors:
+**Silently, without messaging the user**, pull fresh data from connectors based on selected pages and content choices:
 
-- **Calendar**: events today, this week, this month (depending on selected pages)
+- **Calendar**: events for today / this week / this month as needed
 - **Gmail**: unread important messages (`is:unread is:important in:inbox newer_than:3d`)
-- **Slack**: messages from the user's chosen channels (top 20–30 most recent)
+- **Slack**: recent messages from the user's chosen channels (top 20–30)
 
-Analyze what you get — identify what needs the user's attention:
-- 🔴 needs a decision / reply / deadline today
-- 🟡 FYI / can wait / informational
+Analyze what you get. Classify each signal:
+- 🔴 needs a decision, reply, or action today
+- 🟡 informational / can wait
+
+Use only real data from connectors. Do not invent names, events, or messages.
+All names, meeting titles, and message content must come directly from API responses — never from examples in this skill file.
 
 ---
 
-### 5. Preview — show the content as text in chat
+### 5. Preview — show content in chat
 
-**This is the most important step.** Generate real content — not structure, not headings, but live text with real data.
+Show real content with real data. Not structure, not headings with "(TBD)" — actual text.
 
-Preview format in chat:
+Format (adapt to selected pages):
 
 ```
-Here's what I've prepared for you:
+Here's what I've prepared:
 
 ---
-📅 DAILY — May 7
+📅 DAILY — [actual date]
 
-### Chat signals
-🔴 #team-sales · Iryna: agency mock-up is ready — can you help with the demo account? | [xTiles](...)
-🔴 #team-sales · Iryna: your task — MCP Authorization, critical priority
-🟡 #team-growth · Andrew: feedback needed on MCP landing mock | [link](...)
+### [Section based on user's choices]
+🔴 [Real signal from connector] | [link if available]
+🟡 [Real signal from connector]
 
 ### Today's meetings
-09:30 Growth-Sync · Andrey, Vadym, Iryna | [Meet](...)
-16:30 Sync: Product plan · Volokovykh | [Meet](...)
+[Real events from Calendar with actual titles and times]
 
 ### Gmail
-No important unread emails — inbox clear
+[Real unread threads or "Inbox clear — no important unread email"]
 
 ---
-📆 WEEKLY — May 4–10
+📆 WEEKLY — [actual date range]
 
 ### Weekly focus
-[what the user named as priorities]
+[What the user named as priorities, or leave blank with note]
 
-### Week's meetings
-Mon: Product marketing sync (1:00 PM)
-...
+### This week's meetings
+[Real events from Calendar]
 
 ---
-🗓 MONTHLY — May
+🗓 MONTHLY — [actual month]
 
 ### Monthly goals
-[what the user formulated]
+[What the user formulated]
 
-### Meetings & events
-May 1 Growth weekly meet ✓
-May 8 Team Bi-weekly Sync
-...
+### Events this month
+[Real events from Calendar]
 ```
 
-**Preview rules:**
-- Show only the selected pages
-- Content is live — from real connector data, no placeholders
-- If there's no data for a section — either skip it or explain why it's empty
-- After the preview ask: "Does this look right? Or anything to change?"
+**Rules:**
+- Show only selected pages and sections the user asked for
+- If a connector returned no data for a section — write exactly that ("No unread emails", "No meetings today") — don't skip silently
+- No placeholder names, example events, or invented data — ever
+- After the preview, ask: "Does this look right? Anything to change?"
 
 ---
 
 ### 6. Approval
 
-AskUserQuestion (single select):
-- **"Yes, create it"** — proceed to write
-- **"Change something"** — user says what, update only that part of the preview without restarting
-- **"Cancel"** — stop
+`AskUserQuestion` (single select):
+- **"Looks good — create it"** → proceed to write
+- **"Change something"** → ask what, update only that section, show preview again
+- **"Cancel"** → stop
 
-If the user wants a change — clarify exactly what, update only that section, show the preview again and ask again.
+If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
 
 ---
 
 ### 7. Write to xTiles
 
-**Only after explicit "yes" from the user.**
+**Only after explicit approval.**
 
 Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
 - `period`: "day" / "week" / "month"
@@ -219,13 +219,26 @@ Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
 1. Call `xtiles_get_planner_content`
 2. Compare existing H3 headers (`###`) with what you're about to add
 3. Append only sections whose headers don't exist yet
-4. If everything already exists — ask the user whether they want to replace it
+4. If everything already exists — ask: replace all, append anyway, or cancel?
 
-**If an error occurs:** briefly say what went wrong, offer to retry or skip.
+**After each successful write:**
+Call `xtiles_get_planner_content` with the same `date` and `period`.
+Extract the `view_id` from the response and include a link in the confirmation:
+
+```
+✅ [Page name] created.
+🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
+```
+
+Translate the link label ("Open in xTiles") into the user's language.
+
+**If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
 ---
 
-### 8. Schedule (optional)
+### 8. Post-creation mini-survey
+
+**Immediately after writing to xTiles** (before the schedule step), show a mini-survey with `AskUserQuestion` (multi select):
 
 If the user opted for an automatic schedule — after successful creation, run the `schedule` skill.
 Only show relevant options:
@@ -235,44 +248,36 @@ Only show relevant options:
 
 ---
 
-## Survey widget HTML
+### 9. Schedule (optional)
 
-Show this form via `show_widget` at the start of setup in Cowork.
-After Submit, the user sends a string of answers to chat — process it and continue the flow.
+Only if the user selected "Schedule automatic daily creation" in the mini-survey.
 
-```html
-<!-- [full HTML form from v4 — role, tools, pages] -->
-<!-- Use the latest version of the form from previous iterations -->
-```
+Show only relevant options:
+- Daily at 9:00 AM — only if Daily was created
+- Weekly Mon 9:00 AM and Fri 5:00 PM — only if Weekly was created
+- Monthly 1st of month — only if Monthly was created
+
+After confirming schedule, run the `schedule` skill.
 
 ---
 
 ## How to connect connectors
 
-If the skill needs data from Slack, Gmail, Calendar, or other tools, the connectors
-must be connected manually. Walk the user through these steps in Cowork:
+If a tool the user selected isn't connected, walk them through:
 
-1. **Open the plugin settings** — in the Cowork left panel, find the installed plugin
-   (e.g. *Slack by Salesforce*). Click the three dots `···` next to its name → **Customize**.
-2. **Go to Connectors** — in the customization window, open the **Connectors** tab.
-   It lists the connectors available for that plugin.
-3. **Connect the connector** — click **Connect** next to the one you need (e.g. Slack).
-   An authorization window opens — sign in and grant permissions.
-4. **If the browser shows an error after authorization** — sometimes after clicking
-   "Allow" the page fails to load and shows a connection error. This is expected. Copy
-   the full URL from the address bar (it looks like
-   `http://localhost:3118/callback?code=...&state=...`) and paste it into the chat —
-   Claude will finish the authorization.
-5. **Verify the connection** — after successful authorization the connector shows as
-   **Connected**. The skill can now read data from that tool.
+1. **Open plugin settings** — in the Cowork left panel, find the plugin. Click `···` → **Customize**.
+2. **Go to Connectors tab** — lists all available connectors for that plugin.
+3. **Click Connect** next to the tool you need. Sign in and grant permissions.
+4. **If the browser shows an error after authorization** — this is expected sometimes. Copy the full URL from the address bar (looks like `http://localhost:3118/callback?code=...&state=...`) and paste it into chat — Claude will finish the authorization.
+5. **Verify** — connector shows as **Connected**. Re-run the flow.
 
-After connecting, re-run connector detection (the table in step 2) and continue the flow.
+---
 
 ## How to behave
 
-You're an assistant helping someone set up a planner that fits their real work rhythm.
-
-- Don't create anything without a preview and approval
+- Use `AskUserQuestion` for all survey and approval steps — no HTML widgets, no ad-hoc UI
+- Never create anything without preview and explicit approval
+- Never put example names, example events, or example messages into the preview — only real data from connectors
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
