@@ -18,25 +18,26 @@ description: >
 allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner
 ---
 
-# xTiles Cascading Planner — Setup & Daily Digest
+# xTiles Daily Planner — Setup & Daily Digest
 
 ## Three principles
 
 1. **Survey first, write to xTiles last.** Nothing gets created until the user has seen the preview and said "yes".
 2. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
-
-**Language:** match the language of the user's first message throughout the entire flow.
+   **Language:** match the language of the user's first message throughout the entire flow.
 
 ---
 
 ## Algorithm
+
+**Period is always Daily — never ask the user which planner pages to set up. Skip any period selection step entirely.**
 
 ### 1. Fast-track
 
 If the user is specific ("give me daily for today", "I want to see Slack in the morning") — skip the full flow. Collect the minimum needed and jump to Preview (step 4).
 
 If the request is general — run the full flow.
-
+ 
 ---
 
 ### 2. Survey — who are you and what's connected
@@ -73,11 +74,7 @@ If only xTiles is connected — ask: set up statically or connect tools first?
 
 ---
 
-### 3. Per-period clarification
-
-**For each selected period — ask separately.** Each period solves a different problem, so ask with `AskUserQuestion` (multiSelect). Offer 4–5 relevant options based on what's connected, always include "Other".
-
-#### Daily
+### 3. Daily content clarification
 
 Question: "What do you want to see on your Daily each morning?"
 
@@ -100,8 +97,7 @@ Also offer: "Other / I'll type the names"
 Ask for chart links or metric names to pull.
 - PostHog: use `get_from_url` + `query_chart`
 - Amplitude: `get_from_url` unavailable — save URL as text, fetch via `query_chart` / `get_experiments`
-
-**General rule:** if the user writes something custom — add it as-is. Don't reshape it into a predefined option.
+  **General rule:** if the user writes something custom — add it as-is. Don't reshape it into a predefined option.
 
 ---
 
@@ -152,7 +148,6 @@ Here's what I've prepared:
 - If a connector returned no data for a section — write exactly that ("No unread emails", "No meetings today") — don't skip silently
 - No placeholder names, example events, or invented data — ever
 - After the preview, ask: "Does this look right? Anything to change?"
-
 ---
 
 ### 6. Approval
@@ -161,8 +156,7 @@ Here's what I've prepared:
 - **"Looks good — create it"** → proceed to write
 - **"Change something"** → ask what, update only that section, show preview again
 - **"Cancel"** → stop
-
-If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
+  If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
 
 ---
 
@@ -173,18 +167,16 @@ If the user asks for a change — clarify exactly what, update only that section
 Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
 - `period`: "day"
 - `date`: current date in ISO 8601
-
-**Order:** day → week → month.
+  **Always write only the Daily page.**
 
 **If the page already exists:**
 1. Call `xtiles_get_planner_content`
 2. Compare existing H3 headers (`###`) with what you're about to add
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
-
-**After each successful write:**
-Call `xtiles_get_planner_content` with the same `date` and `period`.
-Extract the `view_id` from the response and include a link in the confirmation:
+   **After each successful write:**
+   Call `xtiles_get_planner_content` with the same `date` and `period`.
+   Extract the `view_id` from the response and include a link in the confirmation:
 
 ```
 ✅ [Page name] created.
@@ -204,7 +196,6 @@ Translate the link label ("Open in xTiles") into the user's language.
 If the user opted for an automatic schedule — after successful creation, run the `schedule` skill.
 Only show relevant options:
 - Daily at 9:00 AM
-
 ---
 
 ### 9. Schedule (optional)
@@ -227,7 +218,6 @@ If a tool the user selected isn't connected, walk them through:
 3. **Click Connect** next to the tool you need. Sign in and grant permissions.
 4. **If the browser shows an error after authorization** — this is expected sometimes. Copy the full URL from the address bar (looks like `http://localhost:3118/callback?code=...&state=...`) and paste it into chat — Claude will finish the authorization.
 5. **Verify** — connector shows as **Connected**. Re-run the flow.
-
 ---
 
 ## How to behave
@@ -238,5 +228,6 @@ If a tool the user selected isn't connected, walk them through:
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
-- Daily, Weekly, Monthly — different tasks, different content, different questions
+- Daily is the only period — never ask about Weekly or Monthly
 - Match the user's language (EN/UA), adapt if they switch
+ 
