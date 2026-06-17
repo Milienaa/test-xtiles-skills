@@ -101,28 +101,6 @@ Ask for chart links or metric names to pull.
 - PostHog: use `get_from_url` + `query_chart`
 - Amplitude: `get_from_url` unavailable — save URL as text, fetch via `query_chart` / `get_experiments`
 
-#### Weekly
-
-Question: "What do you want to see on your Weekly?"
-
-Options:
-- Weekly focus — main priorities
-- This week's meetings *(only if Calendar connected)*
-- Team updates from Slack *(only if Slack connected)*
-- Week summary / Friday reflection
-- Other (describe in next message)
-
-#### Monthly
-
-Question: "What do you want to see on your Monthly?"
-
-Options:
-- Goals or intention for the month
-- All meetings and events *(only if Calendar connected)*
-- Project status
-- Monthly retrospective
-- Other (describe in next message)
-
 **General rule:** if the user writes something custom — add it as-is. Don't reshape it into a predefined option.
 
 ---
