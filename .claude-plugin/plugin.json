@@ -1,5 +1,5 @@
 {
-  "name": "productivity",
+  "name": "xtiles",
   "version": "1.0.0",
   "description": "Run your day from xTiles. A cascading planner (month → week → day) turns goals into focus, and your daily page becomes a live brief — pulling in Gmail, Slack, and Calendar, plus capturing notes, completed work, and action plans from any conversation.",
   "author": { "name": "xTiles-org" },

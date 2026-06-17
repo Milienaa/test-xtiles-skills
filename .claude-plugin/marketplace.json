@@ -3,7 +3,7 @@
   "owner": { "name": "xTiles-org" },
   "plugins": [
     {
-      "name": "productivity",
+      "name": "xtiles",
       "source": "./",
       "description": "Connect Claude to xTiles — your visual workspace for notes, projects, and tasks. Let Claude create projects, structure pages, manage tasks, and fill your planner directly in xTiles, all from natural language."
     }

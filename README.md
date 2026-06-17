@@ -8,7 +8,7 @@ Bring every conversation into your xTiles workspace. Capture insights, plan work
 
 ```
 /plugin marketplace add xTiles-org/skills
-/plugin install productivity
+/plugin install xtiles
 /reload-plugins
 ```
 
@@ -20,7 +20,7 @@ Bring every conversation into your xTiles workspace. Capture insights, plan work
    `https://github.com/xTiles-org/skills.git`
 4. Click **Sync**
 5. In the **Directory** window, go to the **Personal** tab
-6. Find **productivity** in the list and click it
+6. Find **xtiles** in the list and click it
 7. Click **Install** in the top right corner
 8. Enable the **Sync automatically** toggle so you always get the latest updates
 
@@ -39,7 +39,7 @@ The plugin ships with the xTiles MCP server preconfigured, so its tools are avai
 |---|---|
 | `/daily-note` | Save today's conversation as a note in your xTiles Planner |
 | `/completed-task` | Log finished work from the current chat as a completed task |
-| `/public-project` | Turn a conversation or content into a structured public xTiles project |
+| `/create-project` | Turn a conversation or content into a structured xTiles project — in your workspace when signed in, or as a shareable public project otherwise |
 
 ### Intelligence Hub
 | Skill | Description |
@@ -51,7 +51,7 @@ The plugin ships with the xTiles MCP server preconfigured, so its tools are avai
 ```
 /daily-note Save today's key decisions and outcomes
 /completed-task Log the API integration we just finished
-/public-project Turn this research into a shareable xTiles board
+/create-project Turn this research into a shareable xTiles board
 /intelligence-hub-digest Connect Gmail, Slack, and Calendar for a daily digest
 ```
 
