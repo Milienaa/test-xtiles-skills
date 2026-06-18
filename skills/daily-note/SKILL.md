@@ -64,16 +64,15 @@ discussed, the decisions made, and any open questions or next steps.
 
 ## Confirmation block
 
-✅ Note saved to [today's daily page](https://xtiles.app/VIEW_ID) in xTiles.
+✅ Note saved to [today's daily page](https://xtiles.app/{view_id}) in xTiles.
 
-Replace `VIEW_ID` with the `view_id` returned by the tool.
+Replace `{view_id}` with the `view_id` returned by the tool.
 
 ## Rules
 
 - Always ask the size question first — never assume the size silently
 - Always show the entry before saving
 - Use today's date automatically — never ask
-- Always include the chat link in the entry — required, not optional
 - Always show the confirmation block after saving
 
 ## Capture habit opt-in (one-time)

@@ -25,7 +25,6 @@ Don't ask "Save it?" or wait for approval.
 2. **Analyze the chat** — extract the main outcome; derive title (verb-first, ≤60 chars) and description (2–3 sentences) in the dominant language of the conversation (match the user's input language)
 3. **Create in xTiles** — call `mcp__xtiles__xtiles_create_tasks`:
     - `title` — derived title
-    - `description` — summary (no chat link; links in descriptions often break)
     - `due_date` — today in ISO 8601
     - `assigneeId` — `userId` from step 1 (pass automatically, never ask the user)
 4. **Mark as completed** — call `mcp__xtiles__xtiles_update_task` with `completed: true`
@@ -41,9 +40,9 @@ Don't ask "Save it?" or wait for approval.
 
 [Task description]
 
-🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
+🔗 [Open in xTiles](https://xtiles.app/{view_id})
 
-Replace `VIEW_ID` with the `view_id` returned by `mcp__xtiles__xtiles_get_planner_content`.
+Replace `{view_id}` with the `view_id` returned by `mcp__xtiles__xtiles_get_planner_content`.
 
 Translate the link label ("Open in xTiles") into the dominant language of the conversation.
 
