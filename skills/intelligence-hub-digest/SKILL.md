@@ -6,7 +6,7 @@ description: >
   (Slack, Gmail, Calendar, Analytics) plus signals that need attention.
 
   Setup triggers: "set up my planner", "personalize my workspace",
-  "connect my planner to my tools", "create daily/weekly/monthly",
+  "connect my planner to my tools", "create daily",
   "onboard a new xTiles user into the Planner".
 
   Digest triggers: "show me my morning brief", "what do I need to know today",
@@ -41,8 +41,6 @@ If the request is general — run the full flow.
 ---
 
 ### 2. Survey — who are you and what's connected
-
-Show only connectors available in the current MCP context — do not infer tools from the conversation.
 
 **Show the survey** using AskUserQuestion batches.
 
