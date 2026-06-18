@@ -25,11 +25,12 @@ Don't ask "Save it?" or wait for approval.
 2. **Analyze the chat** — extract the main outcome; derive title (verb-first, ≤60 chars) and description (2–3 sentences) in the dominant language of the conversation (match the user's input language)
 3. **Create in xTiles** — call `mcp__xtiles__xtiles_create_tasks`:
     - `title` — derived title
+    - `description` — derived summary (2–3 sentences)
     - `due_date` — today in ISO 8601
     - `assigneeId` — `userId` from step 1 (pass automatically, never ask the user)
 4. **Mark as completed** — call `mcp__xtiles__xtiles_update_task` with `completed: true`
    using the `taskId` from the create response
-5. **Show the result block** — call `mcp__xtiles__xtiles_get_planner_content` with `date` = today (ISO 8601), `period` = `"day"` → use the returned `view_id` in the confirmation link; the block shows the saved title and description to the user
+5. **Show the result block** — call `mcp__xtiles__xtiles_get_planner_content` with `date` = today (ISO 8601), `period` = `"day"` → use the returned `view_id` in the confirmation link; the block shows the saved title and description to the user. If this call fails, still show the result block with title and description — omit the link or fall back to `https://xtiles.app`
 6. **Capture habit opt-in** — after the result block, run the
    "Capture habit opt-in (one-time)" procedure below. Skip silently if it is
    already enabled or was previously declined.

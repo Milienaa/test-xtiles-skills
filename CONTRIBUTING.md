@@ -30,10 +30,13 @@ allowed-tools: mcp__xtiles__xtiles_create_tasks, Read, Write, AskUserQuestion
 
 Guidelines:
 
-- **Tool names must match the real MCP tools exactly.** Use underscores and the
-  `xtiles_` prefix — e.g. `mcp__xtiles__xtiles_create_tasks`, **not**
-  `mcp__xtiles__create-tasks`. Verify each name against the live tool list
-  before submitting.
+- **Tool names must match the real MCP tools exactly.** The pattern is
+  `mcp__<server-key>__<tool-name>`. The server key is `xtiles` (from `.mcp.json`)
+  and every xTiles tool name starts with `xtiles_`, so the full identifier looks
+  like `mcp__xtiles__xtiles_create_tasks` — note the double `xtiles` is correct,
+  not a typo. Never use hyphens or omit the server prefix —
+  e.g. `mcp__xtiles__create-tasks` or `mcp__create_tasks` will fail silently.
+  Verify each name against the live tool list before submitting.
 - Keep the body focused: a clear step-by-step process, the exact tool calls,
   and the output/confirmation format.
 - **Preview before writing** to a user's workspace, and never invent data

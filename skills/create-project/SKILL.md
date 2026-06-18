@@ -75,9 +75,9 @@ Content:
 
 **If you used `xtiles_structure_information`:**
 
-🔗 Open project in xTiles: https://xtiles.app/PROJECT_ID
+🔗 Open project in xTiles: {tool_response_url}
 
-CRITICAL: PROJECT_ID must be replaced with the real URL returned by the tool.
+CRITICAL: {tool_response_url} must be replaced with the complete URL returned by the tool — use it verbatim, do not prepend the domain.
 Example: `https://xtiles.app/6a1803637baeda338dd82052`
 
 **[Project title]**
@@ -85,9 +85,9 @@ Example: `https://xtiles.app/6a1803637baeda338dd82052`
 
 **If you used `xtiles_create_project_from_markdown`:**
 
-🔗 **[Share it with your team](https://xtiles.app/VIEW_ID), or keep building — add another page anytime by running this again in a new chat.**
+🔗 **[Share it with your team](https://xtiles.app/{view_id}), or keep building — add another page anytime by running this again in a new chat.**
 
-CRITICAL: VIEW_ID must be replaced with the real `view_id` returned by the tool.
+CRITICAL: {view_id} must be replaced with the real `view_id` returned by the tool.
 Example: `https://xtiles.app/6a180381f6c69705d68096c0`
 
 **[Project title]**

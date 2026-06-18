@@ -52,6 +52,8 @@ The plugin ships with the xTiles MCP server preconfigured, so its tools are avai
 - **One-time sign-in** — the first time a skill or you call an xTiles tool, Claude Code / Cowork opens your browser for a one-time OAuth login to xTiles. No tokens, API keys, or secrets are stored in the plugin — authorization is handled entirely by the host.
 - **Ready to use** — after sign-in, the xTiles tools (create projects, tasks, tiles, etc.) work seamlessly alongside the skills below.
 
+> **Upgrading from an older install?** The MCP server key was renamed from `xtiles-mcp` to `xtiles`. Re-run `/plugin install xtiles` (Claude Code) or reinstall via **Customize → Personal plugins** (Cowork) to pick up the new key — otherwise skill tool calls will fail.
+
 See [Permissions & data](#permissions--data) for what the plugin can access, and [SECURITY.md](SECURITY.md) to report an issue.
 
 ## Skills
