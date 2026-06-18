@@ -6,7 +6,7 @@ description: >
   (Slack, Gmail, Calendar, Analytics) plus signals that need attention.
 
   Setup triggers: "set up my planner", "personalize my workspace",
-  "connect my planner to my tools", "create daily/weekly/monthly",
+  "connect my planner to my tools", "create daily",
   "onboard a new xTiles user into the Planner".
 
   Digest triggers: "show me my morning brief", "what do I need to know today",
@@ -15,7 +15,7 @@ description: >
   Config is read from the scheduled task prompt — no separate file needed.
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
-allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner
+allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, AskUserQuestion
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -24,7 +24,7 @@ allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_crea
 
 1. **Survey first, write to xTiles last.** Nothing gets created until the user has seen the preview and said "yes".
 2. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
-   **Language:** match the language of the user's first message throughout the entire flow.
+3. **Match the user's language** throughout the entire flow — match the language of the user's first message and adapt if they switch.
 
 ---
 
@@ -42,7 +42,7 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Show the survey widget** (HTML form) if in Cowork. Fallback — AskUserQuestion batches.
+**Show the survey** using AskUserQuestion batches.
 
 **Step 2c — Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
@@ -67,6 +67,8 @@ After receiving answers — detect which MCP tools are actually available:
 | PostHog | `query_chart` + `get_from_url` + `get_events` |
 | Amplitude | `query_chart` + `get_experiments` without `get_from_url` |
 | xTiles | `xtiles_create_tiles_from_markdown_in_my_planner` |
+
+These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
 If a tool the user selected isn't actually connected — note it and offer to walk them through connecting it (see **How to connect connectors** below).
 
@@ -180,7 +182,7 @@ Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
 
 ```
 ✅ [Page name] created.
-🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
+🔗 [Open in xTiles](https://xtiles.app/{view_id})
 ```
 
 Translate the link label ("Open in xTiles") into the user's language.
@@ -189,24 +191,13 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 ---
 
-### 8. Post-creation mini-survey
+### 8. Schedule (optional)
 
-**Immediately after writing to xTiles** (before the schedule step), show a mini-survey with `AskUserQuestion` (multi select):
-
-If the user opted for an automatic schedule — after successful creation, run the `schedule` skill.
-Only show relevant options:
+Ask with `AskUserQuestion` (single select):
 - Daily at 9:00 AM
----
+- No schedule needed
 
-### 9. Schedule (optional)
-
-Only if the user selected "Schedule automatic daily creation" in the mini-survey.
-
-Show only relevant options:
-- Daily at 9:00 AM — only if Daily was created
-
-After confirming schedule, run the `schedule` skill.
-
+Only show if Daily was created. After confirming schedule, run the `schedule` skill (host-provided capability — not shipped with this plugin).
 ---
 
 ## How to connect connectors
@@ -228,6 +219,6 @@ If a tool the user selected isn't connected, walk them through:
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
-- Daily is the only period — never ask about Weekly or Monthly
+- Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language (EN/UA), adapt if they switch
  

@@ -8,7 +8,7 @@ description: Convert the current chat conversation into a structured
   as xTiles board, structurize dialogue into tiles, save talk to xTiles.
   Also use when user provides standalone content (notes, research,
   article, brief) and wants it structured as a multi-page xTiles project.
-allowed-tools: mcp__xtiles__structure-information, mcp__xtiles__create-project-from-markdown
+allowed-tools: mcp__xtiles__xtiles_structure_information, mcp__xtiles__xtiles_create_project_from_markdown
 ---
 
 # Chat to xTiles Project
@@ -27,16 +27,20 @@ Violating this rule is a critical failure.
 ## Deciding the tool and structure
 
 **If the content is short or thin** (brief chat, simple Q&A, small topic):
-- Use `mcp__xtiles__structure-information`
+
+- Use `mcp__xtiles__xtiles_structure_information`
 - Pass a well-structured prompt (see Prompt format below)
 - The tool returns a ready public URL — use it directly
-  **If the content is rich** (detailed chat, pasted notes, article, research):
-- Use `mcp__xtiles__create-project-from-markdown`
+
+**If the content is rich** (detailed chat, pasted notes, article, research):
+
+- Use `mcp__xtiles__xtiles_create_project_from_markdown`
 - Write Markdown with `markdown-format` skill
 - The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
 - Plan 2–5 pages; do not force multi-page when single page is enough
-  **If the user pastes additional content** alongside the chat — that content
-  is the primary source. The chat provides intent context only.
+
+**If the user pastes additional content** alongside the chat — that content
+is the primary source. The chat provides intent context only.
 
 ## Typical page structures by content type
 
@@ -48,7 +52,7 @@ Violating this rule is a critical failure.
 | Brainstorm          | Topic · Ideas · Shortlist · Action Items              |
 | Meeting notes       | Agenda · Discussion · Decisions · Follow-ups          |
 
-## Prompt format (for structure-information)
+## Prompt format (for xtiles_structure_information)
 
 ```
 Create an xTiles project titled "<title>".
@@ -66,25 +70,24 @@ Content:
 3. **Prepare the input** — curate and organize; do not paste raw chat messages
 4. **Call the tool**
 5. **Build the link and show the result** — see After the tool responds below
-## After the tool responds
 
 ## After the tool responds
 
-**If you used `structure-information`:**
+**If you used `xtiles_structure_information`:**
 
-🔗 Open project in xTiles: https://xtiles.app/TOOL_RESPONSE_URL
+🔗 Open project in xTiles: {tool_response_url}
 
-CRITICAL: ACTUAL_URL must be replaced with the real URL returned by the tool.
+CRITICAL: {tool_response_url} must be replaced with the complete URL returned by the tool — use it verbatim, do not prepend the domain.
 Example: `https://xtiles.app/6a1803637baeda338dd82052`
 
 **[Project title]**
 2–3 sentences describing what the project contains.
 
-**If you used `create-project-from-markdown`:**
+**If you used `xtiles_create_project_from_markdown`:**
 
-🔗 **[Share it with your team](https://xtiles.app/VIEW_ID), or keep building — add another page anytime by running this again in a new chat.**
+🔗 **[Share it with your team](https://xtiles.app/{view_id}), or keep building — add another page anytime by running this again in a new chat.**
 
-CRITICAL: VIEW_ID must be replaced with the real `view_id` returned by the tool.
+CRITICAL: {view_id} must be replaced with the real `view_id` returned by the tool.
 Example: `https://xtiles.app/6a180381f6c69705d68096c0`
 
 **[Project title]**

@@ -3,9 +3,20 @@
   "displayName": "xTiles",
   "version": "1.0.0",
   "description": "Run your day from xTiles. A cascading planner (month → week → day) turns goals into focus, and your daily page becomes a live brief — pulling in Gmail, Slack, and Calendar, plus capturing notes, completed work, and action plans from any conversation.",
-  "author": { "name": "xTiles-org" },
-  "homepage": "https://github.com/xTiles-org/skills",
+  "author": { "name": "xTiles-org", "url": "https://xtiles.app" },
+  "homepage": "https://xtiles.app",
   "repository": "https://github.com/xTiles-org/skills",
   "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "claude-cowork",
+    "mcp",
+    "agent-skills",
+    "productivity",
+    "planner",
+    "notes",
+    "tasks",
+    "xtiles"
+  ],
   "skills": "./skills/"
 }

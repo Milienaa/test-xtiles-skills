@@ -1,17 +1,17 @@
 ---
 name: markdown-format
 description: >
-  Reference guide for xTiles Markdown structure used by create_project_from_markdown.
+  Reference guide for xTiles Markdown structure used by xtiles_create_project_from_markdown.
   Not user-invocable — used internally by other skills.
 user-invocable: false
 ---
 
 # xTiles Markdown Format Reference
 
-This document describes how `mcp__xtiles__create-project-from-markdown` interprets
+This document describes how `mcp__xtiles__xtiles_create_project_from_markdown` interprets
 Markdown heading levels to build project structure.
 
-markdown## Conversion to MD Structure Rules
+## Conversion to MD Structure Rules
 
 ---
 
@@ -78,4 +78,5 @@ HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA,
 PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR
 
 ### Available Styles
-LIGHTER, HEADER, LIGHTER_HEADER, LIGHTER_CONTOUR_LINE_BORDER---
+LIGHTER, HEADER, LIGHTER_HEADER, LIGHTER_CONTOUR_LINE_BORDER
+
