@@ -1,11 +1,28 @@
 {
   "name": "xtiles-marketplace",
-  "owner": { "name": "xTiles-org" },
+  "owner": { "name": "xTiles-org", "url": "https://xtiles.app" },
+  "metadata": {
+    "description": "Official marketplace for xTiles plugins for Claude Code and Cowork.",
+    "version": "1.0.0"
+  },
   "plugins": [
     {
       "name": "xtiles",
       "source": "./",
-      "description": "Connect Claude to xTiles — your visual workspace for notes, projects, and tasks. Let Claude create projects, structure pages, manage tasks, and fill your planner directly in xTiles, all from natural language."
+      "description": "Connect Claude to xTiles — your visual workspace for notes, projects, and tasks. Let Claude create projects, structure pages, manage tasks, and fill your planner directly in xTiles, all from natural language.",
+      "version": "1.0.0",
+      "category": "productivity",
+      "keywords": [
+        "claude-code",
+        "claude-cowork",
+        "mcp",
+        "productivity",
+        "planner",
+        "xtiles"
+      ],
+      "author": { "name": "xTiles-org", "url": "https://xtiles.app" },
+      "homepage": "https://xtiles.app",
+      "license": "MIT"
     }
   ]
 }

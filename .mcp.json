@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "xtiles-mcp": {
+    "xtiles": {
       "type": "http",
       "url": "https://mcp.xtiles.app/mcp"
     }

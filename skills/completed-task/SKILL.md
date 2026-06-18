@@ -6,7 +6,7 @@ description: Convert the current chat into a completed task in xTiles. Use
   problem into a done task in xTiles. Trigger on phrases like "save this as a
   completed task", "log what I did", "mark this done", "add this to my completed
   tasks", "record this finished work", "track today's accomplishment".
-allowed-tools: mcp__xtiles__create-tasks, mcp__xtiles__update-task, mcp__xtiles__get-current-user, mcp__xtiles__get-user-timezone, mcp__xtiles__get-planner-content, Read, Write, Edit, AskUserQuestion
+allowed-tools: mcp__xtiles__xtiles_create_tasks, mcp__xtiles__xtiles_update_task, mcp__xtiles__xtiles_get_current_user, mcp__xtiles__xtiles_get_user_timezone, mcp__xtiles__xtiles_get_planner_content, Read, Write, Edit, AskUserQuestion
 ---
 
 # xTiles Chat to a Completed Task
@@ -21,16 +21,16 @@ Don't ask "Save it?" or wait for approval.
 
 ## Your process
 
-1. **Get current user and timezone** — call `mcp__xtiles__get-current-user` → save `userId`; call `mcp__xtiles__get-user-timezone` → save today's local date in ISO 8601 format for use as `due_date`
+1. **Get current user and timezone** — call `mcp__xtiles__xtiles_get_current_user` → save `userId`; call `mcp__xtiles__xtiles_get_user_timezone` → save today's local date in ISO 8601 format for use as `due_date`
 2. **Analyze the chat** — extract the main outcome; derive title (verb-first, ≤60 chars) and description (2–3 sentences) in the dominant language of the conversation (match the user's input language)
-3. **Create in xTiles** — call `mcp__xtiles__create-tasks`:
+3. **Create in xTiles** — call `mcp__xtiles__xtiles_create_tasks`:
     - `title` — derived title
     - `description` — summary (no chat link; links in descriptions often break)
     - `due_date` — today in ISO 8601
     - `assigneeId` — `userId` from step 1 (pass automatically, never ask the user)
-4. **Mark as completed** — call `mcp__xtiles__update-task` with `completed: true`
+4. **Mark as completed** — call `mcp__xtiles__xtiles_update_task` with `completed: true`
    using the `taskId` from the create response
-5. **Show the result block** — call `mcp__xtiles__get-planner-content` with `date` = today (ISO 8601), `period` = `"day"` → use the returned `view_id` in the confirmation link; the block shows the saved title and description to the user
+5. **Show the result block** — call `mcp__xtiles__xtiles_get_planner_content` with `date` = today (ISO 8601), `period` = `"day"` → use the returned `view_id` in the confirmation link; the block shows the saved title and description to the user
 6. **Capture habit opt-in** — after the result block, run the
    "Capture habit opt-in (one-time)" procedure below. Skip silently if it is
    already enabled or was previously declined.
@@ -43,7 +43,7 @@ Don't ask "Save it?" or wait for approval.
 
 🔗 [Open in xTiles](https://xtiles.app/VIEW_ID)
 
-Replace `VIEW_ID` with the `view_id` returned by `mcp__xtiles__get-planner-content`.
+Replace `VIEW_ID` with the `view_id` returned by `mcp__xtiles__xtiles_get_planner_content`.
 
 Translate the link label ("Open in xTiles") into the dominant language of the conversation.
 
