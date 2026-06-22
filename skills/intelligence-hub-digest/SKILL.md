@@ -1,9 +1,10 @@
 ---
 name: intelligence-hub-digest
 description: >
-  Use when the user wants to set up OR run their xTiles cascading planner —
-  a Month → Week → Day system where the Day is a live brief from connected tools
+  Use when the user wants to set up OR run their xTiles Daily planner —
+  a Daily page that serves as a live morning brief from connected tools
   (Slack, Gmail, Calendar, Analytics) plus signals that need attention.
+  Only the Daily period is supported.
 
   Setup triggers: "set up my planner", "personalize my workspace",
   "connect my planner to my tools", "create daily",
@@ -15,7 +16,7 @@ description: >
   Config is read from the scheduled task prompt — no separate file needed.
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
-allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, AskUserQuestion
+allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, AskUserQuestion, slack_search_channels
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -44,15 +45,12 @@ If the request is general — run the full flow.
 
 **Show the survey** using AskUserQuestion batches.
 
-**Step 2c — Connected tools** (multi select, show all regardless of what's actually detected):
+**Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
 - Gmail
 - Google Calendar
 - PostHog
 - Amplitude
-- Notion
-- Linear / Jira
-- Figma
 - Other (describe in next message)
 
 If "Other" is selected — ask a follow-up: "Which tool(s)? Just name them — I'll figure out what's available."

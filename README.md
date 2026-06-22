@@ -17,7 +17,7 @@ work, save projects, and run your day — without leaving your chat.
 tasks — a flexible canvas where ideas become structured pages and plans. This
 plugin connects Claude (Code & Cowork) to your xTiles workspace so Claude can
 capture conversations, structure them into projects, log completed work, and run
-a cascading **Month → Week → Day** planner that turns goals into a daily brief —
+a **Daily** planner that turns your workspace into a live morning brief —
 all from natural language.
 
 New to xTiles? Start at **[xtiles.app](https://xtiles.app)**.
@@ -68,7 +68,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 ### Intelligence Hub
 | Skill | Description |
 |---|---|
-| `/intelligence-hub-digest` | Set up your cascading Month → Week → Day planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, Notion, and more |
+| `/intelligence-hub-digest` | Set up your Daily planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, and more |
 
 > The plugin also includes an internal `markdown-format` reference used by other
 > skills to structure xTiles pages. It is not meant to be invoked directly.
