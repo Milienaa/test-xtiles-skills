@@ -47,6 +47,11 @@ Replace `{view_id}` with the `view_id` returned by `mcp__xtiles__xtiles_get_plan
 
 Translate the link label ("Open in xTiles") into the dominant language of the conversation.
 
+## If update fails
+
+Show the confirmation block as usual, then add:
+> Warning: Could not mark as completed automatically. Task ID: [taskId]
+
 ## Capture habit opt-in (one-time)
 
 Run this AFTER the result block above. It concerns the *future* habit, not the
@@ -103,11 +108,6 @@ line. Then Read the file back to confirm the marker is present. Acknowledge brie
 **Override** — if the user later explicitly asks to enable the habit, use `Edit`
 to replace the `<!-- xTiles capture habit: declined -->` line with the habit
 block from 3a, leaving all other content untouched.
-
-## If update fails
-
-Show the confirmation block as usual, then add:
-> Warning: Could not mark as completed automatically. Task ID: [taskId]
 
 ## Rules
 

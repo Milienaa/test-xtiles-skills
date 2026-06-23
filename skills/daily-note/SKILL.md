@@ -6,7 +6,7 @@ description: Convert the current chat into a note in today's xTiles daily note.
   research, planning, or a discussion. Trigger on phrases like "save this to my
   daily note", "add a summary to today's note", "log this in my journal",
   "capture today's conversation", "write this to my daily log".
-allowed-tools: mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, Read, Write, Edit, AskUserQuestion
+allowed-tools: mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_get_planner_content, Read, Write, Edit, AskUserQuestion
 ---
 
 # xTiles Chat to a Daily Note
@@ -26,8 +26,8 @@ always easy to find later.
 5. **Show the entry** — present what will be saved before calling the tool.
 6. **Save to xTiles** — call `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
    with `date` = today (ISO 8601), `period` = `"day"`, `markdown` = the entry.
-   The tool returns `view_id` — use it to build the tile URL:
-   `https://xtiles.app/{view_id}`
+   Then call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`
+   to get the `view_id` for the confirmation link.
 7. **Show the confirmation block**.
 8. **Capture habit opt-in** — after the confirmation block, run the
    "Capture habit opt-in (one-time)" procedure below. Skip silently if it is
