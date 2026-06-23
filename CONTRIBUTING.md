@@ -55,3 +55,8 @@ Guidelines:
 - One logical change per PR; describe **what** changed and **why**.
 - Keep `plugin.json` and `marketplace.json` valid JSON.
 - Be kind and constructive.
+
+## Security
+
+To report a security or privacy vulnerability, follow the process in
+[SECURITY.md](SECURITY.md) — do **not** open a public issue.
