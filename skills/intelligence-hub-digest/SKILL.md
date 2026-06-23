@@ -16,7 +16,7 @@ description: >
   Config is read from the scheduled task prompt — no separate file needed.
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
-allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, AskUserQuestion, slack_search_channels
+allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, AskUserQuestion, mcp__claude_ai_Slack__slack_search_channels
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -35,7 +35,7 @@ allowed-tools: mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_crea
 
 ### 1. Fast-track
 
-If the user is specific ("give me daily for today", "I want to see Slack in the morning") — skip the full flow. Collect the minimum needed and jump to Preview (step 4).
+If the user is specific ("give me daily for today", "I want to see Slack in the morning") — skip the full flow. Collect the minimum needed and jump to Silent data fetch (step 4).
 
 If the request is general — run the full flow.
  
@@ -64,7 +64,7 @@ After receiving answers — detect which MCP tools are actually available:
 | Calendar | `list_events`, `create_event` |
 | PostHog | `query_chart` + `get_from_url` + `get_events` |
 | Amplitude | `query_chart` + `get_experiments` without `get_from_url` |
-| xTiles | `xtiles_create_tiles_from_markdown_in_my_planner` |
+| xTiles | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
@@ -89,7 +89,7 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected — always ask, without exception:**
-Call `slack_search_channels`, show up to 6 channel names. Ask (single select, multi allowed):
+Call `mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. Ask (single select, multi allowed):
 "Which channels do you open first each morning? Pick all that matter."
 Also offer: "Other / I'll type the names"
 
@@ -164,18 +164,18 @@ Here's what I've prepared:
 
 **Only after explicit approval.**
 
-Tool: `xtiles_create_tiles_from_markdown_in_my_planner`
+Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `period`: "day"
 - `date`: current date in ISO 8601
   **Always write only the Daily page.**
 
 **If the page already exists:**
-1. Call `xtiles_get_planner_content`
+1. Call `mcp__xtiles__xtiles_get_planner_content`
 2. Compare existing H3 headers (`###`) with what you're about to add
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
    **After each successful write:**
-   Call `xtiles_get_planner_content` with the same `date` and `period`.
+   Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`.
    Extract the `view_id` from the response and include a link in the confirmation:
 
 ```
