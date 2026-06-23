@@ -35,7 +35,7 @@ Violating this rule is a critical failure.
 **If the content is rich** (detailed chat, pasted notes, article, research):
 
 - Use `mcp__xtiles__xtiles_create_project_from_markdown`
-- Write Markdown with `markdown-format` skill
+- Write Markdown strictly following the **xTiles Markdown Format** section below
 - The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
 - Plan 2–5 pages; do not force multi-page when single page is enough
 
@@ -62,6 +62,11 @@ Summary: <2–3 sentences about what this covers>
 Content:
 <Organized and enriched content>
 ```
+
+## Call the tool
+
+1. **If using `xtiles_create_project_from_markdown`** — read the `markdown-format` skill and compose full Markdown (cover + positions + colors on every tile) BEFORE calling the tool
+2. **Call the tool**
 
 ## Your process
 
