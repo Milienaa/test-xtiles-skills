@@ -195,6 +195,21 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Write all sections in a single call.** Combine Gmail, Slack, Calendar, and any other selected connectors into one markdown and call the tool once — never split into separate calls per connector.
 
+**Tile formatting** — each `###` section must include color and style annotations immediately after the heading (no blank line between):
+
+```
+### [emoji] [Title]
+@colorSize: LIGHTER_HEADER
+@color: [COLOR]
+
+[content]
+```
+
+- `@colorSize` is always `LIGHTER_HEADER`
+- `@color` — pick randomly for each section from:
+  `GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR`
+- Each section gets a different color — do not repeat the same color twice in a row
+
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
 **If the page already exists:**
