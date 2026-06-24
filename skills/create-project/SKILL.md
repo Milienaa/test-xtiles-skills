@@ -55,7 +55,7 @@ is the primary source. The chat provides intent context only.
 
 1. **Assess the content** — how much substance is there?
 2. **Plan the structure** — choose pages from the Typical page structures table; apply Page rules
-3. **Prepare the Markdown** — curate and organize following `markdown-format` rules; do not paste raw chat messages
+3. **Prepare the Markdown** — read `skills/markdown-format/SKILL.md` and follow its rules exactly; do not paste raw chat messages
 4. **Call the tool**
 5. **Build the link and show the result** — see After the tool responds below
 
