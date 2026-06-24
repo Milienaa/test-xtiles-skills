@@ -19,6 +19,7 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_get_user_timezone,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_read_channel,
   mcp__claude_ai_Gmail__search_threads,
@@ -37,7 +38,8 @@ allowed-tools: >
   mcp__claude_ai_Google_Calendar__complete_authentication,
   mcp__claude_ai_Amplitude__authenticate,
   mcp__claude_ai_Amplitude__complete_authentication,
-  AskUserQuestion
+  AskUserQuestion,
+  CronCreate
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -227,12 +229,18 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 **After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? I can set it up so your Daily is ready in xTiles by 9:00 AM."
 
-- If the user selects **"Yes, schedule it"** — call `CronCreate` (or the host `schedule` skill) with the following prompt, substituting the actual values collected during setup:
-  ```
-  Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
-  ```
-  Set the schedule to **every day at 09:00** in the user's local timezone. This prompt is what fires each morning and triggers `intelligence-hub-digest` in scheduled-run mode — it must include the full config so the survey is skipped.
-- If the user selected "Daily at 9:00 AM" in the setup survey widget — skip the widget and go straight to creating the cron with the same prompt above.
+- If the user selects **"Yes, schedule it"** — call `CronCreate` directly with:
+  - **`prompt`**: the full config string assembled from values collected during setup —
+    ```
+    Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
+    ```
+    Replace `{role}`, `{tools}`, `{content}` with the actual values. Do not leave placeholders.
+  - **`schedule`**: `0 9 * * *` (every day at 09:00)
+  - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before creating the cron if it hasn't been fetched yet.
+
+  This prompt fires each morning and triggers `intelligence-hub-digest` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
+
+  After `CronCreate` succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at 9:00 AM."
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
@@ -355,16 +363,6 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
       <div class="checks" id="daily-content"></div>
     </div>
 
-    <div class="divider"></div>
-    <div class="sec">
-      <div class="sec-title">Automatic schedule?</div>
-      <div class="hint">I'll refresh your Daily automatically</div>
-      <div class="checks" id="sched-opts">
-        <div class="ci" onclick="togSched(this,'daily-9am')"><div class="chk">✓</div>📅 Daily at 9:00 AM</div>
-        <div class="ci" onclick="togSched(this,'none')"><div class="chk">✓</div>No schedule needed</div>
-      </div>
-    </div>
-
     <div class="btn-row">
       <button class="btn btn-s" onclick="go1()">← Back</button>
       <button class="btn btn-p" onclick="submit()">Set up Daily</button>
@@ -373,7 +371,7 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
 </div>
 
 <script>
-var role=null, tools=new Set(), content=new Set(), sched=null;
+var role=null, tools=new Set(), content=new Set();
 
 var TM={
   'Slack':    {daily:['Slack messages — work chat signals']},
@@ -441,10 +439,6 @@ function togOther(el){
   var w=document.getElementById('co-daily');
   if(w)w.style.display=el.classList.contains('sel')?'block':'none';
 }
-function togSched(el,v){
-  document.querySelectorAll('#sched-opts .ci').forEach(function(e){e.classList.remove('sel')});
-  el.classList.add('sel'); sched=v;
-}
 function submit(){
   var r=role==='__other__'?document.getElementById('role-other-in').value.trim():role;
   var tArr=Array.from(tools);
@@ -454,7 +448,6 @@ function submit(){
   var inp=document.getElementById('co-daily');
   if(inp){var v=inp.querySelector('input');if(v&&v.value.trim())items.push(v.value.trim());}
   var parts=['Daily planner setup — role: '+r+' · tools: '+(tArr.join(', ')||'none')+' · daily_content: '+(items.join(', ')||'none')];
-  if(sched&&sched!=='none')parts.push('schedule: daily-9am');
   sendPrompt(parts.join(' · '));
 }
 </script>
