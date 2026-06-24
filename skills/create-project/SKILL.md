@@ -35,12 +35,20 @@ Violating this rule is a critical failure.
 **If the content is rich** (detailed chat, pasted notes, article, research):
 
 - Use `mcp__xtiles__xtiles_create_project_from_markdown`
-- Write Markdown strictly following the **xTiles Markdown Format** section below
+- Write Markdown strictly following the **xTiles Markdown Format**
 - The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
 - Plan 2–5 pages; do not force multi-page when single page is enough
 
 **If the user pastes additional content** alongside the chat — that content
 is the primary source. The chat provides intent context only.
+
+## Multi-page rules
+
+- Each page must contain minimum 4 tiles, maximum 10 tiles
+- If a topic has fewer than 4 tiles — merge it with a related page
+- If a topic exceeds 10 tiles — split into two pages by subtopic
+- Never create a page with 1–2 tiles; group related subtopics together
+- Each page covers one distinct subtopic — no overlapping content between pages
 
 ## Typical page structures by content type
 
@@ -63,18 +71,15 @@ Content:
 <Organized and enriched content>
 ```
 
-## Call the tool
-
-1. **If using `xtiles_create_project_from_markdown`** — read the `markdown-format` skill and compose full Markdown (cover + positions + colors on every tile) BEFORE calling the tool
-2. **Call the tool**
-
 ## Your process
 
 1. **Assess the content** — how much substance is there?
 2. **Choose the tool** — see Deciding the tool and structure above
-3. **Prepare the input** — curate and organize; do not paste raw chat messages
-4. **Call the tool**
-5. **Build the link and show the result** — see After the tool responds below
+3. **If content is rich** — call `/mnt/skills/plugins/markdown-format/SKILL.md`
+      BEFORE writing any Markdown. Do not proceed until the file is read.
+4. **Prepare the input** — curate and organize following markdown-format rules; do not paste raw chat messages
+5. **Call the tool**
+6. **Build the link and show the result** — see After the tool responds below
 
 ## After the tool responds
 
