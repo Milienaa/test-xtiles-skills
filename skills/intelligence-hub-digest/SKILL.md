@@ -28,16 +28,7 @@ allowed-tools: >
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Amplitude__query_chart,
   mcp__claude_ai_Amplitude__get_experiments,
-  mcp__xtiles__authenticate,
-  mcp__xtiles__complete_authentication,
-  mcp__claude_ai_Slack__authenticate,
-  mcp__claude_ai_Slack__complete_authentication,
-  mcp__claude_ai_Gmail__authenticate,
-  mcp__claude_ai_Gmail__complete_authentication,
-  mcp__claude_ai_Google_Calendar__authenticate,
-  mcp__claude_ai_Google_Calendar__complete_authentication,
-  mcp__claude_ai_Amplitude__authenticate,
-  mcp__claude_ai_Amplitude__complete_authentication,
+  mcp__mcp-registry__suggest_connectors,
   AskUserQuestion,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
@@ -247,24 +238,14 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 ## How to connect connectors
 
-Connect the missing connector directly in chat — do not send the user to settings manually.
-
-**Per connector — which tools to call:**
-
-| Connector | authenticate | complete_authentication |
-|-----------|-------------|------------------------|
-| xTiles    | `mcp__xtiles__authenticate` | `mcp__xtiles__complete_authentication` |
-| Slack     | `mcp__claude_ai_Slack__authenticate` | `mcp__claude_ai_Slack__complete_authentication` |
-| Gmail     | `mcp__claude_ai_Gmail__authenticate` | `mcp__claude_ai_Gmail__complete_authentication` |
-| Calendar  | `mcp__claude_ai_Google_Calendar__authenticate` | `mcp__claude_ai_Google_Calendar__complete_authentication` |
-| Amplitude | `mcp__claude_ai_Amplitude__authenticate` | `mcp__claude_ai_Amplitude__complete_authentication` |
+Do not send the user to settings manually and do not give a URL to follow.
+Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect buttons directly in the Cowork UI.
 
 **Flow:**
-1. Call `authenticate` for the connector — it returns a sign-in URL.
-2. Tell the user: "Click this link to sign in to [Connector]: [URL]"
-3. After the user signs in, the browser may redirect to a callback URL like `http://localhost:3118/callback?code=...&state=...`. Ask the user to paste it into chat.
-4. Call `complete_authentication` with the callback URL.
-5. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
+1. Call `mcp__mcp-registry__suggest_connectors` passing the names of the missing connectors.
+2. The user clicks the connect button in the UI — the auth flow runs natively.
+3. Wait for confirmation that the connector is connected.
+4. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
 ---
 
 ## Survey widget HTML
