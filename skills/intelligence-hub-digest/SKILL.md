@@ -39,7 +39,8 @@ allowed-tools: >
   mcp__claude_ai_Amplitude__authenticate,
   mcp__claude_ai_Amplitude__complete_authentication,
   AskUserQuestion,
-  anthropic-skills:schedule
+  anthropic-skills:schedule,
+  mcp__scheduled-tasks__create-scheduled-tasks
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -229,7 +230,7 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 **After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? I can set it up so your Daily is ready in xTiles by 9:00 AM."
 
-- If the user selects **"Yes, schedule it"** — invoke `anthropic-skills:schedule` with:
+- If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
