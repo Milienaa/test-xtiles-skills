@@ -114,9 +114,10 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
-Call `mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. Ask (single select, multi allowed):
+Call `mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. Ask via `AskUserQuestion` (multi allowed):
 "Which channels do you open first each morning? Pick all that matter."
-Also offer: "Other / I'll type the names"
+Include the found channels as options plus one fixed option: **"Other — I'll type the names"**.
+If the user selects "Other" — follow up: "Which channels? Type the names, comma-separated." Add them to the list as-is.
 
 **If Analytics (PostHog or Amplitude) is selected and detected as connected:**
 Ask for chart links or metric names to pull.
