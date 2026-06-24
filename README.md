@@ -68,7 +68,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 ### Intelligence Hub
 | Skill | Description |
 |---|---|
-| `/intelligence-hub-digest` | Set up your Daily planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, and more |
+| `/daily-brief` | Set up your Daily planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, and more |
 
 > The plugin also includes an internal `markdown-format` reference used by other
 > skills to structure xTiles pages. It is not meant to be invoked directly.
@@ -79,7 +79,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 /daily-note Save today's key decisions and outcomes
 /completed-task Log the API integration we just finished
 /create-project Turn this research into a shareable xTiles board
-/intelligence-hub-digest Connect Gmail, Slack, and Calendar for a daily digest
+/daily-brief Connect Gmail, Slack, and Calendar for a daily digest
 ```
 
 ### Or naturally:

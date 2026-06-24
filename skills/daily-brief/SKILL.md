@@ -1,5 +1,5 @@
 ---
-name: intelligence-hub-digest
+name: daily-brief
 description: >
   Use when the user wants to set up OR run their xTiles Daily planner —
   a Daily page that serves as a live morning brief from connected tools
@@ -230,7 +230,7 @@ Translate the link label ("Open in xTiles") into the user's language.
   - **`schedule`**: `0 9 * * *` (every day at 09:00)
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
-  This prompt fires each morning and triggers `intelligence-hub-digest` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
+  This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
   After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at 9:00 AM."
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
@@ -243,9 +243,26 @@ Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect 
 
 **Flow:**
 1. Call `mcp__mcp-registry__suggest_connectors` passing the names of the missing connectors.
-2. The user clicks the connect button in the UI — the auth flow runs natively.
-3. Wait for confirmation that the connector is connected.
+2. Show the **Done widget** (see **Done widget HTML** below) directly under the connector form.
+3. The user clicks the connect buttons in the UI — the auth flow runs natively. When finished, they click **"Done"**.
 4. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
+---
+
+## Done widget HTML
+
+Show this widget via `show_widget` immediately after calling `mcp__mcp-registry__suggest_connectors`.
+The user clicks **Done** when they have finished connecting — this sends a message to chat and resumes the flow.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff;transition:background .15s}
+.btn:hover{background:#333}
+</style>
+<button class="btn" onclick="sendPrompt('Done — connectors connected, continue the flow')">✓ Done</button>
+```
+
 ---
 
 ## Survey widget HTML
