@@ -199,13 +199,13 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 ```
 ### [emoji] [Title]
-@colorSize: LIGHTER_HEADER
+@colorSize: LIGHTER
 @color: [COLOR]
 
 [content]
 ```
 
-- `@colorSize` is always `LIGHTER_HEADER`
+- `@colorSize` is always `LIGHTER`
 - `@color` — pick randomly for each section from:
   `GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR`
 - Each section gets a different color — do not repeat the same color twice in a row
