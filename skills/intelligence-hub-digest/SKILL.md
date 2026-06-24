@@ -26,7 +26,18 @@ allowed-tools: >
   mcp__claude_ai_Gmail__get_thread,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Amplitude__query_chart,
-  mcp__claude_ai_Amplitude__get_experiments
+  mcp__claude_ai_Amplitude__get_experiments,
+  mcp__xtiles__authenticate,
+  mcp__xtiles__complete_authentication,
+  mcp__claude_ai_Slack__authenticate,
+  mcp__claude_ai_Slack__complete_authentication,
+  mcp__claude_ai_Gmail__authenticate,
+  mcp__claude_ai_Gmail__complete_authentication,
+  mcp__claude_ai_Google_Calendar__authenticate,
+  mcp__claude_ai_Google_Calendar__complete_authentication,
+  mcp__claude_ai_Amplitude__authenticate,
+  mcp__claude_ai_Amplitude__complete_authentication,
+  AskUserQuestion
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -213,24 +224,37 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 ### 8. Schedule (optional)
 
-**After every successful write — always offer scheduling**, regardless of what was selected in the widget. Say explicitly:
+**After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? I can set it up so your Daily is ready in xTiles by 9:00 AM."
 
-> "Want me to run this every morning automatically? I can set it up so your Daily is ready in xTiles by 9:00 AM."
-
-- If the user agrees — run the `schedule` skill by invoking `/schedule` or by asking Claude to "schedule this daily at 9 AM". The `schedule` skill is a host-provided capability and is not shipped with this plugin — it will appear in the skills list if the host supports it.
-- If the user selected "Daily at 9:00 AM" in the widget — skip the offer and go straight to running the `schedule` skill.
-- If the user declines — acknowledge briefly and stop.
+- If the user selects **"Yes, schedule it"** — call `CronCreate` (or the host `schedule` skill) with the following prompt, substituting the actual values collected during setup:
+  ```
+  Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
+  ```
+  Set the schedule to **every day at 09:00** in the user's local timezone. This prompt is what fires each morning and triggers `intelligence-hub-digest` in scheduled-run mode — it must include the full config so the survey is skipped.
+- If the user selected "Daily at 9:00 AM" in the setup survey widget — skip the widget and go straight to creating the cron with the same prompt above.
+- If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
 ## How to connect connectors
 
-If a tool the user selected isn't connected, walk them through:
+Connect the missing connector directly in chat — do not send the user to settings manually.
 
-1. **Open plugin settings** — in the Cowork left panel, find the plugin. Click `···` → **Customize**.
-2. **Go to Connectors tab** — lists all available connectors for that plugin.
-3. **Click Connect** next to the tool you need. Sign in and grant permissions.
-4. **If the browser shows an error after authorization** — this is expected sometimes. Copy the full URL from the address bar (looks like `http://localhost:3118/callback?code=...&state=...`) and paste it into chat — Claude will finish the authorization.
-5. **Verify** — connector shows as **Connected**. Re-run the flow.
+**Per connector — which tools to call:**
+
+| Connector | authenticate | complete_authentication |
+|-----------|-------------|------------------------|
+| xTiles    | `mcp__xtiles__authenticate` | `mcp__xtiles__complete_authentication` |
+| Slack     | `mcp__claude_ai_Slack__authenticate` | `mcp__claude_ai_Slack__complete_authentication` |
+| Gmail     | `mcp__claude_ai_Gmail__authenticate` | `mcp__claude_ai_Gmail__complete_authentication` |
+| Calendar  | `mcp__claude_ai_Google_Calendar__authenticate` | `mcp__claude_ai_Google_Calendar__complete_authentication` |
+| Amplitude | `mcp__claude_ai_Amplitude__authenticate` | `mcp__claude_ai_Amplitude__complete_authentication` |
+
+**Flow:**
+1. Call `authenticate` for the connector — it returns a sign-in URL.
+2. Tell the user: "Click this link to sign in to [Connector]: [URL]"
+3. After the user signs in, the browser may redirect to a callback URL like `http://localhost:3118/callback?code=...&state=...`. Ask the user to paste it into chat.
+4. Call `complete_authentication` with the callback URL.
+5. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
 ---
 
 ## Survey widget HTML
@@ -437,6 +461,42 @@ function submit(){
 
 ---
 
+## Schedule widget HTML
+
+Show this widget via `show_widget` after a successful write in Cowork.
+After the user clicks a button, the widget calls `sendPrompt()` and the response lands in chat.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
+.icon{font-size:36px;margin-bottom:12px}
+h2{font-size:17px;font-weight:700;margin-bottom:6px}
+.sub{font-size:13px;color:#888;margin-bottom:24px;line-height:1.5}
+.time{display:inline-flex;align-items:center;gap:6px;background:#f3f3f3;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.btns{display:flex;flex-direction:column;gap:10px}
+.btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-no{background:#f0f0f0;color:#555}
+.btn-no:hover{background:#e0e0e0}
+</style>
+
+<div class="wrap">
+  <div class="icon">⏰</div>
+  <h2>Run this every morning?</h2>
+  <p class="sub">I'll fetch your signals and write your Daily to xTiles automatically — no need to ask each time.</p>
+  <div class="time">📅 Every day at 9:00 AM</div>
+  <div class="btns">
+    <button class="btn btn-yes" onclick="sendPrompt('Yes, schedule my daily digest at 9:00 AM every day')">Yes, schedule it</button>
+    <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
+  </div>
+</div>
+```
+
+---
+
 ## How to behave
 
 - Use the survey widget for setup; ask inline for approval and any follow-up clarifications
@@ -444,6 +504,7 @@ function submit(){
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
 - Never put example names, example events, or example messages into the preview — only real data from connectors
+- **All clarifying questions after the main survey form** (channel selection, metric links, approval, change requests) — use `AskUserQuestion`, not plain text
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
