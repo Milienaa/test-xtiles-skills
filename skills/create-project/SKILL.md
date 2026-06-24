@@ -8,7 +8,7 @@ description: Convert the current chat conversation into a structured
   as xTiles board, structurize dialogue into tiles, save talk to xTiles.
   Also use when user provides standalone content (notes, research,
   article, brief) and wants it structured as a multi-page xTiles project.
-allowed-tools: mcp__xtiles__xtiles_structure_information, mcp__xtiles__xtiles_create_project_from_markdown
+allowed-tools: mcp__xtiles__xtiles_create_project_from_markdown
 ---
 
 # Chat to xTiles Project
@@ -24,29 +24,20 @@ Detect the language of the user's message and respond **entirely** in that langu
 
 Violating this rule is a critical failure.
 
-## Deciding the tool and structure
-
-**If the content is short or thin** (brief chat, simple Q&A, small topic):
-
-- Use `mcp__xtiles__xtiles_structure_information`
-- Pass a well-structured prompt (see Prompt format below)
-- The tool returns a ready public URL — use it directly
-
-**If the content is rich** (detailed chat, pasted notes, article, research):
+## Tool and structure
 
 - Use `mcp__xtiles__xtiles_create_project_from_markdown`
-- Write Markdown strictly following the **xTiles Markdown Format**
+- Write Markdown strictly following the skill `markdown-format`
 - The tool returns `view_id` — construct the URL as `https://xtiles.app/{view_id}`
-- Plan 2–5 pages; do not force multi-page when single page is enough
+- Plan 1–5 pages; prefer fewer, richer pages over many sparse ones
 
 **If the user pastes additional content** alongside the chat — that content
 is the primary source. The chat provides intent context only.
 
-## Multi-page rules
+## Page rules
 
 - Each page must contain minimum 4 tiles, maximum 10 tiles
 - If a topic has fewer than 4 tiles — merge it with a related page
-- If a topic exceeds 10 tiles — split into two pages by subtopic
 - Never create a page with 1–2 tiles; group related subtopics together
 - Each page covers one distinct subtopic — no overlapping content between pages
 
@@ -60,40 +51,15 @@ is the primary source. The chat provides intent context only.
 | Brainstorm          | Topic · Ideas · Shortlist · Action Items              |
 | Meeting notes       | Agenda · Discussion · Decisions · Follow-ups          |
 
-## Prompt format (for xtiles_structure_information)
-
-```
-Create an xTiles project titled "<title>".
- 
-Summary: <2–3 sentences about what this covers>
- 
-Content:
-<Organized and enriched content>
-```
-
 ## Your process
 
 1. **Assess the content** — how much substance is there?
-2. **Choose the tool** — see Deciding the tool and structure above
-3. **If content is rich** — call `/mnt/skills/plugins/markdown-format/SKILL.md`
-      BEFORE writing any Markdown. Do not proceed until the file is read.
-4. **Prepare the input** — curate and organize following markdown-format rules; do not paste raw chat messages
-5. **Call the tool**
-6. **Build the link and show the result** — see After the tool responds below
+2. **Plan the structure** — choose pages from the Typical page structures table; apply Page rules
+3. **Prepare the Markdown** — curate and organize following `markdown-format` rules; do not paste raw chat messages
+4. **Call the tool**
+5. **Build the link and show the result** — see After the tool responds below
 
 ## After the tool responds
-
-**If you used `xtiles_structure_information`:**
-
-🔗 Open project in xTiles: {tool_response_url}
-
-CRITICAL: {tool_response_url} must be replaced with the complete URL returned by the tool — use it verbatim, do not prepend the domain.
-Example: `https://xtiles.app/6a1803637baeda338dd82052`
-
-**[Project title]**
-2–3 sentences describing what the project contains.
-
-**If you used `xtiles_create_project_from_markdown`:**
 
 🔗 **[Share it with your team](https://xtiles.app/{view_id}), or keep building — add another page anytime by running this again in a new chat.**
 
@@ -103,13 +69,11 @@ Example: `https://xtiles.app/6a180381f6c69705d68096c0`
 **[Project title]**
 2–3 sentences describing what the project contains.
 Pages:
-Page 1
-Page 2
-Page 3
+- [Page 1 title]
+- [Page 2 title]
+- [Page 3 title]
 
 ## Rules
 
-- Match tool and structure to content volume — see Deciding the tool above
-- Curate content before passing to the tool — organize and enrich first
 - Always show the link first after the tool responds
 - If the tool fails — show the error and suggest trying again
