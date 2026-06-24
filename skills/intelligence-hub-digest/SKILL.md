@@ -39,7 +39,7 @@ allowed-tools: >
   mcp__claude_ai_Amplitude__authenticate,
   mcp__claude_ai_Amplitude__complete_authentication,
   AskUserQuestion,
-  CronCreate
+  anthropic-skills:schedule
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -229,18 +229,18 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 **After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? I can set it up so your Daily is ready in xTiles by 9:00 AM."
 
-- If the user selects **"Yes, schedule it"** — call `CronCreate` directly with:
+- If the user selects **"Yes, schedule it"** — invoke `anthropic-skills:schedule` with:
   - **`prompt`**: the full config string assembled from values collected during setup —
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
     ```
     Replace `{role}`, `{tools}`, `{content}` with the actual values. Do not leave placeholders.
   - **`schedule`**: `0 9 * * *` (every day at 09:00)
-  - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before creating the cron if it hasn't been fetched yet.
+  - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
   This prompt fires each morning and triggers `intelligence-hub-digest` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After `CronCreate` succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at 9:00 AM."
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at 9:00 AM."
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
