@@ -3,7 +3,7 @@ name: daily-brief
 description: >
   Use when the user wants to set up OR run their xTiles Daily planner —
   a Daily page that serves as a live morning brief from connected tools
-  (Slack, Gmail, Calendar, Analytics) plus signals that need attention.
+  (Slack, Gmail) plus signals that need attention.
   Only the Daily period is supported.
 
   Setup triggers: "set up my planner", "personalize my workspace",
@@ -25,9 +25,6 @@ allowed-tools: >
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
-  mcp__claude_ai_Google_Calendar__list_events,
-  mcp__claude_ai_Amplitude__query_chart,
-  mcp__claude_ai_Amplitude__get_experiments,
   mcp__mcp-registry__suggest_connectors,
   AskUserQuestion,
   anthropic-skills:schedule,
@@ -67,23 +64,17 @@ If the request is general — run the full flow.
 **Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
 - Gmail
-- Google Calendar
-- PostHog
-- Amplitude
 - Other (describe in next message)
 
 If "Other" is selected — ask a follow-up: "Which tool(s)? Just name them — I'll figure out what's available."
 
 After receiving answers — detect which MCP tools are actually available:
 
-| Connector | Identifying MCP tools                                                                                              |
-|-----------|--------------------------------------------------------------------------------------------------------------------|
-| Slack     | `mcp__claude_ai_Slack__slack_send_message`, `mcp__claude_ai_Slack__slack_read_channel`                             |
-| Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread`    |
-| Calendar  | `mcp__claude_ai_Google_Calendar__list_events`, `mcp__claude_ai_Google_Calendar__create_event`                      |
-| PostHog   | `query_chart` + `get_from_url` + `get_events`                                                                      |
-| Amplitude | `mcp__claude_ai_Amplitude__query_chart` + `mcp__claude_ai_Amplitude__get_experiments`                              |
-| xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                     |
+| Connector | Identifying MCP tools                                                                                           |
+|-----------|-----------------------------------------------------------------------------------------------------------------|
+| Slack     | `mcp__claude_ai_Slack__slack_send_message`, `mcp__claude_ai_Slack__slack_read_channel`                         |
+| Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread`|
+| xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                  |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
@@ -99,10 +90,8 @@ Question: "What do you want to see on your Daily each morning?"
 
 Options — include only those relevant to connected tools:
 - Unread emails that need a reply *(only if Gmail connected)*
+- Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
 - Slack messages from key channels *(only if Slack connected)*
-- Today's meetings *(only if Calendar connected)*
-- Key metrics *(only if PostHog or Amplitude connected)*
-- Evening reflection prompts
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
@@ -113,10 +102,8 @@ Call `mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. 
 Include the found channels as options plus one fixed option: **"Other — I'll type the names"**.
 If the user selects "Other" — follow up: "Which channels? Type the names, comma-separated." Add them to the list as-is.
 
-**If Analytics (PostHog or Amplitude) is selected and detected as connected:**
-Ask for chart links or metric names to pull.
-- PostHog: use `get_from_url` + `query_chart`
-- Amplitude: `get_from_url` unavailable — save URL as text, fetch via `mcp__claude_ai_Amplitude__query_chart` / `mcp__claude_ai_Amplitude__get_experiments`
+**If Newsletters is selected:**
+Ask via `AskUserQuestion`: "Which newsletters do you want to track? Name the sender or publication — e.g. 'Morning Brew', 'Lenny's Newsletter'." Add all named senders to the config.
 
 **General rule:** if the user writes something custom — add it as-is. Don't reshape it into a predefined option.
 
@@ -126,16 +113,16 @@ Ask for chart links or metric names to pull.
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Calendar**: today's events only (`mcp__claude_ai_Google_Calendar__list_events`)
-- **Gmail**: unread important messages (`mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`)
-- **Slack**: recent messages from the user's chosen channels (`mcp__claude_ai_Slack__slack_read_channel`, top 20–30)
+- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+- **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ...) is:unread newer_than:1d` using the senders the user named. Fetch each thread for a one-line summary and link.
+- **Slack**: recent messages from the user's chosen channels (`mcp__claude_ai_Slack__slack_read_channel`, top 20–30).
 
-Analyze what you get. Classify each signal:
+Analyze what you get. Classify each email/Slack signal:
 - 🔴 needs a decision, reply, or action today
 - 🟡 informational / can wait
 
 Use only real data from connectors. Do not invent names, events, or messages.
-All names, meeting titles, and message content must come directly from API responses — never from examples in this skill file.
+All names and message content must come directly from API responses — never from examples in this skill file.
 
 If a connector call fails (error, timeout, 401) — record the failure. Do not write "No data" for a failed call — surface the error explicitly in step 5 so the user knows the connector did not respond.
 
@@ -151,24 +138,30 @@ Format (adapt to selected pages):
 Here's what I've prepared:
 
 ---
-📅 DAILY — [actual dateп]
+📅 DAILY — [actual date]
 
-### [Section based on user's choices]
-🔴 [Real signal from connector] | [link if available]
-🟡 [Real signal from connector]
+### Emails
+🔴 [Subject] — from [Sender] | https://mail.google.com/mail/u/0/#inbox/{threadId}
 
-### Today's meetings
-[Real events from Calendar with actual titles and times]
+🟡 [Subject] — from [Sender] | https://mail.google.com/mail/u/0/#inbox/{threadId}
 
-### Gmail
-[Real unread threads or "Inbox clear — no important unread email"]
+### Newsletters
+[Newsletter name] — [one-line summary] | https://mail.google.com/mail/u/0/#inbox/{threadId}
+
+### Slack — #[channel]
+🔴 [Real message signal]
+
+🟡 [Real message signal]
 
 ---
 ```
 
+Each email and newsletter entry must include its direct Gmail link using the real `threadId` from `get_thread`.
+Separate each item with a blank line for readability.
+
 **Rules:**
 - Show only selected sections the user asked for
-- If a connector returned no data — write exactly that ("No unread emails", "No meetings today") — don't skip silently
+- If a connector returned no data — write exactly that ("No unread emails", "No newsletters today") — don't skip silently
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
 - After the preview, ask: "Does this look right? Anything to change?"
@@ -193,7 +186,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `period`: "day"
 - `date`: current date in ISO 8601
 
-**Write all sections in a single call.** Combine Gmail, Slack, Calendar, and any other selected connectors into one markdown and call the tool once — never split into separate calls per connector.
+**Write all sections in a single call.** Combine all selected connectors (Gmail, Slack, etc.) into one markdown and call the tool once — never split into separate calls per connector.
 
 **Tile formatting** — each `###` section must include color and style annotations immediately after the heading (no blank line between):
 
@@ -209,6 +202,13 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `@color` — pick randomly for each section from:
   `GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR`
 - Each section gets a different color — do not repeat the same color twice in a row
+
+**Content formatting inside each tile:**
+- Separate each item with a blank line — never write items as a continuous block
+- Each email / newsletter / Slack signal is its own paragraph
+- For emails and newsletters: `[priority emoji] [Subject] — from [Sender]\n[link]`
+- For Slack signals: `[priority emoji] [signal summary]`
+- This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
@@ -353,8 +353,6 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
       <div class="cards" id="tool-cards">
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
-        <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
-        <div class="card" onclick="togTool(this,'Analytics')"><div class="chk">✓</div>Analytics</div>
         <div class="card" onclick="togTool(this,'__other__')"><div class="chk">✓</div>Other…</div>
       </div>
       <div class="custom-in" id="tool-other-wrap" style="display:none">
@@ -388,19 +386,17 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
 var role=null, tools=new Set(), content=new Set();
 
 var TM={
-  'Slack':    {daily:['Slack messages — work chat signals']},
-  'Gmail':    {daily:['Important emails — unread inbox']},
-  'Calendar': {daily:["Today's meetings"]},
-  'Analytics':{daily:['Daily metrics']}
+  'Slack': {daily:['Slack messages — work chat signals']},
+  'Gmail': {daily:['Important emails — unread inbox','Newsletters — curated summaries']}
 };
-var AM=['Evening reflection'];
+var AM=[];
 
 var ROLE_DEFAULTS={
-  'Product Manager':   ['Slack messages — work chat signals',"Today's meetings",'Important emails — unread inbox'],
-  'Designer':          ['Slack messages — work chat signals',"Today's meetings"],
+  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox'],
+  'Designer':          ['Slack messages — work chat signals','Important emails — unread inbox'],
   'Engineer':          ['Slack messages — work chat signals','Important emails — unread inbox'],
-  'Growth & Marketing':['Daily metrics','Important emails — unread inbox',"Today's meetings"],
-  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox',"Today's meetings",'Daily metrics'],
+  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals'],
+  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries'],
   'Support & Success': ['Important emails — unread inbox','Slack messages — work chat signals']
 };
 
@@ -512,7 +508,7 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
 - Never put example names, example events, or example messages into the preview — only real data from connectors
-- **All clarifying questions after the main survey form** (channel selection, metric links, approval, change requests) — use `AskUserQuestion`, not plain text
+- **All clarifying questions after the main survey form** (channel selection, newsletter names, approval, change requests) — use `AskUserQuestion`, not plain text
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
