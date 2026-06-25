@@ -25,6 +25,8 @@ allowed-tools: >
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
+  mcp__claude_ai_Google_Calendar__list_events,
+  mcp__claude_ai_Granola__list_meetings,
   mcp__mcp-registry__suggest_connectors,
   AskUserQuestion,
   anthropic-skills:schedule,
@@ -74,6 +76,8 @@ After receiving answers — detect which MCP tools are actually available:
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                      |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread`|
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                  |
+| Calendar  | `mcp__claude_ai_Google_Calendar__list_events`                                                                   |
+| Granola   | `mcp__claude_ai_Granola__list_meetings`                                                                         |
 | Linear    | `mcp__claude_ai_Linear__list_issues`                                                                            |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
@@ -94,6 +98,7 @@ Options — include only those relevant to connected tools:
 - Unread emails that need a reply *(only if Gmail connected)*
 - Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
 - Slack messages from key channels *(only if Slack connected)*
+- Workload — calendar analysis: day shape, conflicts, focus windows *(only if Calendar connected)*
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
@@ -123,6 +128,11 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR *@substack.com OR *@beehiiv.com OR *@convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: recent messages from the user's chosen channels (`mcp__claude_ai_Slack__slack_read_channel`, top 20–30).
+- **Calendar (Workload)**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. Compute:
+  - **Day shape** (one summary line): meetings count, total hours occupied, longest free focus window with exact times, and an evening density note if the schedule is heavy after 18:00 — e.g. "4 зустрічі, 4 год зайнято. Вільне вікно 13:38–18:00 — найдовший фокус-блок. Вечір щільний (18:00–23:30)."
+  - **Conflicts**: overlapping events with exact times; back-to-back with no gap between them
+  - **Anomalies**: prefix with ⚠️ — events after 20:00, events without description/agenda, and potential duplicates (two events with similar titles close together, show as "Дубль? [Title A] та [Title B] поспіль — перевір запрошення")
+  - **Context per meeting** (prefix with 🧠, only if Granola or Gmail connected): for each notable meeting name the meeting, then — last Granola note involving the same participants, and/or most recent open Gmail thread with the organiser. Format: "до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]"
 
 Analyze what you get. Classify each email/Slack signal:
 - 🔴 needs a decision, reply, or action today
@@ -156,12 +166,18 @@ Here's what I've prepared:
 
 ### Newsletter: [Name]
 [One-line summary]
-[Read →](https://mail.google.com/mail/u/0/#inbox/{threadId})
+[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
 ### Slack — #[channel]
 🔴 [Real message signal]
 
 🟡 [Real message signal]
+
+### ⚡ Workload
+[N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM][· evening packed [HH:MM]–[HH:MM] — if 3+ h of meetings after 18:00]
+⚠️ [Conflict — e.g. "Growth Brainstorm (18:00–19:30) overlaps Meet with Alex (18:30)"]
+⚠️ Дубль? [Title A] та [Title B] поспіль — перевір запрошення
+🧠 до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]
 
 ---
 ```
@@ -217,8 +233,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 **Content formatting inside each tile:**
 - Separate each item with a blank line — never write items as a continuous block
 - **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets
-- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name; body = short 2–3 sentence summary + `[Read →](https://mail.google.com/mail/u/0/#inbox/{threadId})` as the last line. **Skip the tile entirely if there are no unread issues from that newsletter.**
+- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name; body = short 2–3 sentence summary + `[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})` as the last line. **Skip the tile entirely if there are no unread issues from that newsletter.**
 - **Slack**: one entry per notable signal — `🔴 [signal summary](slack-message-url)` if URL is available, or `🔴 signal summary` if not — emoji always before the `[`, never inside the brackets.
+- **Workload**: single tile titled `⚡ Workload`. Line 1: day shape — meetings count, hours occupied, focus window with exact times, and "evening packed HH:MM–HH:MM" if 3+ hours of meetings are after 18:00. Then one line per conflict/anomaly prefixed with ⚠️ — duplicates shown as "Дубль? [Title A] та [Title B] поспіль — перевір запрошення". Then 🧠 context lines per notable meeting: "до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]". Omit Workload tile entirely if Calendar returned no events.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
@@ -234,10 +251,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 ```
 ✅ [Page name] created.
-🔗 [Open in xTiles](https://xtiles.app/{view_id})
 ```
 
-Translate the link label ("Open in xTiles") into the user's language.
+Then call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. This renders a tappable button — never rely on a markdown link alone.
+
+Translate button label ("Open in xTiles") into the user's language.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
@@ -368,16 +386,13 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="cards" id="tool-cards">
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
+        <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
+        <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
         <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
         <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
-        <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
         <div class="card" onclick="togTool(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
         <div class="card" onclick="togTool(this,'Gamma')"><div class="chk">✓</div>Gamma</div>
         <div class="card" onclick="togTool(this,'Figma')"><div class="chk">✓</div>Figma</div>
-        <div class="card" onclick="togTool(this,'__other__')"><div class="chk">✓</div>Other…</div>
-      </div>
-      <div class="custom-in" id="tool-other-wrap" style="display:none">
-        <input id="tool-other-in" type="text" placeholder="Other tools (comma-separated)…">
       </div>
     </div>
 
@@ -409,9 +424,10 @@ var role=null, tools=new Set(), content=new Set();
 var TM={
   'Slack':       {daily:['Slack messages — work chat signals']},
   'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries']},
+  'Calendar':    {daily:['Workload — calendar analysis']},
+  'Granola':     {daily:['Granola — meeting notes & summaries']},
   'Linear':      {daily:['Linear issues — new & updated']},
   'GitHub':      {daily:['GitHub — PRs & review requests']},
-  'Granola':     {daily:['Granola — meeting notes & summaries']},
   'GoogleDrive': {daily:['Google Drive — shared files updated']},
   'Gamma':       {daily:['Gamma — presentations updated']},
   'Figma':       {daily:['Figma — design updates & comments']}
@@ -419,11 +435,11 @@ var TM={
 var AM=[];
 
 var ROLE_DEFAULTS={
-  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Granola — meeting notes & summaries'],
-  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox'],
-  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated'],
-  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated'],
-  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries'],
+  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis','Linear issues — new & updated','Granola — meeting notes & summaries'],
+  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis'],
+  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — calendar analysis'],
+  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated','Workload — calendar analysis'],
+  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries','Workload — calendar analysis'],
   'Support & Success': ['Important emails — unread inbox','Slack messages — work chat signals']
 };
 
@@ -435,11 +451,7 @@ function pickRole(el,v){
 }
 function togTool(el,v){
   el.classList.toggle('sel');
-  if(v==='__other__'){
-    document.getElementById('tool-other-wrap').style.display=el.classList.contains('sel')?'block':'none';
-  } else {
-    el.classList.contains('sel')?tools.add(v):tools.delete(v);
-  }
+  el.classList.contains('sel')?tools.add(v):tools.delete(v);
   chkNext();
 }
 function chkNext(){
@@ -466,28 +478,36 @@ function renderContent(){
     var s=content.has(o)?' sel':'';
     html+='<div class="ci'+s+'" onclick="togCI(this,\''+o.replace(/'/g,"\\'")+'\')" ><div class="chk">✓</div>'+o+'</div>';
   });
-  html+='<div class="ci" onclick="togOther(this)"><div class="chk">+</div>Something else…</div>';
-  html+='<div class="custom-in" id="co-daily" style="display:none"><input type="text" placeholder="What else…"></div>';
   document.getElementById('daily-content').innerHTML=html;
 }
 function togCI(el,v){el.classList.toggle('sel');el.classList.contains('sel')?content.add(v):content.delete(v);}
-function togOther(el){
-  el.classList.toggle('sel');
-  var w=document.getElementById('co-daily');
-  if(w)w.style.display=el.classList.contains('sel')?'block':'none';
-}
 function submit(){
   var r=role==='__other__'?document.getElementById('role-other-in').value.trim():role;
   var tArr=Array.from(tools);
-  var tOther=document.getElementById('tool-other-in').value.trim();
-  if(tOther)tArr.push(tOther);
-  var items=Array.from(content);
-  var inp=document.getElementById('co-daily');
-  if(inp){var v=inp.querySelector('input');if(v&&v.value.trim())items.push(v.value.trim());}
+  var valid=[];
+  tArr.forEach(function(t){if(TM[t]&&TM[t].daily)TM[t].daily.forEach(function(i){if(valid.indexOf(i)<0)valid.push(i)});});
+  AM.forEach(function(i){if(valid.indexOf(i)<0)valid.push(i)});
+  var items=Array.from(content).filter(function(i){return valid.indexOf(i)>=0;});
   var parts=['Daily planner setup — role: '+r+' · tools: '+(tArr.join(', ')||'none')+' · daily_content: '+(items.join(', ')||'none')];
   sendPrompt(parts.join(' · '));
 }
 </script>
+```
+
+---
+
+## CTA widget HTML
+
+Show this immediately after a successful write. Replace `{VIEW_URL}` with the real xTiles page URL before calling `show_widget`.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
+.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
+.btn:hover{background:#333}
+</style>
+<a class="btn" href="{VIEW_URL}" target="_blank">Open in xTiles →</a>
 ```
 
 ---

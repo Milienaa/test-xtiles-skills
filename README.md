@@ -61,7 +61,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 ### Capture & Save
 | Skill | Description |
 |---|---|
-| `/daily-note` | Save today's conversation as a note in your xTiles Planner |
+| `/take-note` | Save today's conversation as a note in your xTiles Planner |
 | `/completed-task` | Log finished work from the current chat as a completed task |
 | `/create-project` | Turn a conversation or content into a structured xTiles project — in your workspace when signed in, or as a shareable public project otherwise |
 
@@ -69,7 +69,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 | Skill | Description |
 |---|---|
 | `/daily-brief` | Set up your Daily planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, and more |
-| `/daily-news` | Generate a fresh morning news digest on a topic and optionally save it to xTiles Daily |
+| `/today-news` | Generate a fresh morning news digest on a topic and optionally save it to xTiles Daily |
 
 > The plugin also includes an internal `markdown-format` reference used by other
 > skills to structure xTiles pages. It is not meant to be invoked directly.
@@ -77,11 +77,11 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 ## Examples
 
 ```
-/daily-note Save today's key decisions and outcomes
+/take-note Save today's key decisions and outcomes
 /completed-task Log the API integration we just finished
 /create-project Turn this research into a shareable xTiles board
 /daily-brief Connect Gmail, Slack, and Calendar for a daily digest
-/daily-news Give me morning news about AI product launches
+/today-news Give me morning news about AI product launches
 ```
 
 ### Or naturally:

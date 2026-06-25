@@ -1,5 +1,5 @@
 ---
-name: daily-note
+name: take-note
 description: Convert the current chat into a note in today's xTiles daily note.
   Use when the user wants to save a chat summary to their daily note, journal,
   diary, or daily log, capture today's conversation, or record the outcome of
