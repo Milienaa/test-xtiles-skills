@@ -1,6 +1,7 @@
 ---
 name: today-news
-description: Generate a fresh morning news digest from the web based on user interests.
+description: >
+  Generate a fresh morning news digest from the web based on user interests.
   Use when the user asks for daily news, morning news, latest updates, a news
   briefing, or wants to track a topic, company, market, or technology.
   Trigger phrases: "give me morning news", "what's happening in AI today",
