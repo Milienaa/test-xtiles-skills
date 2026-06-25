@@ -1,5 +1,5 @@
 ---
-name: daily-news
+name: today-news
 description: Generate a fresh morning news digest on a user-specified topic.
   Use when the user asks for daily news, morning news, latest updates, a news
   briefing, newsletter digest, or a recurring digest about a topic, company,
