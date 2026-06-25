@@ -44,8 +44,9 @@ tomorrow.
 1. **Survey first, write to xTiles last.** On setup and on the first manual run,
    nothing is created until the user has seen a preview and approved it. Only
    scheduled runs (with an approved config) act autonomously.
-2. **Real data, not placeholders.** Pull from connectors before preview so the
-   user sees live content. Never invent names, meetings, or messages.
+2. **Real data, not placeholders.** Always pull from Claude's own chat history
+   (no connector needed) and from any connected tools before preview so the user
+   sees live content. Never invent names, meetings, or messages.
 3. **Match the user's language** throughout the entire flow — match the language
    of the user's first message and adapt if they switch.
 
@@ -187,12 +188,13 @@ Then pull from selected connectors:
   for sender/subject/threadId.
 - **Calendar / meeting notes** *(if connected)*: today's events; separate
   meetings-with-others (attendees > 1) from solo work blocks.
-- **Claude chat history (today)** *(if `mcp__session_info__list_sessions` is
-  available)*: list today's sessions, then `mcp__session_info__read_transcript`
-  on the relevant ones. Extract concrete *outcomes* — what was actually built,
-  solved, decided, or shipped (e.g. "wrote the launch email", "fixed the auth
-  bug", "researched competitors"). Ignore abandoned or purely exploratory
-  threads. These outcomes feed both the reflection and the auto-log.
+- **Claude chat history (today)** — **always run, no connector needed**: call
+  `mcp__session_info__list_sessions` to get today's sessions, then
+  `mcp__session_info__read_transcript` on the relevant ones. Extract concrete
+  *outcomes* — what was actually built, solved, decided, or shipped (e.g.
+  "wrote the launch email", "fixed the auth bug", "researched competitors").
+  Ignore abandoned or purely exploratory threads. These outcomes feed both the
+  reflection and the auto-log.
 
 Use only real data from connectors. If a connector call fails (error, timeout,
 401) — record the failure and surface it explicitly later as "Could not fetch
