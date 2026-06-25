@@ -75,7 +75,6 @@ After receiving answers — detect which MCP tools are actually available:
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                      |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread`|
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                  |
-| Notion    | `mcp__claude_ai_Notion__search_pages`                                                                           |
 | Linear    | `mcp__claude_ai_Linear__list_issues`                                                                            |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
@@ -374,7 +373,6 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="cards" id="tool-cards">
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
-        <div class="card" onclick="togTool(this,'Notion')"><div class="chk">✓</div>Notion</div>
         <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
         <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
         <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
@@ -416,7 +414,6 @@ var role=null, tools=new Set(), content=new Set();
 var TM={
   'Slack':       {daily:['Slack messages — work chat signals']},
   'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries']},
-  'Notion':      {daily:['Notion updates — pages changed overnight']},
   'Linear':      {daily:['Linear issues — new & updated']},
   'GitHub':      {daily:['GitHub — PRs & review requests']},
   'Granola':     {daily:['Granola — meeting notes & summaries']},
@@ -427,8 +424,8 @@ var TM={
 var AM=[];
 
 var ROLE_DEFAULTS={
-  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Notion updates — pages changed overnight','Linear issues — new & updated','Granola — meeting notes & summaries'],
-  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox','Notion updates — pages changed overnight'],
+  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Granola — meeting notes & summaries'],
+  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox'],
   'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated'],
   'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated'],
   'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries'],
