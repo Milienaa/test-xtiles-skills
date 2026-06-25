@@ -69,6 +69,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 | Skill | Description |
 |---|---|
 | `/daily-brief` | Set up your Daily planner and run a personalized daily digest from connected tools — Gmail, Slack, Calendar, and more |
+| `/daily-news` | Generate a fresh morning news digest on a topic and optionally save it to xTiles Daily |
 
 > The plugin also includes an internal `markdown-format` reference used by other
 > skills to structure xTiles pages. It is not meant to be invoked directly.
@@ -80,6 +81,7 @@ See [Permissions & data](#permissions--data) for what the plugin can access, and
 /completed-task Log the API integration we just finished
 /create-project Turn this research into a shareable xTiles board
 /daily-brief Connect Gmail, Slack, and Calendar for a daily digest
+/daily-news Give me morning news about AI product launches
 ```
 
 ### Or naturally:
