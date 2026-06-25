@@ -358,11 +358,11 @@ the same date/period, extract `view_id`, and confirm:
 
 ```
 ✅ Evening reflection saved.
-🔗 [Open in xTiles](https://xtiles.app/{view_id})
 ```
 
-Translate the link label into the user's language. On error, say briefly what went
-wrong and offer to retry.
+Then call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. This renders a tappable button — never rely on a markdown link alone.
+
+Translate the button label into the user's language. On error, say briefly what went wrong and offer to retry.
 
 ---
 
@@ -385,7 +385,7 @@ every evening automatically? What time? (default: 9:00 PM)".
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
       Confirm: "Done — your reflection will write to xTiles every evening at [time]."
-      Then re-show today's page link (`view_id` from step 7).
+      Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` from step 7.
 - If the user declines — acknowledge briefly and stop.
 
 ---
@@ -620,6 +620,22 @@ function scheduleIt(){
   sendPrompt('Yes, schedule my evening reflection at '+label+' every day (cron: '+t+')');
 }
 </script>
+```
+
+---
+
+## CTA widget HTML
+
+Show immediately after a successful write and after scheduling confirmation. Replace `{VIEW_URL}` with the real xTiles page URL before calling `show_widget`.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
+.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
+.btn:hover{background:#333}
+</style>
+<a class="btn" href="{VIEW_URL}" target="_blank">Open in xTiles →</a>
 ```
 
 ---
