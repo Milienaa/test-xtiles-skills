@@ -64,9 +64,8 @@ If the request is general — run the full flow.
 **Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
 - Gmail
-- Other (describe in next message)
+- Other 
 
-If "Other" is selected — ask a follow-up: "Which tool(s)? Just name them — I'll figure out what's available."
 
 After receiving answers — detect which MCP tools are actually available:
 
@@ -102,16 +101,12 @@ Do NOT suggest tasks — they're already in xTiles by default.
 **If Slack is selected and the user has not already named their channels:**
 Call `mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. Ask via `AskUserQuestion` (multi allowed):
 "Which channels do you open first each morning? Pick all that matter."
-Include the found channels as options plus one fixed option: **"Other — I'll type the names"**.
-If the user selects "Other" — follow up: "Which channels? Type the names, comma-separated." Add them to the list as-is.
 
 **If Newsletters is selected:**
 First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
 
 If publications found — present as multi-select via `AskUserQuestion` (multiSelect: true):
 "Which newsletters do you want in your Daily? I found these in your inbox:"
-Options = [each found publication name] + **"Other — I'll type the names"**.
-If "Other" is selected — follow up: "Which other newsletters? Name the sender or publication." Merge typed names into the selection.
 
 If nothing found — ask: "Which newsletters do you want to track? Name the sender or publication — e.g. 'Morning Brew', 'Lenny's Newsletter'."
 
