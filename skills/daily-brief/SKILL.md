@@ -72,11 +72,14 @@ After receiving answers — detect which MCP tools are actually available:
 
 | Connector | Identifying MCP tools                                                                                           |
 |-----------|-----------------------------------------------------------------------------------------------------------------|
-| Slack     | `mcp__claude_ai_Slack__slack_send_message`, `mcp__claude_ai_Slack__slack_read_channel`                         |
+| Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                      |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread`|
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                  |
+| Linear    | `mcp__claude_ai_Linear__list_issues`                                                                            |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
+
+**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. Carry the full list of selected tools through every subsequent step — never discard what the user picked.
 
 **If xTiles is not connected** — do not continue. Immediately walk the user through connecting xTiles (see **How to connect connectors** below). Wait for confirmation that xTiles is connected before proceeding.
 
@@ -103,7 +106,16 @@ Include the found channels as options plus one fixed option: **"Other — I'll t
 If the user selects "Other" — follow up: "Which channels? Type the names, comma-separated." Add them to the list as-is.
 
 **If Newsletters is selected:**
-Ask via `AskUserQuestion`: "Which newsletters do you want to track? Name the sender or publication — e.g. 'Morning Brew', 'Lenny's Newsletter'." Add all named senders to the config.
+First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
+
+If publications found — present as multi-select via `AskUserQuestion` (multiSelect: true):
+"Which newsletters do you want in your Daily? I found these in your inbox:"
+Options = [each found publication name] + **"Other — I'll type the names"**.
+If "Other" is selected — follow up: "Which other newsletters? Name the sender or publication." Merge typed names into the selection.
+
+If nothing found — ask: "Which newsletters do you want to track? Name the sender or publication — e.g. 'Morning Brew', 'Lenny's Newsletter'."
+
+Add all selected/typed senders to the config. Tip: newsletters typically come from `@substack.com`, `@beehiiv.com`, `@convertkit.com`, `@mailchimp.com`.
 
 **General rule:** if the user writes something custom — add it as-is. Don't reshape it into a predefined option.
 
@@ -114,7 +126,7 @@ Ask via `AskUserQuestion`: "Which newsletters do you want to track? Name the sen
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
-- **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ...) is:unread newer_than:1d` using the senders the user named. Fetch each thread for a one-line summary and link.
+- **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR *@substack.com OR *@beehiiv.com OR *@convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: recent messages from the user's chosen channels (`mcp__claude_ai_Slack__slack_read_channel`, top 20–30).
 
 Analyze what you get. Classify each email/Slack signal:
@@ -141,12 +153,15 @@ Here's what I've prepared:
 📅 DAILY — [actual date]
 
 ### Emails
-🔴 [Subject] — from [Sender] | https://mail.google.com/mail/u/0/#inbox/{threadId}
+🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-🟡 [Subject] — from [Sender] | https://mail.google.com/mail/u/0/#inbox/{threadId}
+🟡 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-### Newsletters
-[Newsletter name] — [one-line summary] | https://mail.google.com/mail/u/0/#inbox/{threadId}
+*(emoji always before the `[`, never inside)*
+
+### Newsletter: [Name]
+[One-line summary]
+[Read →](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
 ### Slack — #[channel]
 🔴 [Real message signal]
@@ -156,7 +171,8 @@ Here's what I've prepared:
 ---
 ```
 
-Each email and newsletter entry must include its direct Gmail link using the real `threadId` from `get_thread`.
+Each email entry must be a Markdown hyperlink using the real `threadId` from `get_thread`.
+Each newsletter is shown as its own named section in the preview.
 Separate each item with a blank line for readability.
 
 **Rules:**
@@ -205,9 +221,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Content formatting inside each tile:**
 - Separate each item with a blank line — never write items as a continuous block
-- Each email / newsletter / Slack signal is its own paragraph
-- For emails and newsletters: `[priority emoji] [Subject] — from [Sender]\n[link]`
-- For Slack signals: `[priority emoji] [signal summary]`
+- **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets
+- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name; body = short 2–3 sentence summary + `[Read →](https://mail.google.com/mail/u/0/#inbox/{threadId})` as the last line. **Skip the tile entirely if there are no unread issues from that newsletter.**
+- **Slack**: one entry per notable signal — `🔴 [signal summary](slack-message-url)` if URL is available, or `🔴 signal summary` if not — emoji always before the `[`, never inside the brackets.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
@@ -234,7 +250,7 @@ Translate the link label ("Open in xTiles") into the user's language.
 
 ### 8. Schedule (optional)
 
-**After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? I can set it up so your Daily is ready in xTiles by 9:00 AM."
+**After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? What time should I run it? (default: 9:00 AM)"
 
 - If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
@@ -242,12 +258,14 @@ Translate the link label ("Open in xTiles") into the user's language.
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
     ```
     Replace `{role}`, `{tools}`, `{content}` with the actual values. Do not leave placeholders.
-  - **`schedule`**: `0 9 * * *` (every day at 09:00)
+  - **`schedule`**: cron expression derived from the time the user selected in the widget. The widget sends `cron: HH:MM` in the message — parse that value and build the cron: `M H * * *` where H = hour, M = minute. Example: user picks 08:30 → `30 8 * * *`. If no time is found in the message, default to `0 9 * * *`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at 9:00 AM."
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then show the link to today's already-created page again (use the `view_id` from step 7):
+
+  🔗 [Open today's Daily in xTiles](https://xtiles.app/{view_id})
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
@@ -287,42 +305,44 @@ After Submit, the user sends a string of answers to chat — process it and cont
 
 ```html
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8;color:#1a1a1a}
-.wrap{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-h2{font-size:18px;font-weight:700;margin-bottom:4px}
-.step-label{font-size:12px;color:#aaa;margin-bottom:20px}
-.sec{margin-bottom:22px}
-.sec-title{font-size:13px;font-weight:600;color:#444;margin-bottom:8px}
-.hint{font-size:12px;color:#aaa;margin-bottom:8px}
-.pills{display:flex;flex-wrap:wrap;gap:7px}
-.pill{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;color:#333;user-select:none;transition:all .15s}
-.pill:hover{border-color:#aaa}
-.pill.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-.cards{display:flex;flex-wrap:wrap;gap:8px}
-.card{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;color:#333;user-select:none;transition:all .15s}
-.card:hover{border-color:#aaa}
-.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-.chk{width:15px;height:15px;border-radius:4px;border:1.5px solid #ccc;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
-.card.sel .chk{background:#fff;border-color:#fff;color:#1a1a1a}
-.custom-in{margin-top:9px}
-.custom-in input{width:100%;padding:7px 11px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;outline:none}
-.custom-in input:focus{border-color:#999}
-.checks{display:flex;flex-direction:column;gap:5px;margin-top:6px}
-.ci{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
-.ci:hover{border-color:#aaa}
-.ci.sel{border-color:#1a1a1a;background:#f5f5f5}
-.ci .chk{flex-shrink:0}
-.ci.sel .chk{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
-.divider{height:1px;background:#f0f0f0;margin:18px 0}
-.btn-row{display:flex;gap:10px;margin-top:22px}
-.btn{padding:9px 18px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.btn-p{background:#1a1a1a;color:#fff;flex:1}
-.btn-p:hover:not(:disabled){background:#333}
-.btn-p:disabled{background:#ccc;cursor:not-allowed}
-.btn-s{background:#f0f0f0;color:#333}
-.btn-s:hover{background:#e0e0e0}
+    :root{--color-background-primary:#fff;--color-background-secondary:#f5f5f5;--color-background-tertiary:#f8f8f8;--color-text-primary:#1a1a1a;--color-text-secondary:#888;--color-border-secondary:#aaa;--color-border-tertiary:#e0e0e0}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:var(--color-background-tertiary);color:var(--color-text-primary)}
+    .wrap{max-width:560px;margin:0 auto;background:var(--color-background-primary);border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+    h2{font-size:18px;font-weight:700;margin-bottom:4px;color:var(--color-text-primary)}
+    .step-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:20px}
+    .sec{margin-bottom:22px}
+    .sec-title{font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:8px}
+    .hint{font-size:12px;color:var(--color-text-secondary);margin-bottom:8px}
+    .pills{display:flex;flex-wrap:wrap;gap:7px}
+    .pill{padding:6px 14px;border-radius:20px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
+    .pill:hover{border-color:var(--color-border-secondary)}
+    .pill.sel{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+    .cards{display:flex;flex-wrap:wrap;gap:8px}
+    .card{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
+    .card:hover{border-color:var(--color-border-secondary)}
+    .card.sel{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+    .chk{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+    .card.sel .chk{background:var(--color-background-primary);border-color:var(--color-background-primary);color:var(--color-text-primary)}
+    .custom-in{margin-top:9px}
+    .custom-in input{width:100%;padding:7px 11px;border:1.5px solid var(--color-border-tertiary);border-radius:8px;font-size:13px;outline:none;background:var(--color-background-primary);color:var(--color-text-primary)}
+    .custom-in input:focus{border-color:var(--color-border-secondary)}
+    .checks{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+    .ci{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
+    .ci:hover{border-color:var(--color-border-secondary)}
+    .ci.sel{border-color:var(--color-text-primary);background:var(--color-background-secondary)}
+    .ci .chk{flex-shrink:0}
+    .ci.sel .chk{background:var(--color-text-primary);border-color:var(--color-text-primary);color:var(--color-background-primary)}
+    .divider{height:1px;background:var(--color-border-tertiary);margin:18px 0}
+    .btn-row{display:flex;gap:10px;margin-top:22px}
+    .btn{padding:9px 18px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-p{background:var(--color-text-primary);color:var(--color-background-primary);flex:1}
+    .btn-p:hover:not(:disabled){opacity:0.9}
+    .btn-p:disabled{opacity:0.5;cursor:not-allowed}
+    .btn-s{background:var(--color-background-secondary);color:var(--color-text-primary)}
+    .btn-s:hover{background:var(--color-border-secondary)}
 </style>
+
 
 <div class="wrap" id="app">
 
@@ -353,6 +373,12 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
       <div class="cards" id="tool-cards">
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
+        <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
+        <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
+        <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
+        <div class="card" onclick="togTool(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
+        <div class="card" onclick="togTool(this,'Gamma')"><div class="chk">✓</div>Gamma</div>
+        <div class="card" onclick="togTool(this,'Figma')"><div class="chk">✓</div>Figma</div>
         <div class="card" onclick="togTool(this,'__other__')"><div class="chk">✓</div>Other…</div>
       </div>
       <div class="custom-in" id="tool-other-wrap" style="display:none">
@@ -386,17 +412,23 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
 var role=null, tools=new Set(), content=new Set();
 
 var TM={
-  'Slack': {daily:['Slack messages — work chat signals']},
-  'Gmail': {daily:['Important emails — unread inbox','Newsletters — curated summaries']}
+  'Slack':       {daily:['Slack messages — work chat signals']},
+  'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries']},
+  'Linear':      {daily:['Linear issues — new & updated']},
+  'GitHub':      {daily:['GitHub — PRs & review requests']},
+  'Granola':     {daily:['Granola — meeting notes & summaries']},
+  'GoogleDrive': {daily:['Google Drive — shared files updated']},
+  'Gamma':       {daily:['Gamma — presentations updated']},
+  'Figma':       {daily:['Figma — design updates & comments']}
 };
 var AM=[];
 
 var ROLE_DEFAULTS={
-  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox'],
-  'Designer':          ['Slack messages — work chat signals','Important emails — unread inbox'],
-  'Engineer':          ['Slack messages — work chat signals','Important emails — unread inbox'],
-  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals'],
-  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries'],
+  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Granola — meeting notes & summaries'],
+  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox'],
+  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated'],
+  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated'],
+  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries'],
   'Support & Success': ['Important emails — unread inbox','Slack messages — work chat signals']
 };
 
@@ -477,8 +509,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
 .icon{font-size:36px;margin-bottom:12px}
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
-.sub{font-size:13px;color:#888;margin-bottom:24px;line-height:1.5}
-.time{display:inline-flex;align-items:center;gap:6px;background:#f3f3f3;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -491,12 +524,20 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <div class="icon">⏰</div>
   <h2>Run this every morning?</h2>
   <p class="sub">I'll fetch your signals and write your Daily to xTiles automatically — no need to ask each time.</p>
-  <div class="time">📅 Every day at 9:00 AM</div>
+  <div class="time-row">📅 Every day at <input type="time" id="sched-time" value="09:00"></div>
   <div class="btns">
-    <button class="btn btn-yes" onclick="sendPrompt('Yes, schedule my daily digest at 9:00 AM every day')">Yes, schedule it</button>
+    <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
   </div>
 </div>
+<script>
+function scheduleIt(){
+  var t=document.getElementById('sched-time').value||'09:00';
+  var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
+  var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
+  sendPrompt('Yes, schedule my daily digest at '+label+' every day (cron: '+t+')');
+}
+</script>
 ```
 
 ---
