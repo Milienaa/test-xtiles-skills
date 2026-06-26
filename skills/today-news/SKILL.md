@@ -273,8 +273,8 @@ h2{font-size:16px;font-weight:700}
 textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
 .btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.btn-save{background:#1a1a1a;color:#fff}
-.btn-save:hover{background:#333}
+.btn-save{background:#eef6ff;color:#1a5fb4;border:1.5px solid #c3d9f7}
+.btn-save:hover{background:#deeeff;border-color:#a8c8f0}
 .btn-edit{background:#f0f0f0;color:#444}
 .btn-edit:hover{background:#e0e0e0}
 .btn-cancel{background:transparent;color:#bbb;font-size:13px;font-weight:400}
