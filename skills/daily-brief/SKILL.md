@@ -27,6 +27,7 @@ allowed-tools: >
   mcp__claude_ai_Gmail__get_thread,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
+  mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__mcp-registry__suggest_connectors,
   AskUserQuestion,
   anthropic-skills:schedule,
@@ -78,6 +79,7 @@ After receiving answers — detect which MCP tools are actually available:
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                  |
 | Calendar  | `mcp__claude_ai_Google_Calendar__list_events`                                                                   |
 | Granola   | `mcp__claude_ai_Granola__list_meetings`                                                                         |
+| Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files`                                                             |
 | Linear    | `mcp__claude_ai_Linear__list_issues`                                                                            |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
@@ -239,10 +241,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - Each section gets a different color — do not repeat the same color twice in a row
 
 **Content formatting inside each tile:**
+- **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
 - Separate each item with a blank line — never write items as a continuous block
 - **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets
-- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name; body = short 2–3 sentence summary + `[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})` as the last line — no arrow, no extra characters. **Skip the tile entirely if there are no unread issues from that newsletter.**
-- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Use `#### #channel-name` as a subheading inside the tile for each channel. One entry per notable signal: `🔴 signal summary` — emoji always first.
+- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name. Body: short 2–3 sentence summary. Last line: **`[Open in Gmail](https://mail.google.com/mail/u/0/#inbox/{threadId})`** — wrap the link text in bold so it renders as a visible hyperlink, not plain text: `**[Open in Gmail](url)**`. **Skip the tile entirely if there are no unread issues from that newsletter.**
+- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Use `#### #channel-name` as a subheading inside the tile for each channel. One entry per notable signal: `🔴 **[Sender name](message-url):** signal summary` — bold the sender and link to the message if a URL is available; if no URL, use `🔴 **Sender name:** signal summary`. Emoji always first.
 - **Workload**: single tile titled `⚡ Workload`. Separate every line with a blank line — day shape line, each ⚠️ anomaly, each 🧠 context line must each be its own paragraph. Omit Workload tile entirely if Calendar returned no events.
 - This ensures the tile is scannable, not a wall of text
 
@@ -280,9 +283,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then show the link to today's already-created page again (use the `view_id` from step 7):
-
-  🔗 [Open today's Daily in xTiles](https://xtiles.app/{view_id})
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
