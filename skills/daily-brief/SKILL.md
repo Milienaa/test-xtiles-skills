@@ -104,8 +104,13 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
-Call `mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. Ask via `AskUserQuestion` (multi allowed):
-"Which channels do you open first each morning? Pick all that matter."
+Call `mcp__claude_ai_Slack__slack_search_channels` with no query to get the full list. From the results, surface up to 8 channels prioritised as follows:
+1. Channels whose name contains keywords like `team`, `general`, `product`, `growth`, `sales`, `eng`, `dev`, `design`, `support`, `alert`, `urgent`, `announce` — these are typically high-signal
+2. Exclude obviously low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
+3. If the list is still long, prefer shorter channel names (usually the main ones)
+
+Present the shortlist via `AskUserQuestion` (multiSelect: true):
+"Which channels do you open first each morning?"
 
 **If Newsletters is selected:**
 First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
@@ -215,6 +220,8 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Write all sections in a single call.** Combine all selected connectors (Gmail, Slack, etc.) into one markdown and call the tool once — never split into separate calls per connector.
 
+**Do NOT create a date/header tile.** Never write `### [date]` or any title-only tile as the first item — start directly with content tiles.
+
 **Tile formatting** — each `###` section must include color and style annotations immediately after the heading (no blank line between):
 
 ```
@@ -226,16 +233,17 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 ```
 
 - `@colorSize` is always `LIGHTER`
-- `@color` — pick randomly for each section from:
+- `@color` — pick randomly for each section from this list **exactly as written**:
   `GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR`
+  **CRITICAL: never use semantic color names (RED, BLUE, GREY, ORANGE, YELLOW, GREEN, etc.) — they will not render. Only the exact names from the list above.**
 - Each section gets a different color — do not repeat the same color twice in a row
 
 **Content formatting inside each tile:**
 - Separate each item with a blank line — never write items as a continuous block
 - **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets
-- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name; body = short 2–3 sentence summary + `[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})` as the last line. **Skip the tile entirely if there are no unread issues from that newsletter.**
-- **Slack**: one entry per notable signal — `🔴 [signal summary](slack-message-url)` if URL is available, or `🔴 signal summary` if not — emoji always before the `[`, never inside the brackets.
-- **Workload**: single tile titled `⚡ Workload`. Line 1: day shape — meetings count, hours occupied, focus window with exact times, and "evening packed HH:MM–HH:MM" if 3+ hours of meetings are after 18:00. Then one line per conflict/anomaly prefixed with ⚠️ — duplicates shown as "Дубль? [Title A] та [Title B] поспіль — перевір запрошення". Then 🧠 context lines per notable meeting: "до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]". Omit Workload tile entirely if Calendar returned no events.
+- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name; body = short 2–3 sentence summary + `[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})` as the last line — no arrow, no extra characters. **Skip the tile entirely if there are no unread issues from that newsletter.**
+- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Use `#### #channel-name` as a subheading inside the tile for each channel. One entry per notable signal: `🔴 signal summary` — emoji always first.
+- **Workload**: single tile titled `⚡ Workload`. Separate every line with a blank line — day shape line, each ⚠️ anomaly, each 🧠 context line must each be its own paragraph. Omit Workload tile entirely if Calendar returned no events.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
@@ -245,17 +253,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 2. Compare existing H3 headers (`###`) with what you're about to add
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
-   **After each successful write:**
-   Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`.
-   Extract the `view_id` from the response and include a link in the confirmation:
+   **After each successful write — run these three steps in order, no exceptions:**
 
-```
-✅ [Page name] created.
-```
-
-Then call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. This renders a tappable button — never rely on a markdown link alone.
-
-Translate button label ("Open in xTiles") into the user's language.
+   1. Write `✅ Daily created.`
+   2. Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
+   3. Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
@@ -263,7 +265,9 @@ Translate button label ("Open in xTiles") into the user's language.
 
 ### 8. Schedule (optional)
 
-**After every successful write — always show the schedule widget** (see **Schedule widget HTML** below), regardless of what was selected in the setup survey. In Claude Code (no Cowork), ask inline: "Want me to run this every morning automatically? What time should I run it? (default: 9:00 AM)"
+The schedule widget is shown in step 7 above. This step handles the user's response.
+
+In Claude Code (no Cowork): after writing, ask inline: "Want me to run this every morning automatically? What time? (default: 9:00 AM)"
 
 - If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
@@ -463,6 +467,8 @@ function go2(){
     var r=role==='__other__'?null:role;
     (ROLE_DEFAULTS[r]||[]).forEach(function(v){content.add(v);});
   }
+  // Always pre-select content for every tool the user explicitly picked
+  tools.forEach(function(t){if(TM[t]&&TM[t].daily)TM[t].daily.forEach(function(v){content.add(v);});});
   renderContent();
   document.getElementById('s1').style.display='none';
   document.getElementById('s2').style.display='block';
