@@ -266,19 +266,17 @@ Here's your reflection for [actual date]:
 [1–2 sharp sentences — the tone and essence of the day, not a task list]
 
 🎯 RESULTS
-- [What was done] → [why it matters / what direction it advances]
+- [What was done]
 - ...
 [If no strategic movement: "Operational day — little strategic progress"]
 
 🌟 OPPORTUNITIES   (only if non-trivial)
 - [Specific finds: partnerships, leads, competitor intel, ideas]
 
-📣 NOTABLE FROM SLACK   (only if important)
-- [#channel] summary → action needed / FYI
-
 → TOMORROW
 1. [Specific action with names — "Message X about Y", not "continue X"]
-2. ...
+2. [max 3 items]
+3. ...
 ---
 ```
 
@@ -318,7 +316,7 @@ between the title and the annotations):
 
 **🎯 Results**
 
-- [What was done] → [why it matters]
+- [What was done]
 
 ---
 
@@ -328,15 +326,10 @@ between the title and the annotations):
 
 ---
 
-**📣 Notable from Slack**
-
-- [#channel] summary → action / FYI
-
----
-
 **→ Tomorrow**
 
-1. [Specific action with names]
+1. [Specific action with names — "Message X about Y", not "continue X"]
+2. [max 3 items total]
 
 ⚠️ [unavailable connectors, only if some failed]
 ```
@@ -345,8 +338,8 @@ between the title and the annotations):
   **not** use plain names like "purple" — they will not render.)
 - Sections inside the tile are **bold subheaders** (`**🎯 Results**`), separated by
   `---` dividers — never separate `###` tiles.
-- Drop any optional section (Opportunities, Notable from Slack) entirely if there's
-  nothing genuinely valuable — don't leave an empty header.
+- Drop any optional section (Opportunities) entirely if there's nothing genuinely
+  valuable — don't leave an empty header.
 
 **Content formatting inside the tile:**
 - Separate each item with a blank line — never a continuous block.
@@ -387,7 +380,6 @@ every evening automatically? What time? (default: 9:00 PM)".
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
       Confirm: "Done — your reflection will write to xTiles every evening at [time]."
-      Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` from step 7.
 - If the user declines — acknowledge briefly and stop.
 
 ---
