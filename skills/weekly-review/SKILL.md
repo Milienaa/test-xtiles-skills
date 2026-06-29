@@ -436,26 +436,17 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
     </div>
   </div>
 
-  <div class="sec">
-    <div class="sec-title">Format</div>
-    <div class="pills" id="fmt">
-      <div class="pill sel" onclick="pickFmt(this,'status')">Status update</div>
-      <div class="pill" onclick="pickFmt(this,'journal')">Personal journal</div>
-    </div>
-  </div>
-
   <div class="btn-row">
     <button class="btn btn-s" onclick="sendPrompt('Cancel weekly review setup')">Cancel</button>
     <button class="btn btn-p" onclick="submit()">Set up Weekly Review</button>
   </div>
 </div>
 <script>
-var tools=new Set(), fmt='status';
+var tools=new Set();
 function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?tools.add(v):tools.delete(v);}
-function pickFmt(el,v){document.querySelectorAll('#fmt .pill').forEach(function(p){p.classList.remove('sel')});el.classList.add('sel');fmt=v;}
 function submit(){
   var t=Array.from(tools).join(', ')||'none';
-  sendPrompt('Weekly review setup — tools: '+t+' · format: '+fmt+' · weekly_content: accomplishments, goal-progress, open-items, decisions');
+  sendPrompt('Weekly review setup — tools: '+t+' · weekly_content: accomplishments, goal-progress, open-items, decisions');
 }
 </script>
 ```
