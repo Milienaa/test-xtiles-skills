@@ -374,12 +374,11 @@ every evening automatically? What time? (default: 9:00 PM)".
       Run evening reflection — role: {role} · tools: {tools} · evening_content: {content} · tone: {tone} · autolog: {on/preview/off} · schedule: daily-9pm
       ```
       Replace all placeholders with real values.
-    - **`schedule`**: cron derived from the chosen time (widget sends `cron: HH:MM`):
-      `M H * * *`. Default `0 21 * * *` (9:00 PM) if none found.
+    - **`schedule`**: cron derived from the widget. The widget sends `cron: HH:MM days:1-5` (weekdays) or `cron: HH:MM days:*` (every day) — parse both values and build: `M H * * 1-5` for weekdays, `M H * * *` for every day. Default `0 21 * * 1-5` (9:00 PM on weekdays) if not found.
     - **`timezone`**: from `mcp__xtiles__xtiles_get_user_timezone`.
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
-      Confirm: "Done — your reflection will write to xTiles every evening at [time]."
+      Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`)
 - If the user declines — acknowledge briefly and stop.
 
 ---
@@ -588,7 +587,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
 .time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
-.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -600,7 +599,14 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <div class="icon">🌙</div>
   <h2>Reflect every evening?</h2>
   <p class="sub">I'll synthesize your day and write it to xTiles automatically — no need to ask each time.</p>
-  <div class="time-row">📅 Every day at <input type="time" id="sched-time" value="21:00"></div>
+  <div class="time-row">
+    📅 Every
+    <select id="sched-days">
+      <option value="1-5" selected>Weekdays</option>
+      <option value="*">Day</option>
+    </select>
+    at <input type="time" id="sched-time" value="21:00">
+  </div>
   <div class="btns">
     <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
@@ -608,10 +614,12 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
 </div>
 <script>
 function scheduleIt(){
+  var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'21:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
-  sendPrompt('Yes, schedule my evening reflection at '+label+' every day (cron: '+t+')');
+  var dLabel=days==='1-5'?'weekdays':'every day';
+  sendPrompt('Yes, schedule my evening reflection at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
 </script>
 ```

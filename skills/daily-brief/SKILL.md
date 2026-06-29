@@ -278,12 +278,12 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
     ```
     Replace `{role}`, `{tools}`, `{content}` with the actual values. Do not leave placeholders.
-  - **`schedule`**: cron expression derived from the time the user selected in the widget. The widget sends `cron: HH:MM` in the message — parse that value and build the cron: `M H * * *` where H = hour, M = minute. Example: user picks 08:30 → `30 8 * * *`. If no time is found in the message, default to `0 9 * * *`.
+  - **`schedule`**: cron derived from the widget. The widget sends `cron: HH:MM days:1-5` (weekdays) or `cron: HH:MM days:*` (every day) — parse both values and build: `M H * * 1-5` for weekdays, `M H * * *` for every day. Default `0 9 * * 1-5` (9:00 AM on weekdays) if not found.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every [weekday morning / morning] at [chosen time]." (say "weekday morning" if `days:1-5`, "every morning" if `days:*`) Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
@@ -533,7 +533,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
 .time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
-.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -546,7 +546,14 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <div class="icon">⏰</div>
   <h2>Run this every morning?</h2>
   <p class="sub">I'll fetch your signals and write your Daily to xTiles automatically — no need to ask each time.</p>
-  <div class="time-row">📅 Every day at <input type="time" id="sched-time" value="09:00"></div>
+  <div class="time-row">
+    📅 Every
+    <select id="sched-days">
+      <option value="1-5" selected>Weekdays</option>
+      <option value="*">Day</option>
+    </select>
+    at <input type="time" id="sched-time" value="09:00">
+  </div>
   <div class="btns">
     <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
@@ -554,10 +561,12 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
 </div>
 <script>
 function scheduleIt(){
+  var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
-  sendPrompt('Yes, schedule my daily digest at '+label+' every day (cron: '+t+')');
+  var dLabel=days==='1-5'?'weekdays':'every day';
+  sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
 </script>
 ```
