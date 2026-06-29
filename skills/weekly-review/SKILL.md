@@ -95,11 +95,14 @@ Call `mcp__xtiles__xtiles_get_planner_content` with `period: "day"` for each day
 **xTiles planner — Weekly page:**
 Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for the current week. Scan all tiles for any titled with keywords: `Goal`, `Goals`, `Milestone`, `Milestones`, `OKR`, `Target`, `Focus`. If found — extract the goal statements verbatim. These are used in the Goal progress section.
 
-**Connected sources** (only those selected / detected):
+**Connected sources — MANDATORY. Call every detected connector. Daily pages alone are not sufficient.**
+
+For each connector that was selected or detected — call it now, before analysis. Do not skip connectors because Daily pages were already read. Connector data supplements and cross-references Daily page content and is required for Activities analysis.
+
 - **Slack**: `mcp__claude_ai_Slack__slack_read_channel` for each configured channel — messages this week, filter for decisions, shipped items, open threads
 - **Gmail**: `mcp__claude_ai_Gmail__search_threads` — query `is:important newer_than:7d` — extract key threads that represent decisions or open actions
-- **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — this week's events. Count meetings, identify recurring vs one-off, flag any unresolved follow-ups
-- **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items and decisions
+- **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — this week's events. Count meetings, identify recurring vs one-off, note people present
+- **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items, decisions, and attendees
 - **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — documents created or edited this week
 - **Linear**: `mcp__claude_ai_Linear__list_issues` — issues closed, opened, and still in progress this week
 
@@ -109,21 +112,48 @@ If a connector call fails — note the failure, continue with remaining data. Do
 
 ### 4. Analyse
 
-Synthesise the collected data into **2 tiles**, each with `####` subheadings inside.
+**Be concise throughout.** Each item is one line. No multi-sentence explanations inside tiles. Dense but scannable.
+
+Synthesise the collected data into **3 tiles**, each with `####` subheadings inside.
+
+---
 
 **Tile 1 — ✅ Week recap** contains three subheadings:
 
-`#### ✅ Accomplishments` — concrete things finished, shipped, or resolved this week. Prefer specifics over generics. First line: week-over-week delta (`↑ More than last week (N vs M)` / `↓ Less than last week` / `≈ Similar`). Omit delta if no previous week data.
+`#### ✅ Accomplishments` — concrete things finished, shipped, or resolved. Include results from Daily pages AND connectors (Slack threads closed, Linear issues shipped, Drive docs published, etc.). First line: WoW delta (`↑ More than last week (N vs M)` / `↓ Less` / `≈ Similar`). Each item: one line, source attribution at the end (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`).
 
-`#### 🎯 Goals` — only include if a Goals / Milestones tile was found on the weekly page. For each goal: assess movement (✅ Clear progress / 🔄 Some progress / ⬜ No movement / 🚫 Blocked). Be honest — "no movement" is a valid and useful output. Omit the entire subheading if no Goals tile was found.
+`#### 🎯 Goals` — only if a Goals/Milestones tile was found on the weekly page. Each goal: `**[Goal name]** — ✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked` + one-line assessment. Omit entire subheading if no Goals tile found.
 
-`#### 💡 Decisions` — choices made this week worth recording (from Granola notes, Slack threads, Daily page notes).
+`#### 💡 Decisions` — choices made this week (Granola, Slack, Daily pages). One line per decision + source in parentheses.
 
-**Tile 2 — → Next week** contains two subheadings:
+---
 
-`#### 🔄 Still open` — tasks, threads, or decisions that started this week but aren't resolved.
+**Tile 2 — 🔍 Activities** — patterns derived from ALL collected data (Daily pages + every connector). Contains four subheadings:
 
-`#### Priorities` — top 3 most important items from "Still open" as numbered priorities. Be specific: what exactly needs to happen, not just a topic name.
+`#### Dominant topics` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic: `**[Topic name]** — N days — [one sentence on what happened]`
+
+`#### Activity type` — classify every action from the week into:
+- Initiative — user opened threads, raised topics, proposed something
+- Reactive — user responded, approved, commented
+- Decision-making — concrete commitments or decisions made
+Output as a % breakdown: `Initiative 40% · Reactive 45% · Decisions 15%`
+
+`#### Productivity pattern` — most active day, quietest day, morning/afternoon/evening split, any anomalies (unusually dense evening, day with no activity).
+
+`#### Key interactions` — top 5 people by interaction count this week. Format: `**[Name]** — N interactions — [topic] — [decision / discussion]`
+
+---
+
+**Tile 3 — → Next week** contains two subheadings:
+
+`#### 🔄 Open` — tasks, threads, or decisions not resolved this week. Format: `📌 [What needs to happen] — [source]`
+
+`#### Suggested priorities` — suggested top 3 for next week. **Priority logic:**
+1. If a Goals tile was found — derive priorities from goal blockers and next steps toward those goals first
+2. Fill remaining slots (or all 3 if no goals) from "Open" by importance
+Format: `1.`, `2.`, `3.` — one line each, specific and actionable.
+
+---
 
 If a subheading has no data — omit it entirely rather than writing a filler line.
 
@@ -167,46 +197,41 @@ Write all sections in a **single call**.
 - Each tile gets a different color — do not repeat the same color twice in a row
 - Do not create a date/header tile — start directly with content tiles
 
-**Always write exactly 2 tiles.** All 5 sections fit inside them using `####` subheadings — the same pattern as the Slack tile in daily-brief.
+**Always write exactly 3 tiles** using `####` subheadings inside each.
 
-- **Tile 1 — `### ✅ Week recap`**: accomplishments + goal progress + key decisions
-- **Tile 2 — `### → Next week`**: still open + numbered priorities
+- **Tile 1 — `### ✅ Week recap`**: accomplishments + goal progress + decisions
+- **Tile 2 — `### 🔍 Activities`**: dominant topics + activity type % + productivity pattern + key interactions
+- **Tile 3 — `### → Next week`**: open items + suggested priorities
 
-**Content formatting inside each tile:**
+**Content formatting — applies to all tiles:**
 
 - **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL
-- **Separate every item with a blank line** — never write items as a continuous block
+- **Separate every item with a blank line** — never a continuous block
+- **One line per item** — no multi-sentence explanations inside tiles; be dense and scannable
 
 **Tile 1 — ✅ Week recap:**
 
-`#### ✅ Accomplishments` subheading first:
-- First line: week-over-week delta — `↑ More than last week (N vs M)` / `↓ Less than last week (N vs M)` / `≈ Similar to last week`. Omit if no previous week data.
-- Then a blank line, then each accomplishment as its own paragraph (blank line between each)
-- Attribute the source when available: `— [Linear #123](url)`, `— [#channel](url)`, `— Granola`, `— Google Drive`
-- Prefer specifics: "Shipped X" beats "Worked on X"
+`#### ✅ Accomplishments` — WoW delta as first line. Each accomplishment: one line + source (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`). Include results from connectors, not only Daily pages.
 
-`#### 🎯 Goals` subheading next (only if a Goals/Milestones tile was found on the weekly page — omit the subheading entirely if not):
-- Each goal on its own block separated by a blank line
-- Format: `**[Goal name]** — ✅ Clear progress` / `🔄 Some progress` / `⬜ No movement` / `🚫 Blocked`
-- One-line honest assessment on the next line
-- Never invent a goal — only goals found verbatim on the weekly page
+`#### 🎯 Goals` — only if Goals tile found. Each goal: `**[name]** — [status badge]` + one-line assessment. Omit subheading entirely if no Goals tile.
 
-`#### 💡 Decisions` subheading last:
-- Each decision on its own paragraph (blank line between each)
-- Decision statement + source in parentheses on the same line
-- Source format: `(Granola — [Meeting name](url))` / `(Slack — [#channel](url))`
+`#### 💡 Decisions` — one line per decision + source in parentheses.
 
-**Tile 2 — → Next week:**
+**Tile 2 — 🔍 Activities:**
 
-`#### 🔄 Still open` subheading first:
-- Each item on its own paragraph (blank line between each)
-- Format: `📌 [What still needs to happen] — [source or owner if known]`
-- Link to the source if available: `— [#channel](url)`, `— [Linear #456](url)`
+`#### Dominant topics` — top 5 topics: `**[Topic]** — N days — [one-sentence summary]`
 
-`#### Priorities` subheading next:
-- Three numbered priorities extracted directly from "Still open"
-- Each on its own paragraph (blank line between): `1.`, `2.`, `3.`
-- Be specific — what exactly needs to happen, not just a topic name
+`#### Activity type` — single line: `Initiative N% · Reactive N% · Decisions N%`
+
+`#### Productivity pattern` — 2–3 lines: most active day, morning/afternoon/evening split, anomalies.
+
+`#### Key interactions` — top 5 people: `**[Name]** — N interactions — [topic] — [decision / discussion]`
+
+**Tile 3 — → Next week:**
+
+`#### 🔄 Open` — each item: `📌 [what needs to happen] — [source]`
+
+`#### Suggested priorities` — top 3, one line each. Derive from goal blockers first (if Goals tile found), then from "Open". Format: `1.` `2.` `3.`
 
 **After a successful write — run these steps in order:**
 
@@ -279,52 +304,89 @@ Call `mcp__mcp-registry__suggest_connectors` passing the names of missing connec
 
 ↑ More than last week (5 vs 3)
 
-Shipped the affiliate integration with Impact — [Linear #312](https://linear.app/issues/312)
+Shipped affiliate integration with Impact — [Linear #312](https://linear.app/issues/312)
 
-Closed 3 auth sprint issues, auth flow now passing all E2E tests — [#eng-core](https://slack.com/...)
+Closed 3 auth sprint issues, E2E tests passing — [#eng-core](https://slack.com/...)
 
-Aligned with Andrew on Q3 growth priorities; OKRs locked — Granola
+Aligned with Andrew on Q3 OKRs — Granola
 
-Submitted MCP plugin draft to marketplace review — Google Drive
+Submitted MCP plugin draft to marketplace — Google Drive
 
 #### 🎯 Goals
 
 **Launch MCP plugin to marketplace** — ✅ Clear progress
-Draft submitted Monday, marketplace review pending since Wednesday
+Draft submitted Monday, review pending since Wednesday
 
 **Grow to 10k DAU** — ⬜ No movement
-No growth experiments ran this week; deprioritised in favour of plugin launch
+No experiments ran; deprioritised for plugin launch
 
-**Reduce support ticket volume by 20%** — 🔄 Some progress
-New FAQ page live; ticket volume down ~8% vs last week, trend positive
+**Reduce support tickets by 20%** — 🔄 Some progress
+New FAQ live; tickets down ~8%, trend positive
 
 #### 💡 Decisions
 
-PartnerStack postponed — moving forward with Impact only for July launch (Slack — [#growth](https://slack.com/...))
+PartnerStack postponed — Impact affiliate only for July (Slack — [#growth](https://slack.com/...))
 
-Daily Brief plugin prioritised over new connectors this sprint (Granola — [Plugin Sync Jun 24](https://granola.ai/...))
+Daily Brief prioritised over new connectors this sprint (Granola — [Plugin Sync Jun 24](https://granola.ai/...))
 
-Influencer strategy shifted from macro to micro — budget reallocated (Slack — [#marketing](https://slack.com/...))
+Influencer strategy: macro → micro, budget reallocated (Slack — [#marketing](https://slack.com/...))
+
+### 🔍 Activities
+@colorSize: LIGHTER
+@color: BLUE_CHALK
+
+#### Dominant topics
+
+**Affiliate & partnerships** — 4 days — Impact negotiations, EchoMe integration closing
+
+**Plugin launch** — 3 days — marketplace prep, Daily Brief fixes
+
+**Q3 planning** — 3 days — OKR syncs, budget, resources
+
+**Influencer strategy** — 2 days — macro → micro shift, Sara Aratake brief
+
+**Auth sprint** — 2 days — 3 issues closed, E2E passing
+
+#### Activity type
+
+Initiative 38% · Reactive 47% · Decisions 15%
+
+#### Productivity pattern
+
+Most active: Tuesday. Quietest: Friday (2 meetings, little async).
+Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
+
+#### Key interactions
+
+**Andrew** — 6 interactions — Q3 OKRs — decision (OKRs approved)
+
+**Todd Savard** — 4 interactions — EchoMe integration — discussion (no decision yet)
+
+**Sara Aratake** — 3 interactions — influencer brief — discussion
+
+**Alex** — 2 interactions — Q3 budget — awaiting confirmation
+
+**Maria (Design)** — 2 interactions — plugin UI — decision (mockup approved)
 
 ### → Next week
 @colorSize: LIGHTER
 @color: HAWKES_BLUE
 
-#### 🔄 Still open
+#### 🔄 Open
 
-📌 Todd Savard follow-up on EchoMe integration — waiting on their tech team — [#partnerships](https://slack.com/...)
+📌 Todd Savard — EchoMe follow-up, waiting on their tech team — [#partnerships](https://slack.com/...)
 
-📌 Sara Aratake influencer brief — needs to go out before Monday — [Linear #341](https://linear.app/issues/341)
+📌 Sara Aratake — influencer brief due Monday — [Linear #341](https://linear.app/issues/341)
 
-📌 Q3 budget approval from finance — Alex to confirm by EOW — Granola
+📌 Q3 budget — Alex to confirm by EOW — Granola
 
-#### Priorities
+#### Suggested priorities
 
-1. Send EchoMe integration follow-up to Todd Savard — move or close by Wednesday
+1. Merge review-fixes branch and send for review — blocks marketplace submission (goal)
 
-2. Finalise and send Sara Aratake influencer brief before Monday standup
+2. Send EchoMe follow-up to Todd Savard — move or close by Wednesday
 
-3. Chase Alex for Q3 budget sign-off — block calendar for finance sync
+3. Finalise Sara Aratake influencer brief before Monday standup
 ```
 
 ---
