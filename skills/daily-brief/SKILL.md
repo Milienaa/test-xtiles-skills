@@ -202,15 +202,10 @@ Here's what I've prepared:
 
 ### ⚡ Workload
 [N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM]
+
 ⚠️ [Conflict if any]
 
----
-
-**[Meeting name]**
-[Calendar event](url)
-🧠 [context if available]
-
----
+🧠 до [Meeting name] з [Participant] — [Granola note] + [Gmail thread]
 
 ---
 ```
@@ -279,19 +274,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
   - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
   - Omit the entire tile if no messages from today.
-- **Workload**: single tile titled `⚡ Workload`. First line: day shape summary (meetings count, hours occupied, longest focus window, evening density if applicable). Then `⚠️` conflict/anomaly lines if any — each as its own paragraph. Then one block per meeting, separated by `---` dividers:
-
-  ```
-  ---
-
-  **[Meeting name]**
-  [Calendar event](url)
-  🧠 [context — Granola note or Gmail thread with organiser, only if available]
-
-  ---
-  ```
-
-  Use the event's `htmlLink` from Calendar as the URL. Omit the 🧠 line if no Granola or Gmail context is available. Omit Workload tile entirely if Calendar returned no events.
+- **Workload**: single tile titled `⚡ Workload`. Every element must be its own paragraph — **always a blank line between each item**. Order:
+  1. Day shape line: `N meetings · Xh occupied · focus window HH:MM–HH:MM [· evening packed HH:MM–HH:MM if 3+ h after 18:00]`
+  2. Each `⚠️` conflict or anomaly — one per paragraph
+  3. Each `🧠` context note — one per paragraph, format: `🧠 до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]`
+  Omit Workload tile entirely if Calendar returned no events.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
