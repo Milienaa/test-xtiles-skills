@@ -29,7 +29,6 @@ allowed-tools: >
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__mcp-registry__suggest_connectors,
-  AskUserQuestion,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
 ---
@@ -120,18 +119,72 @@ Deduplicate results across all searches. From the combined list, surface up to 8
 2. Then general high-signal channels: `team`, `general`, `product`, `announce`, `alert`, `urgent`
 3. Exclude low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
 
-Present the shortlist via `AskUserQuestion` (multiSelect: true):
-"Which channels do you open first each morning?"
+Generate an HTML multi-select widget with the discovered channels as selectable cards and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel):
 
-The question always has an automatic **Other** option — the user can type any channel name not in the list.
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
+.cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
+.card:hover{border-color:#aaa}
+.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
+input:focus{border-color:#aaa}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
+</style>
+<div class="wrap">
+  <h2>Which channels do you open first each morning?</h2>
+  <div class="cards" id="ch">
+    <!-- inject: <div class="card" onclick="tog(this,'#channelname')">#channelname</div> -->
+  </div>
+  <input type="text" id="other-ch" placeholder="Other channel…">
+  <button class="btn" onclick="submit()">Confirm</button>
+</div>
+<script>
+var sel=new Set();
+function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?sel.add(v):sel.delete(v)}
+function submit(){var o=document.getElementById('other-ch').value.trim();if(o)sel.add(o);sendPrompt('Selected channels: '+Array.from(sel).join(', '))}
+</script>
+```
 
 **If Newsletters is selected:**
 First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
 
-If publications found — present as multi-select via `AskUserQuestion` (multiSelect: true):
-"Which newsletters do you want in your Daily? I found these in your inbox:"
+If publications found — call `show_widget` with an HTML multi-select listing the discovered newsletters as selectable cards. Template (inject one card per found publication):
 
-If nothing found — ask: "Which newsletters do you want to track? Name the sender or publication — e.g. 'Morning Brew', 'Lenny's Newsletter'."
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
+.cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
+.card:hover{border-color:#aaa}
+.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
+input:focus{border-color:#aaa}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
+</style>
+<div class="wrap">
+  <h2>Which newsletters do you want in your Daily?</h2>
+  <div class="cards" id="nl">
+    <!-- inject: <div class="card" onclick="tog(this,'Publication Name')">Publication Name</div> -->
+  </div>
+  <input type="text" id="other-nl" placeholder="Other newsletter…">
+  <button class="btn" onclick="submit()">Confirm</button>
+</div>
+<script>
+var sel=new Set();
+function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?sel.add(v):sel.delete(v)}
+function submit(){var o=document.getElementById('other-nl').value.trim();if(o)sel.add(o);sendPrompt('Selected newsletters: '+Array.from(sel).join(', '))}
+</script>
+```
+
+If nothing found — call `show_widget` with a simple text input widget asking the user to name the newsletters they want to track.
 
 Add all selected/typed senders to the config. Tip: newsletters typically come from `@substack.com`, `@beehiiv.com`, `@convertkit.com`, `@mailchimp.com`.
 
@@ -235,12 +288,9 @@ Separate each item with a blank line for readability.
 
 ### 6. Approval
 
-**Mandatory. Never skip this step.** After showing the preview, call `AskUserQuestion` (single select):
-- **"Looks good — create it"** → proceed to write
-- **"Change something"** → ask what, update only that section, show preview again
-- **"Cancel"** → stop
+**Mandatory. Never skip this step.** After showing the preview, call `show_widget` with the **Approval widget HTML** (see below).
 
-Do not call `xtiles_create_tiles_from_markdown_in_my_planner` until the user explicitly selects **"Looks good — create it"**.
+Do not call `xtiles_create_tiles_from_markdown_in_my_planner` until the user explicitly clicks **"Looks good — create it"**.
 
 If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
 
@@ -341,6 +391,32 @@ Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect 
 2. Show the **Done widget** (see **Done widget HTML** below) directly under the connector form.
 3. The user clicks the connect buttons in the UI — the auth flow runs natively. When finished, they click **"Done"**.
 4. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
+---
+
+## Approval widget HTML
+
+Show this via `show_widget` after the preview in step 6. If the user clicks "Change something" — ask what to change in plain text, update that section, re-show the preview, then show this widget again.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+.btns{display:flex;flex-direction:column;gap:8px}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-edit{background:#f0f0f0;color:#1a1a1a}
+.btn-edit:hover{background:#e0e0e0}
+.btn-cancel{background:transparent;color:#aaa;font-weight:400}
+.btn-cancel:hover{color:#666}
+</style>
+<div class="btns">
+  <button class="btn btn-yes" onclick="sendPrompt('Looks good — create it')">✓ Looks good — create it</button>
+  <button class="btn btn-edit" onclick="sendPrompt('Change something')">Edit</button>
+  <button class="btn btn-cancel" onclick="sendPrompt('Cancel')">Cancel</button>
+</div>
+```
+
 ---
 
 ## Done widget HTML
@@ -629,7 +705,7 @@ function scheduleIt(){
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
 - Never put example names, example events, or example messages into the preview — only real data from connectors
-- **All clarifying questions after the main survey form** (channel selection, newsletter names, approval, change requests) — use `AskUserQuestion`, not plain text
+- **All clarifying questions and approvals after the main survey form** (channel selection, newsletter names, approval, change requests) — use `show_widget` with HTML, never `AskUserQuestion` or plain text
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
