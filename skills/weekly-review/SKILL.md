@@ -44,9 +44,9 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 **Period is always Weekly.**
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: the incoming message contains `role:`, `tools:`, and `weekly_content:`. Skip the survey. Extract config, fetch data, write the review. Jump to **step 3**.
-- **Fast-track**: user asks "run my weekly review" or similar — skip setup, use all available connectors, jump to **step 3**.
-- **Manual setup**: general request ("set up weekly review") — run the full flow.
+- **Scheduled run**: the incoming message starts with `Run weekly review —` AND contains `role:`, `tools:`, and `weekly_content:`. Skip the survey AND skip the preview — fetch data and write directly. Jump to **step 3**.
+- **Fast-track**: user asks "run my weekly review" or similar conversational phrase — skip setup, use all available connectors, jump to **step 3**. Preview (step 5) is still required.
+- **Manual setup**: general request ("set up weekly review") or setup form submission (message contains "Weekly review setup") — run the full flow. Preview (step 5) is still required.
 
 ---
 
@@ -161,12 +161,14 @@ If a subheading has no data — omit it entirely rather than writing a filler li
 
 ### 5. Preview
 
-Show the assembled review in chat. Then ask (single select via `AskUserQuestion`):
+**Mandatory for all non-scheduled runs.** Never skip from step 4 directly to step 6.
+
+Show the assembled review in chat — all 3 tiles with real content, not placeholders. Then call `AskUserQuestion` (single select):
 - "Looks good — save it"
 - "Change something"
 - "Cancel"
 
-If the user asks for a change — update only that section, re-show preview, ask again.
+Do not call the xTiles write tool until the user selects "Looks good — save it". If the user asks for a change — update only that section, re-show the full preview, ask again.
 
 ---
 
@@ -294,6 +296,8 @@ Call `mcp__mcp-registry__suggest_connectors` passing the names of missing connec
 ---
 
 ## Review tile format (reference)
+
+Use the example below as the ground-truth formatting reference — match it character for character (blank lines, `####` subheadings, `@colorSize`, `@color`, emoji placement, source attribution).
 
 ```markdown
 ### ✅ Week recap
