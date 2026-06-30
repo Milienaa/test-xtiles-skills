@@ -106,10 +106,17 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
-Call `mcp__claude_ai_Slack__slack_search_channels` with no query to get the full list. From the results, surface up to 8 channels prioritised as follows:
-1. Channels whose name contains keywords like `team`, `general`, `product`, `growth`, `sales`, `eng`, `dev`, `design`, `support`, `alert`, `urgent`, `announce` — these are typically high-signal
-2. Exclude obviously low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
-3. If the list is still long, prefer shorter channel names (usually the main ones)
+Run **multiple targeted searches** using `mcp__claude_ai_Slack__slack_search_channels` — do not rely on a single no-query call. Run separate searches for each keyword group relevant to the user's role:
+
+- `growth` — `marketing` — `sales`
+- `product` — `design` — `eng` — `dev`
+- `team` — `general` — `announce` — `alert`
+- `support` — `success` — `ops`
+
+Deduplicate results across all searches. From the combined list, surface up to 8 channels prioritised as follows:
+1. Channels matching the user's role keywords first (e.g. for Growth & Marketing: `growth`, `marketing`, `sales`, `gtm`, `revenue`)
+2. Then general high-signal channels: `team`, `general`, `product`, `announce`, `alert`, `urgent`
+3. Exclude low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
 
 Present the shortlist via `AskUserQuestion` (multiSelect: true):
 "Which channels do you open first each morning?"
