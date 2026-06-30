@@ -21,7 +21,6 @@ allowed-tools: >
   mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__claude_ai_Linear__list_issues,
   mcp__mcp-registry__suggest_connectors,
-  AskUserQuestion,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
 ---
@@ -120,35 +119,35 @@ Synthesise the collected data into **3 tiles**, each with `####` subheadings ins
 
 **Tile 1 — ✅ Week recap** contains three subheadings:
 
-`#### ✅ Accomplishments` — concrete things finished, shipped, or resolved. Include results from Daily pages AND connectors (Slack threads closed, Linear issues shipped, Drive docs published, etc.). First line: WoW delta (`↑ More than last week (N vs M)` / `↓ Less` / `≈ Similar`). Each item: one line, source attribution at the end (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`).
+`##### ✅ Accomplishments` — concrete things finished, shipped, or resolved. Include results from Daily pages AND connectors (Slack threads closed, Linear issues shipped, Drive docs published, etc.). First line: WoW delta (`↑ More than last week (N vs M)` / `↓ Less` / `≈ Similar`). Each item: **numbered** (`1.`, `2.`…), one line, source attribution at the end (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`).
 
-`#### 🎯 Goals` — only if a Goals/Milestones tile was found on the weekly page. Each goal: `**[Goal name]** — ✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked` + one-line assessment. Omit entire subheading if no Goals tile found.
+`##### 🎯 Goals` — only if a Goals/Milestones tile was found on the weekly page. Each goal as a bullet: `- **[Goal name]** — ✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked — one-line assessment`. Omit entire subheading if no Goals tile found.
 
-`#### 💡 Decisions` — choices made this week (Granola, Slack, Daily pages). One line per decision + source in parentheses.
+`##### 💡 Decisions` — choices made this week (Granola, Slack, Daily pages). **Numbered** (`1.`, `2.`…), one decision per line + source in parentheses.
 
 ---
 
 **Tile 2 — 🔍 Activities** — patterns derived from ALL collected data (Daily pages + every connector). Contains four subheadings:
 
-`#### Dominant topics` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic: `**[Topic name]** — N days — [one sentence on what happened]`
+`##### Dominant topics` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic: `**[Topic name]** — N days — [one sentence on what happened]`
 
-`#### Activity type` — classify every action from the week into:
+`##### Activity type` — classify every action from the week into:
 - Initiative — user opened threads, raised topics, proposed something
 - Reactive — user responded, approved, commented
 - Decision-making — concrete commitments or decisions made
 Output as a % breakdown: `Initiative 40% · Reactive 45% · Decisions 15%`
 
-`#### Productivity pattern` — most active day, quietest day, morning/afternoon/evening split, any anomalies (unusually dense evening, day with no activity).
+`##### Productivity pattern` — most active day, quietest day, morning/afternoon/evening split, any anomalies (unusually dense evening, day with no activity).
 
-`#### Key interactions` — top 5 people by interaction count this week. Format: `**[Name]** — N interactions — [topic] — [decision / discussion]`
+`##### Key interactions` — top 5 people by interaction count this week. Format: `**[Name]** — N interactions — [topic] — [decision / discussion]`
 
 ---
 
 **Tile 3 — → Next week** contains two subheadings:
 
-`#### 🔄 Open` — tasks, threads, or decisions not resolved this week. Format: `📌 [What needs to happen] — [source]`
+`##### 🔄 Open` — tasks, threads, or decisions not resolved this week. Format: `📌 [What needs to happen] — [source]`
 
-`#### Suggested priorities` — suggested top 3 for next week. **Priority logic:**
+`##### Suggested priorities` — suggested top 3 for next week. **Priority logic:**
 1. If a Goals tile was found — derive priorities from goal blockers and next steps toward those goals first
 2. Fill remaining slots (or all 3 if no goals) from "Open" by importance
 Format: `1.`, `2.`, `3.` — one line each, specific and actionable.
@@ -163,12 +162,9 @@ If a subheading has no data — omit it entirely rather than writing a filler li
 
 **Mandatory for all non-scheduled runs.** Never skip from step 4 directly to step 6.
 
-Show the assembled review in chat — all 3 tiles with real content, not placeholders. Then call `AskUserQuestion` (single select):
-- "Looks good — save it"
-- "Change something"
-- "Cancel"
+Show the assembled review in chat — all 3 tiles with real content, not placeholders. Then call `show_widget` with the **Approval widget HTML** (see below).
 
-Do not call the xTiles write tool until the user selects "Looks good — save it". If the user asks for a change — update only that section, re-show the full preview, ask again.
+Do not call the xTiles write tool until the user clicks "Looks good — save it". If the user asks for a change — update only that section, re-show the full preview, show the approval widget again.
 
 ---
 
@@ -199,7 +195,7 @@ Write all sections in a **single call**.
 - Each tile gets a different color — do not repeat the same color twice in a row
 - Do not create a date/header tile — start directly with content tiles
 
-**Always write exactly 3 tiles** using `####` subheadings inside each.
+**Always write exactly 3 tiles** using `#####` subheadings inside each.
 
 - **Tile 1 — `### ✅ Week recap`**: accomplishments + goal progress + decisions
 - **Tile 2 — `### 🔍 Activities`**: dominant topics + activity type % + productivity pattern + key interactions
@@ -213,27 +209,27 @@ Write all sections in a **single call**.
 
 **Tile 1 — ✅ Week recap:**
 
-`#### ✅ Accomplishments` — WoW delta as first line. Each accomplishment: one line + source (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`). Include results from connectors, not only Daily pages.
+`##### ✅ Accomplishments` — WoW delta as first line. Each accomplishment: **numbered** (`1.`, `2.`, `3.`), one line + source (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`). Include results from connectors, not only Daily pages.
 
-`#### 🎯 Goals` — only if Goals tile found. Each goal: `**[name]** — [status badge]` + one-line assessment. Omit subheading entirely if no Goals tile.
+`##### 🎯 Goals` — only if Goals tile found. Each goal as a bullet: `- **[name]** — [status badge] — one-line assessment`. Omit subheading entirely if no Goals tile.
 
-`#### 💡 Decisions` — one line per decision + source in parentheses.
+`##### 💡 Decisions` — **numbered** (`1.`, `2.`, `3.`), one decision per line + source in parentheses.
 
 **Tile 2 — 🔍 Activities:**
 
-`#### Dominant topics` — top 5 topics: `**[Topic]** — N days — [one-sentence summary]`
+`##### Dominant topics` — top 5 topics: `**[Topic]** — N days — [one-sentence summary]`
 
-`#### Activity type` — single line: `Initiative N% · Reactive N% · Decisions N%`
+`##### Activity type` — single line: `Initiative N% · Reactive N% · Decisions N%`
 
-`#### Productivity pattern` — 2–3 lines: most active day, morning/afternoon/evening split, anomalies.
+`##### Productivity pattern` — 2–3 lines: most active day, morning/afternoon/evening split, anomalies.
 
-`#### Key interactions` — top 5 people: `**[Name]** — N interactions — [topic] — [decision / discussion]`
+`##### Key interactions` — top 5 people: `**[Name]** — N interactions — [topic] — [decision / discussion]`
 
 **Tile 3 — → Next week:**
 
-`#### 🔄 Open` — each item: `📌 [what needs to happen] — [source]`
+`##### 🔄 Open` — each item: `📌 [what needs to happen] — [source]`
 
-`#### Suggested priorities` — top 3, one line each. Derive from goal blockers first (if Goals tile found), then from "Open". Format: `1.` `2.` `3.`
+`##### Suggested priorities` — top 3, numbered (`1.` `2.` `3.`), one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
 
 **After a successful write — run these steps in order:**
 
@@ -265,14 +261,10 @@ In Claude Code: after writing, ask inline: "Want me to run this automatically ev
 
 ### 8. Slack sharing (optional)
 
-After the schedule widget response — ask via `AskUserQuestion` (single select):
-
-**"Want to share this as a status update to your team?"**
-- "Yes, share to Slack"
-- "No, keep it personal"
+After the schedule widget response — call `show_widget` with the **Slack sharing widget HTML** (see below).
 
 **If "Yes, share to Slack":**
-1. If Slack channels were configured during setup — use those. Otherwise call `mcp__claude_ai_Slack__slack_search_channels` and ask the user to pick a channel via `AskUserQuestion`.
+1. If Slack channels were configured during setup — use those. Otherwise call `mcp__claude_ai_Slack__slack_search_channels` and call `show_widget` with a channel-picker HTML (same pattern as the channel picker in daily-brief).
 2. Compose a concise Slack status message from the review — 3–5 bullet points max, plain text, no markdown tiles. Format:
    ```
    📋 Week of [dates] — status update
@@ -281,7 +273,7 @@ After the schedule widget response — ask via `AskUserQuestion` (single select)
    🔄 [1–2 open items]
    → Next week: [top priority]
    ```
-3. Show the message preview and ask for confirmation before sending.
+3. Show the message preview in chat and call `show_widget` with a confirm/cancel widget (2 buttons: "Send" / "Cancel") before sending.
 4. Call `mcp__claude_ai_Slack__slack_send_message` with the channel and message.
 5. Confirm: "Sent to #[channel]."
 
@@ -304,42 +296,39 @@ Use the example below as the ground-truth formatting reference — match it char
 @colorSize: LIGHTER
 @color: GOSSIP
 
-#### ✅ Accomplishments
+##### ✅ Accomplishments
 
 ↑ More than last week (5 vs 3)
 
-Shipped affiliate integration with Impact — [Linear #312](https://linear.app/issues/312)
+1. Shipped affiliate integration with Impact — [Linear #312](https://linear.app/issues/312)
 
-Closed 3 auth sprint issues, E2E tests passing — [#eng-core](https://slack.com/...)
+2. Closed 3 auth sprint issues, E2E tests passing — [#eng-core](https://slack.com/...)
 
-Aligned with Andrew on Q3 OKRs — Granola
+3. Aligned with Andrew on Q3 OKRs — Granola
 
-Submitted MCP plugin draft to marketplace — Google Drive
+4. Submitted MCP plugin draft to marketplace — Google Drive
 
-#### 🎯 Goals
+##### 🎯 Goals
 
-**Launch MCP plugin to marketplace** — ✅ Clear progress
-Draft submitted Monday, review pending since Wednesday
+- **Launch MCP plugin to marketplace** — ✅ Clear progress — draft submitted Monday, review pending since Wednesday
 
-**Grow to 10k DAU** — ⬜ No movement
-No experiments ran; deprioritised for plugin launch
+- **Grow to 10k DAU** — ⬜ No movement — no experiments ran; deprioritised for plugin launch
 
-**Reduce support tickets by 20%** — 🔄 Some progress
-New FAQ live; tickets down ~8%, trend positive
+- **Reduce support tickets by 20%** — 🔄 Some progress — new FAQ live; tickets down ~8%, trend positive
 
-#### 💡 Decisions
+##### 💡 Decisions
 
-PartnerStack postponed — Impact affiliate only for July (Slack — [#growth](https://slack.com/...))
+1. PartnerStack postponed — Impact affiliate only for July (Slack — [#growth](https://slack.com/...))
 
-Daily Brief prioritised over new connectors this sprint (Granola — [Plugin Sync Jun 24](https://granola.ai/...))
+2. Daily Brief prioritised over new connectors this sprint (Granola — [Plugin Sync Jun 24](https://granola.ai/...))
 
-Influencer strategy: macro → micro, budget reallocated (Slack — [#marketing](https://slack.com/...))
+3. Influencer strategy: macro → micro, budget reallocated (Slack — [#marketing](https://slack.com/...))
 
 ### 🔍 Activities
 @colorSize: LIGHTER
 @color: BLUE_CHALK
 
-#### Dominant topics
+##### Dominant topics
 
 **Affiliate & partnerships** — 4 days — Impact negotiations, EchoMe integration closing
 
@@ -351,16 +340,17 @@ Influencer strategy: macro → micro, budget reallocated (Slack — [#marketing]
 
 **Auth sprint** — 2 days — 3 issues closed, E2E passing
 
-#### Activity type
+##### Activity type
 
 Initiative 38% · Reactive 47% · Decisions 15%
 
-#### Productivity pattern
+##### Productivity pattern
 
 Most active: Tuesday. Quietest: Friday (2 meetings, little async).
+
 Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
 
-#### Key interactions
+##### Key interactions
 
 **Andrew** — 6 interactions — Q3 OKRs — decision (OKRs approved)
 
@@ -376,7 +366,7 @@ Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
 @colorSize: LIGHTER
 @color: HAWKES_BLUE
 
-#### 🔄 Open
+##### 🔄 Open
 
 📌 Todd Savard — EchoMe follow-up, waiting on their tech team — [#partnerships](https://slack.com/...)
 
@@ -384,7 +374,7 @@ Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
 
 📌 Q3 budget — Alex to confirm by EOW — Granola
 
-#### Suggested priorities
+##### Suggested priorities
 
 1. Merge review-fixes branch and send for review — blocks marketplace submission (goal)
 
@@ -518,6 +508,60 @@ function scheduleIt(){
   sendPrompt('Yes, schedule my weekly review every '+DAYS[d]+' at '+label+' (cron: '+m+' '+h+' * * '+d+')');
 }
 </script>
+```
+
+---
+
+## Approval widget HTML
+
+Show via `show_widget` after the preview in step 5. If the user clicks "Change something" — ask what to change in plain text, update that section, re-show preview, then show this widget again.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+.btns{display:flex;flex-direction:column;gap:8px}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-edit{background:#f0f0f0;color:#1a1a1a}
+.btn-edit:hover{background:#e0e0e0}
+.btn-cancel{background:transparent;color:#aaa;font-weight:400}
+.btn-cancel:hover{color:#666}
+</style>
+<div class="btns">
+  <button class="btn btn-yes" onclick="sendPrompt('Looks good — save it')">✓ Looks good — save it</button>
+  <button class="btn btn-edit" onclick="sendPrompt('Change something')">Edit</button>
+  <button class="btn btn-cancel" onclick="sendPrompt('Cancel')">Cancel</button>
+</div>
+```
+
+---
+
+## Slack sharing widget HTML
+
+Show via `show_widget` after the schedule widget response in step 8.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+.wrap{max-width:400px;margin:0 auto}
+p{font-size:14px;color:#555;margin-bottom:12px;line-height:1.4}
+.btns{display:flex;flex-direction:column;gap:8px}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-no{background:#f0f0f0;color:#555}
+.btn-no:hover{background:#e0e0e0}
+</style>
+<div class="wrap">
+  <p>Share this week's summary as a status update to your team?</p>
+  <div class="btns">
+    <button class="btn btn-yes" onclick="sendPrompt('Yes, share to Slack')">Share to Slack</button>
+    <button class="btn btn-no" onclick="sendPrompt('No, keep it personal')">No, keep it personal</button>
+  </div>
+</div>
 ```
 
 ---
