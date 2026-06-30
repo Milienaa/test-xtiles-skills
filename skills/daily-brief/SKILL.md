@@ -106,10 +106,17 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
-Call `mcp__claude_ai_Slack__slack_search_channels` with no query to get the full list. From the results, surface up to 8 channels prioritised as follows:
-1. Channels whose name contains keywords like `team`, `general`, `product`, `growth`, `sales`, `eng`, `dev`, `design`, `support`, `alert`, `urgent`, `announce` — these are typically high-signal
-2. Exclude obviously low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
-3. If the list is still long, prefer shorter channel names (usually the main ones)
+Run **multiple targeted searches** using `mcp__claude_ai_Slack__slack_search_channels` — do not rely on a single no-query call. Run separate searches for each keyword group relevant to the user's role:
+
+- `growth` — `marketing` — `sales`
+- `product` — `design` — `eng` — `dev`
+- `team` — `general` — `announce` — `alert`
+- `support` — `success` — `ops`
+
+Deduplicate results across all searches. From the combined list, surface up to 8 channels prioritised as follows:
+1. Channels matching the user's role keywords first (e.g. for Growth & Marketing: `growth`, `marketing`, `sales`, `gtm`, `revenue`)
+2. Then general high-signal channels: `team`, `general`, `product`, `announce`, `alert`, `urgent`
+3. Exclude low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
 
 Present the shortlist via `AskUserQuestion` (multiSelect: true):
 "Which channels do you open first each morning?"
@@ -217,15 +224,17 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today") — don't skip silently
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- After the preview, ask: "Does this look right? Anything to change?"
+- After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
 ### 6. Approval
 
-Ask the user (single select):
+**Mandatory. Never skip this step.** After showing the preview, call `AskUserQuestion` (single select):
 - **"Looks good — create it"** → proceed to write
 - **"Change something"** → ask what, update only that section, show preview again
 - **"Cancel"** → stop
+
+Do not call `xtiles_create_tiles_from_markdown_in_my_planner` until the user explicitly selects **"Looks good — create it"**.
 
 If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
 
