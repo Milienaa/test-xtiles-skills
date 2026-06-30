@@ -62,6 +62,8 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with an empty query for Slack). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. Generate the widget with those pre-selections applied, then call `show_widget`.
+
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
 **Connected tools** (multi select, show all regardless of what's actually detected):
@@ -121,6 +123,8 @@ Deduplicate results across all searches. From the combined list, surface up to 8
 Present the shortlist via `AskUserQuestion` (multiSelect: true):
 "Which channels do you open first each morning?"
 
+The question always has an automatic **Other** option — the user can type any channel name not in the list.
+
 **If Newsletters is selected:**
 First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
 
@@ -158,6 +162,8 @@ Analyze what you get. Classify each email/Slack signal:
 - 🔴 needs a decision, reply, or action today
 - 🟡 informational / can wait
 
+For every 🔴 email, extract a one-line action item (e.g. "Reply to Alex re: budget approval", "Review proposal from Legal"). Collect these as a flat list — used in preview and tile.
+
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
 
@@ -184,6 +190,12 @@ Here's what I've prepared:
 
 *(emoji always before the `[`, never inside)*
 
+**Action items:**
+- [one-line action, e.g. "Reply to Alex re: budget approval"]
+- [one-line action]
+
+*(omit this block if no 🔴 emails)*
+
 ### Newsletter: [Name]
 [One-line summary]
 [Open](https://mail.google.com/mail/u/0/#inbox/{threadId})
@@ -201,11 +213,10 @@ Here's what I've prepared:
 - [Question] — [#channel](url) ⏳
 
 ### ⚡ Workload
-[N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM]
-
-⚠️ [Conflict if any]
-
-🧠 до [Meeting name] з [Participant] — [Granola note] + [Gmail thread]
+[N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM][· evening packed [HH:MM]–[HH:MM] — if 3+ h of meetings after 18:00]
+⚠️ [Conflict — e.g. "Growth Brainstorm (18:00–19:30) overlaps Meet with Alex (18:30)"]
+⚠️ Дубль? [Title A] та [Title B] поспіль — перевір запрошення
+🧠 до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]
 
 ---
 ```
@@ -266,7 +277,12 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 **Content formatting inside each tile:**
 - **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
 - Separate each item with a blank line — never write items as a continuous block
-- **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets
+- **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets. After all email links, if there are any 🔴 emails, append:
+  ```
+  **Action items:**
+  - [one-line action per 🔴 email]
+  ```
+  Omit this block entirely if no 🔴 emails.
 - **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name. Body: short 2–3 sentence summary. Last line: **`[Open in Gmail](https://mail.google.com/mail/u/0/#inbox/{threadId})`** — wrap the link text in bold so it renders as a visible hyperlink, not plain text: `**[Open in Gmail](url)**`. **Skip the tile entirely if there are no unread issues from that newsletter.**
 - **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
   - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
@@ -274,11 +290,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
   - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
   - Omit the entire tile if no messages from today.
-- **Workload**: single tile titled `⚡ Workload`. Every element must be its own paragraph — **always a blank line between each item**. Order:
-  1. Day shape line: `N meetings · Xh occupied · focus window HH:MM–HH:MM [· evening packed HH:MM–HH:MM if 3+ h after 18:00]`
-  2. Each `⚠️` conflict or anomaly — one per paragraph
-  3. Each `🧠` context note — one per paragraph, format: `🧠 до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]`
-  Omit Workload tile entirely if Calendar returned no events.
+- **Workload**: single tile titled `⚡ Workload`. Each line on its own row — no blank lines between items. Day shape first, then each ⚠️ conflict/anomaly, then each 🧠 context note. For 🧠 lines: Granola note title and Gmail thread subject must be Markdown hyperlinks — `[Note title](url)` and `[Thread subject](gmail-url)` — never bare URLs. Omit Workload tile entirely if Calendar returned no events.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
@@ -431,6 +443,9 @@ After Submit, the user sends a string of answers to chat — process it and cont
         <div class="card" onclick="togTool(this,'Gamma')"><div class="chk">✓</div>Gamma</div>
         <div class="card" onclick="togTool(this,'Figma')"><div class="chk">✓</div>Figma</div>
       </div>
+      <div class="custom-in" style="margin-top:8px">
+        <input type="text" id="other-tool" placeholder="Other connector (e.g. Plaud, Notion)…">
+      </div>
     </div>
 
     <div class="btn-row">
@@ -522,6 +537,8 @@ function renderContent(){
 function togCI(el,v){el.classList.toggle('sel');el.classList.contains('sel')?content.add(v):content.delete(v);}
 function submit(){
   var r=role==='__other__'?document.getElementById('role-other-in').value.trim():role;
+  var oth=document.getElementById('other-tool').value.trim();
+  if(oth)tools.add(oth);
   var tArr=Array.from(tools);
   var valid=[];
   tArr.forEach(function(t){if(TM[t]&&TM[t].daily)TM[t].daily.forEach(function(i){if(valid.indexOf(i)<0)valid.push(i)});});
