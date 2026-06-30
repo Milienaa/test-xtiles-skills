@@ -224,15 +224,17 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today") — don't skip silently
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- After the preview, ask: "Does this look right? Anything to change?"
+- After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
 ### 6. Approval
 
-Ask the user (single select):
+**Mandatory. Never skip this step.** After showing the preview, call `AskUserQuestion` (single select):
 - **"Looks good — create it"** → proceed to write
 - **"Change something"** → ask what, update only that section, show preview again
 - **"Cancel"** → stop
+
+Do not call `xtiles_create_tiles_from_markdown_in_my_planner` until the user explicitly selects **"Looks good — create it"**.
 
 If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
 
