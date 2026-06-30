@@ -134,7 +134,13 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR *@substack.com OR *@beehiiv.com OR *@convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
-- **Slack**: recent messages from the user's chosen channels (`mcp__claude_ai_Slack__slack_read_channel`, top 20–30).
+- **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from today only** (timestamp ≥ 00:00 local time). Discard older messages. If no messages from today in a channel — skip that channel silently.
+
+  After filtering, analyse all Slack messages across all channels and group them semantically:
+  - **Topics** — what was discussed; group by theme, one topic = one line, link to the most relevant message, include channel attribution: `[#channel](url)`
+  - **Decisions** — where something was agreed, committed to, or confirmed
+  - **Open questions** — where a question was raised but no clear answer came yet; mark as ⏳
+
 - **Calendar (Workload)**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. Compute:
   - **Day shape** (one summary line): meetings count, total hours occupied, longest free focus window with exact times, and an evening density note if the schedule is heavy after 18:00 — e.g. "4 зустрічі, 4 год зайнято. Вільне вікно 13:38–18:00 — найдовший фокус-блок. Вечір щільний (18:00–23:30)."
   - **Conflicts**: overlapping events with exact times; back-to-back with no gap between them
@@ -175,16 +181,29 @@ Here's what I've prepared:
 [One-line summary]
 [Open](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-### Slack — #[channel]
-🔴 [Real message signal]
+### 💬 Slack
+**Channels:** #channel1 (N) · #channel2 (N)
 
-🟡 [Real message signal]
+#### 💬 Topics
+- **[Topic name]** — [one-sentence summary] — [#channel](url)
+
+#### ✅ Decisions
+- [Decision] — [#channel](url)
+
+#### ❓ Open
+- [Question] — [#channel](url) ⏳
 
 ### ⚡ Workload
-[N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM][· evening packed [HH:MM]–[HH:MM] — if 3+ h of meetings after 18:00]
-⚠️ [Conflict — e.g. "Growth Brainstorm (18:00–19:30) overlaps Meet with Alex (18:30)"]
-⚠️ Дубль? [Title A] та [Title B] поспіль — перевір запрошення
-🧠 до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]
+[N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM]
+⚠️ [Conflict if any]
+
+---
+
+**[Meeting name]**
+[Calendar event](url)
+🧠 [context if available]
+
+---
 
 ---
 ```
@@ -245,8 +264,25 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - Separate each item with a blank line — never write items as a continuous block
 - **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets
 - **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name. Body: short 2–3 sentence summary. Last line: **`[Open in Gmail](https://mail.google.com/mail/u/0/#inbox/{threadId})`** — wrap the link text in bold so it renders as a visible hyperlink, not plain text: `**[Open in Gmail](url)**`. **Skip the tile entirely if there are no unread issues from that newsletter.**
-- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Use `#### #channel-name` as a subheading inside the tile for each channel. One entry per notable signal: `🔴 **[Sender name](message-url):** signal summary` — bold the sender and link to the message if a URL is available; if no URL, use `🔴 **Sender name:** signal summary`. Emoji always first.
-- **Workload**: single tile titled `⚡ Workload`. Separate every line with a blank line — day shape line, each ⚠️ anomaly, each 🧠 context line must each be its own paragraph. Omit Workload tile entirely if Calendar returned no events.
+- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
+  - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
+  - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](url)`
+  - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
+  - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
+  - Omit the entire tile if no messages from today.
+- **Workload**: single tile titled `⚡ Workload`. First line: day shape summary (meetings count, hours occupied, longest focus window, evening density if applicable). Then `⚠️` conflict/anomaly lines if any — each as its own paragraph. Then one block per meeting, separated by `---` dividers:
+
+  ```
+  ---
+
+  **[Meeting name]**
+  [Calendar event](url)
+  🧠 [context — Granola note or Gmail thread with organiser, only if available]
+
+  ---
+  ```
+
+  Use the event's `htmlLink` from Calendar as the URL. Omit the 🧠 line if no Granola or Gmail context is available. Omit Workload tile entirely if Calendar returned no events.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
