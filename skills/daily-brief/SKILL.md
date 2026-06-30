@@ -205,11 +205,11 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Decisions** — where something was agreed, committed to, or confirmed
   - **Open questions** — where a question was raised but no clear answer came yet; mark as ⏳
 
-- **Calendar (Workload)**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. Compute:
-  - **Day shape** (one summary line): meetings count, total hours occupied, longest free focus window with exact times, and an evening density note if the schedule is heavy after 18:00 — e.g. "4 зустрічі, 4 год зайнято. Вільне вікно 13:38–18:00 — найдовший фокус-блок. Вечір щільний (18:00–23:30)."
-  - **Conflicts**: overlapping events with exact times; back-to-back with no gap between them
-  - **Anomalies**: prefix with ⚠️ — events after 20:00, events without description/agenda, and potential duplicates (two events with similar titles close together, show as "Дубль? [Title A] та [Title B] поспіль — перевір запрошення")
-  - **Context per meeting** (prefix with 🧠, only if Granola or Gmail connected): for each notable meeting name the meeting, then — last Granola note involving the same participants, and/or most recent open Gmail thread with the organiser. Format: "до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]"
+- **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. For each event extract: start/end time, title, participant names (first name + last name or company), and meeting link (Google Meet, Zoom, or other video URL from event data). Compute:
+  - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
+  - **Per-event row**: time range · title — participants list · [meeting link label](url) if present
+  - **🧠 context** (only if Granola or Gmail connected): for each meeting, find the last Granola note involving the same participants and/or the most recent open Gmail thread with the organiser — write one sentence summarising what the meeting is about or what was discussed last time. Only include if relevant context is found; skip silently otherwise.
+  - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
 
 Analyze what you get. Classify each email/Slack signal:
 - 🔴 needs a decision, reply, or action today
@@ -265,11 +265,20 @@ Here's what I've prepared:
 #### ❓ Open
 - [Question] — [#channel](url) ⏳
 
-### ⚡ Workload
-[N] meetings · [X]h occupied · focus window [HH:MM]–[HH:MM][· evening packed [HH:MM]–[HH:MM] — if 3+ h of meetings after 18:00]
-⚠️ [Conflict — e.g. "Growth Brainstorm (18:00–19:30) overlaps Meet with Alex (18:30)"]
-⚠️ Дубль? [Title A] та [Title B] поспіль — перевір запрошення
-🧠 до [Meeting name] з [Participant] — [Granola note title] + [Gmail thread subject]
+### 📅 Calendar
+**N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
+
+**HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
+
+🧠 [one sentence: meeting point / what will be discussed]
+
+**HH:MM–HH:MM · Meeting name**
+
+**HH:MM–HH:MM · Meeting name** — Participant from Company · [Google Meet](url)
+
+🧠 [meeting point]
+
+⚠️ [anomaly — e.g. two external calls back-to-back in the evening, 30 min gap between them]
 
 ---
 ```
@@ -340,7 +349,33 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
   - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
   - Omit the entire tile if no messages from today.
-- **Workload**: single tile titled `⚡ Workload`. Each line on its own row — no blank lines between items. Day shape first, then each ⚠️ conflict/anomaly, then each 🧠 context note. For 🧠 lines: Granola note title and Gmail thread subject must be Markdown hyperlinks — `[Note title](url)` and `[Thread subject](gmail-url)` — never bare URLs. Omit Workload tile entirely if Calendar returned no events.
+- **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
+  ```
+  ### 📅 Calendar
+  @colorSize: LIGHTER
+  @color: [pick randomly from the color list]
+
+  **N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
+
+  **HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
+
+  🧠 [one sentence: meeting point / what will be discussed]
+
+  **HH:MM–HH:MM · Meeting name**
+
+  **HH:MM–HH:MM · Meeting name** — Participant from Company · [Zoom](url)
+
+  🧠 [meeting point]
+
+  ⚠️ [anomaly]
+  ```
+  Rules:
+  - Summary line is bold, always first
+  - Each event on its own bold line: `**HH:MM–HH:MM · Title**` — append ` — Participants · [Link label](url)` if participants or meeting link exist
+  - 🧠 goes on the next paragraph directly under its event — only if Granola or Gmail context was found; omit otherwise. Use Markdown hyperlinks for Granola note and Gmail thread: `[Note title](url)` + `[Thread subject](gmail-url)`
+  - All ⚠️ anomalies collected at the bottom, one per line
+  - Blank line between every item (event, 🧠, ⚠️) for readability
+  - Omit tile entirely if Calendar returned no events
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
