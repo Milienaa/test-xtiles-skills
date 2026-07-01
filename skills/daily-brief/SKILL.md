@@ -85,7 +85,7 @@ After receiving answers — detect which MCP tools are actually available:
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
-**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. Carry the full list of selected tools through every subsequent step — never discard what the user picked.
+**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
 
 **If xTiles is not connected** — do not continue. Immediately walk the user through connecting xTiles (see **How to connect connectors** below). Wait for confirmation that xTiles is connected before proceeding.
 
@@ -107,17 +107,30 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
-Run **multiple targeted searches** using `mcp__claude_ai_Slack__slack_search_channels` — do not rely on a single no-query call. Run separate searches for each keyword group relevant to the user's role:
 
-- `growth` — `marketing` — `sales`
-- `product` — `design` — `eng` — `dev`
-- `team` — `general` — `announce` — `alert`
-- `support` — `success` — `ops`
+**Step A — build queries.** The search query is the relevance mechanism — Slack's server ranks results; never bypass it with an empty query.
 
-Deduplicate results across all searches. From the combined list, surface up to 8 channels prioritised as follows:
-1. Channels matching the user's role keywords first (e.g. for Growth & Marketing: `growth`, `marketing`, `sales`, `gtm`, `revenue`)
-2. Then general high-signal channels: `team`, `general`, `product`, `announce`, `alert`, `urgent`
-3. Exclude low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
+1. **User-stated focus first.** If the user explicitly named a focus ("growth channels", "product stuff", "engineering alerts") — use those exact words as queries. Skip the role table for terms the user already provided.
+2. **Role-derived terms** (for any slots not covered by user context). Derive 2–4 terms from the user's role:
+
+| Role | Primary terms | Secondary terms |
+|------|--------------|-----------------|
+| Growth & Marketing | `growth`, `marketing` | `acquisition`, `gtm`, `revenue` |
+| Engineer | `eng`, `backend` | `incidents`, `infra`, `release` |
+| Product Manager | `product`, `roadmap` | `pm`, `launch`, `feedback` |
+| Designer | `design`, `ux` | `figma`, `brand`, `product` |
+| Founder / CEO | `growth`, `product` | `ops`, `leadership`, `all-hands` |
+| Support & Success | `support`, `success` | `customers`, `bugs`, `helpdesk` |
+
+**Step B — search.** For each query term, call `mcp__claude_ai_Slack__slack_search_channels` with that term as the `query`. Run 2–4 calls total (primary terms only; add secondary if primary yields fewer than 5 channels). **Never use an empty query** — it returns the full unranked channel dump and requires client-side substring filtering, which causes false matches.
+
+**Step C — merge and rank.** Deduplicate results by channel id. Rank in this order:
+1. Channels whose name **starts with or exactly equals** a query term — highest priority. Do NOT substring-match: `eng` must not match `challenges-engineering`, `dev` must not match `developers-random`.
+2. High-signal general channels: name starts with `general`, `team`, `announce`, `alert`, `urgent` — second tier.
+3. **If member count is available in results** — use it as a tiebreaker within each tier (more members = higher rank).
+4. Drop low-signal channels: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`.
+
+Take the top 8. **Fallback only:** if ALL queries return zero results — run one empty-query call and apply the same ranking/filtering above.
 
 Generate an HTML multi-select widget with the discovered channels as selectable cards and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel):
 
@@ -151,6 +164,8 @@ function submit(){var o=document.getElementById('other-ch').value.trim();if(o)se
 ```
 
 **If Newsletters is selected:**
+**Important:** if the user selected "Newsletters" in the survey widget (step 2), this discovery flow must still run — do not skip it because newsletters was pre-selected there. The survey captures the preference; this step discovers the actual sources.
+
 First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
 
 If publications found — call `show_widget` with an HTML multi-select listing the discovered newsletters as selectable cards. Template (inject one card per found publication):

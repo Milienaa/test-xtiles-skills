@@ -129,17 +129,13 @@ Synthesise the collected data into **3 tiles**, each with `####` subheadings ins
 
 **Tile 2 — 🔍 Activities** — patterns derived from ALL collected data (Daily pages + every connector). Contains four subheadings:
 
-`##### Dominant topics` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic: `**[Topic name]** — N days — [one sentence on what happened]`
+`##### 🗂️ Dominant topics` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic as a bullet: `- **[Topic name]** — N days — [one sentence on what happened]`
 
-`##### Activity type` — classify every action from the week into:
-- Initiative — user opened threads, raised topics, proposed something
-- Reactive — user responded, approved, commented
-- Decision-making — concrete commitments or decisions made
-Output as a % breakdown: `Initiative 40% · Reactive 45% · Decisions 15%`
+`##### ⚡ Activity type` — classify every action from the week into three types. Output as a **single percentage line, no bullets**: `Initiative 40% · Reactive 45% · Decisions 15%`
 
-`##### Productivity pattern` — most active day, quietest day, morning/afternoon/evening split, any anomalies (unusually dense evening, day with no activity).
+`##### 📊 Productivity pattern` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`
 
-`##### Key interactions` — top 5 people by interaction count this week. Format: `**[Name]** — N interactions — [topic] — [decision / discussion]`
+`##### 👥 Key interactions` — top 5 people by interaction count this week. Format each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
 
 ---
 
@@ -217,13 +213,13 @@ Write all sections in a **single call**.
 
 **Tile 2 — 🔍 Activities:**
 
-`##### Dominant topics` — top 5 topics: `**[Topic]** — N days — [one-sentence summary]`
+`##### 🗂️ Dominant topics` — top 5 topics, each as a bullet: `- **[Topic]** — N days — [one-sentence summary]`
 
-`##### Activity type` — single line: `Initiative N% · Reactive N% · Decisions N%`
+`##### ⚡ Activity type` — single line, no bullets: `Initiative N% · Reactive N% · Decisions N%`
 
-`##### Productivity pattern` — 2–3 lines: most active day, morning/afternoon/evening split, anomalies.
+`##### 📊 Productivity pattern` — each observation as a bullet: `- [observation about most active day, morning/afternoon/evening split, anomalies]`
 
-`##### Key interactions` — top 5 people: `**[Name]** — N interactions — [topic] — [decision / discussion]`
+`##### 👥 Key interactions` — top 5 people, each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
 
 **Tile 3 — → Next week:**
 
@@ -328,39 +324,39 @@ Use the example below as the ground-truth formatting reference — match it char
 @colorSize: LIGHTER
 @color: BLUE_CHALK
 
-##### Dominant topics
+##### 🗂️ Dominant topics
 
-**Affiliate & partnerships** — 4 days — Impact negotiations, EchoMe integration closing
+- **Affiliate & partnerships** — 4 days — Impact negotiations, EchoMe integration closing
 
-**Plugin launch** — 3 days — marketplace prep, Daily Brief fixes
+- **Plugin launch** — 3 days — marketplace prep, Daily Brief fixes
 
-**Q3 planning** — 3 days — OKR syncs, budget, resources
+- **Q3 planning** — 3 days — OKR syncs, budget, resources
 
-**Influencer strategy** — 2 days — macro → micro shift, Sara Aratake brief
+- **Influencer strategy** — 2 days — macro → micro shift, Sara Aratake brief
 
-**Auth sprint** — 2 days — 3 issues closed, E2E passing
+- **Auth sprint** — 2 days — 3 issues closed, E2E passing
 
-##### Activity type
+##### ⚡ Activity type
 
 Initiative 38% · Reactive 47% · Decisions 15%
 
-##### Productivity pattern
+##### 📊 Productivity pattern
 
-Most active: Tuesday. Quietest: Friday (2 meetings, little async).
+- Most active: Tuesday. Quietest: Friday (2 meetings, little async).
 
-Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
+- Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
 
-##### Key interactions
+##### 👥 Key interactions
 
-**Andrew** — 6 interactions — Q3 OKRs — decision (OKRs approved)
+- **Andrew** — 6 interactions — Q3 OKRs — decision (OKRs approved)
 
-**Todd Savard** — 4 interactions — EchoMe integration — discussion (no decision yet)
+- **Todd Savard** — 4 interactions — EchoMe integration — discussion (no decision yet)
 
-**Sara Aratake** — 3 interactions — influencer brief — discussion
+- **Sara Aratake** — 3 interactions — influencer brief — discussion
 
-**Alex** — 2 interactions — Q3 budget — awaiting confirmation
+- **Alex** — 2 interactions — Q3 budget — awaiting confirmation
 
-**Maria (Design)** — 2 interactions — plugin UI — decision (mockup approved)
+- **Maria (Design)** — 2 interactions — plugin UI — decision (mockup approved)
 
 ### → Next week
 @colorSize: LIGHTER

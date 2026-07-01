@@ -58,12 +58,11 @@ Fetch top 2–3 results per topic with `WebFetch`. Extract:
 
 Deduplicate by URL. Filter out: opinion without a news hook, PR dressed as news, content older than 48h.
 
+**Cross-day deduplication:** before finalising, call `mcp__xtiles__xtiles_get_planner_content` with `period: "day"` and yesterday's date (ISO 8601). Scan the returned tile content for any hyperlink URLs. Drop any story from today's results whose URL already appeared yesterday — the same news must not repeat on consecutive days.
+
 ### 4. Preview
 
-Show the assembled digest in chat using the format below. Then ask (single select):
-- "Looks good — save it"
-- "Change something"
-- "Cancel"
+Show the assembled digest in chat using the format below. Then call `show_widget` with the **Approval widget HTML** (see below). Do not write to xTiles until the user clicks "Looks good — save it". If the user clicks "Change something" — ask what to change, update that section, re-show the digest, and show the approval widget again.
 
 ### 5. Write to xTiles
 
@@ -165,6 +164,32 @@ function submit(){
   sendPrompt('Today news topics: '+sel.join(', '));
 }
 </script>
+```
+
+---
+
+## Approval widget HTML
+
+Show via `show_widget` after the digest preview in step 4.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+.btns{display:flex;flex-direction:column;gap:8px}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-edit{background:#f0f0f0;color:#1a1a1a}
+.btn-edit:hover{background:#e0e0e0}
+.btn-cancel{background:transparent;color:#aaa;font-weight:400}
+.btn-cancel:hover{color:#666}
+</style>
+<div class="btns">
+  <button class="btn btn-yes" onclick="sendPrompt('Looks good — save it')">✓ Looks good — save it</button>
+  <button class="btn btn-edit" onclick="sendPrompt('Change something')">Edit</button>
+  <button class="btn btn-cancel" onclick="sendPrompt('Cancel')">Cancel</button>
+</div>
 ```
 
 ---
