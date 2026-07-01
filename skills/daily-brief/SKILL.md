@@ -85,7 +85,7 @@ After receiving answers — detect which MCP tools are actually available:
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
-**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. Carry the full list of selected tools through every subsequent step — never discard what the user picked.
+**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
 
 **If xTiles is not connected** — do not continue. Immediately walk the user through connecting xTiles (see **How to connect connectors** below). Wait for confirmation that xTiles is connected before proceeding.
 
@@ -107,17 +107,30 @@ Options — include only those relevant to connected tools:
 Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
-Run **multiple targeted searches** using `mcp__claude_ai_Slack__slack_search_channels` — do not rely on a single no-query call. Run separate searches for each keyword group relevant to the user's role:
 
-- `growth` — `marketing` — `sales`
-- `product` — `design` — `eng` — `dev`
-- `team` — `general` — `announce` — `alert`
-- `support` — `success` — `ops`
+**Step A — build queries.** The search query is the relevance mechanism — Slack's server ranks results; never bypass it with an empty query.
 
-Deduplicate results across all searches. From the combined list, surface up to 8 channels prioritised as follows:
-1. Channels matching the user's role keywords first (e.g. for Growth & Marketing: `growth`, `marketing`, `sales`, `gtm`, `revenue`)
-2. Then general high-signal channels: `team`, `general`, `product`, `announce`, `alert`, `urgent`
-3. Exclude low-signal channels: `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
+1. **User-stated focus first.** If the user explicitly named a focus ("growth channels", "product stuff", "engineering alerts") — use those exact words as queries. Skip the role table for terms the user already provided.
+2. **Role-derived terms** (for any slots not covered by user context). Derive 2–4 terms from the user's role:
+
+| Role | Primary terms | Secondary terms |
+|------|--------------|-----------------|
+| Growth & Marketing | `growth`, `marketing` | `acquisition`, `gtm`, `revenue` |
+| Engineer | `eng`, `backend` | `incidents`, `infra`, `release` |
+| Product Manager | `product`, `roadmap` | `pm`, `launch`, `feedback` |
+| Designer | `design`, `ux` | `figma`, `brand`, `product` |
+| Founder / CEO | `growth`, `product` | `ops`, `leadership`, `all-hands` |
+| Support & Success | `support`, `success` | `customers`, `bugs`, `helpdesk` |
+
+**Step B — search.** For each query term, call `mcp__claude_ai_Slack__slack_search_channels` with that term as the `query`. Run 2–4 calls total (primary terms only; add secondary if primary yields fewer than 5 channels). **Never use an empty query** — it returns the full unranked channel dump and requires client-side substring filtering, which causes false matches.
+
+**Step C — merge and rank.** Deduplicate results by channel id. Rank in this order:
+1. Channels whose name **starts with or exactly equals** a query term — highest priority. Do NOT substring-match: `eng` must not match `challenges-engineering`, `dev` must not match `developers-random`.
+2. High-signal general channels: name starts with `general`, `team`, `announce`, `alert`, `urgent` — second tier.
+3. **If member count is available in results** — use it as a tiebreaker within each tier (more members = higher rank).
+4. Drop low-signal channels: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`.
+
+Take the top 8. **Fallback only:** if ALL queries return zero results — run one empty-query call and apply the same ranking/filtering above.
 
 Generate an HTML multi-select widget with the discovered channels as selectable cards and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel):
 
@@ -151,6 +164,8 @@ function submit(){var o=document.getElementById('other-ch').value.trim();if(o)se
 ```
 
 **If Newsletters is selected:**
+**Important:** if the user selected "Newsletters" in the survey widget (step 2), this discovery flow must still run — do not skip it because newsletters was pre-selected there. The survey captures the preference; this step discovers the actual sources.
+
 First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
 
 If publications found — call `show_widget` with an HTML multi-select listing the discovered newsletters as selectable cards. Template (inject one card per found publication):
@@ -196,9 +211,9 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR *@substack.com OR *@beehiiv.com OR *@convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
-- **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from today only** (timestamp ≥ 00:00 local time). Discard older messages. If no messages from today in a channel — skip that channel silently.
+- **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from the last 24 hours only** (timestamp ≥ now − 24 h). Discard older messages. If no messages in the last 24 hours in a channel — skip that channel silently.
 
   After filtering, analyse all Slack messages across all channels and group them semantically:
   - **Topics** — what was discussed; group by theme, one topic = one line, link to the most relevant message, include channel attribution: `[#channel](url)`
@@ -249,9 +264,13 @@ Here's what I've prepared:
 
 *(omit this block if no 🔴 emails)*
 
-### Newsletter: [Name]
-[One-line summary]
-[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})
+### 📧 Newsletters
+
+**[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})**
+One-line summary.
+
+**[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
+One-line summary.
 
 ### 💬 Slack
 **Channels:** #channel1 (N) · #channel2 (N)
@@ -289,7 +308,7 @@ Separate each item with a blank line for readability.
 
 **Rules:**
 - Show only selected sections the user asked for
-- If a connector returned no data — write exactly that ("No unread emails", "No newsletters today") — don't skip silently
+- If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
@@ -342,13 +361,21 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - [one-line action per 🔴 email]
   ```
   Omit this block entirely if no 🔴 emails.
-- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name. Body: short 2–3 sentence summary. Last line: **`[Open in Gmail](https://mail.google.com/mail/u/0/#inbox/{threadId})`** — wrap the link text in bold so it renders as a visible hyperlink, not plain text: `**[Open in Gmail](url)**`. **Skip the tile entirely if there are no unread issues from that newsletter.**
+- **Newsletters**: ALL newsletters go in a **single `### 📧 Newsletters` tile** — never create a separate tile per newsletter. Structure:
+  - Each newsletter as a bold hyperlink title followed by a one-line summary on the next line:
+    ```
+    **[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})**
+    One-line summary.
+    ```
+  - Blank line between entries.
+  - The link IS the title — no separate "Open" button or link at the bottom of each entry.
+  - Omit the entire tile only if there are no unread newsletters at all.
 - **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
   - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
   - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](url)`
   - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
   - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
-  - Omit the entire tile if no messages from today.
+  - **If no messages from today across all channels** — still create the tile, skip the `**Channels:**` line and all subheadings, and write a single line: `No updates today.` Never omit the tile entirely — its absence looks like a connector failure.
 - **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
   ```
   ### 📅 Calendar
@@ -407,12 +434,12 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
     ```
     Replace `{role}`, `{tools}`, `{content}` with the actual values. Do not leave placeholders.
-  - **`schedule`**: cron derived from the widget. The widget sends `cron: HH:MM days:1-5` (weekdays) or `cron: HH:MM days:*` (every day) — parse both values and build: `M H * * 1-5` for weekdays, `M H * * *` for every day. Default `0 9 * * 1-5` (9:00 AM on weekdays) if not found.
+  - **`schedule`**: cron expression derived from the time the user selected in the widget. The widget sends `cron: HH:MM` in the message — parse that value and build the cron: `M H * * *` where H = hour, M = minute. Example: user picks 08:30 → `30 8 * * *`. If no time is found in the message, default to `0 9 * * *`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every [weekday morning / morning] at [chosen time]." (say "weekday morning" if `days:1-5`, "every morning" if `days:*`) Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
 - If the user selects **"No, thanks"** — acknowledge briefly and stop.
 ---
 
@@ -693,7 +720,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
 .time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
-.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -715,18 +742,26 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
     at <input type="time" id="sched-time" value="09:00">
   </div>
   <div class="btns">
-    <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
-    <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
+    <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
+    <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function scheduleIt(){
+  lock();
+  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   var dLabel=days==='1-5'?'weekdays':'every day';
   sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
+}
+function noThanks(){
+  lock();
+  document.getElementById('btn-no').textContent='✓ Got it';
+  sendPrompt('No schedule needed');
 }
 </script>
 ```
