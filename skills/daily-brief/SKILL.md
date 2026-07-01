@@ -733,7 +733,14 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <div class="icon">⏰</div>
   <h2>Run this every morning?</h2>
   <p class="sub">I'll fetch your signals and write your Daily to xTiles automatically — no need to ask each time.</p>
-  <div class="time-row">📅 Every day at <input type="time" id="sched-time" value="09:00"></div>
+  <div class="time-row">
+    📅 Every
+    <select id="sched-days">
+      <option value="1-5" selected>Weekdays</option>
+      <option value="*">Day</option>
+    </select>
+    at <input type="time" id="sched-time" value="09:00">
+  </div>
   <div class="btns">
     <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
@@ -744,10 +751,12 @@ function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled
 function scheduleIt(){
   lock();
   document.getElementById('btn-yes').textContent='⏳ Scheduling…';
+  var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
-  sendPrompt('Yes, schedule my daily digest at '+label+' every day (cron: '+t+')');
+  var dLabel=days==='1-5'?'weekdays':'every day';
+  sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
 function noThanks(){
   lock();

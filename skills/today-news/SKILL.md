@@ -62,7 +62,14 @@ Deduplicate by URL. Filter out: opinion without a news hook, PR dressed as news,
 
 ### 4. Preview
 
-Show the assembled digest in chat using the format below. Then call `show_widget` with the **Approval widget HTML** (see below). Do not write to xTiles until the user clicks "Looks good — save it". If the user clicks "Change something" — ask what to change, update that section, re-show the digest, and show the approval widget again.
+Show the assembled digest using the **Preview widget HTML** (see below).
+
+Claude builds the full widget HTML dynamically — inject the actual news content into `#digest` following the injection pattern in the template comment. The widget has three actions:
+- **Save to xTiles** — triggers step 5
+- **Change something** — reveals a text field; user submits correction text which re-enters the flow
+- **Cancel** — ends the flow
+
+**Never show the digest as plain text — always use the Preview widget.**
 
 ### 5. Write to xTiles
 
