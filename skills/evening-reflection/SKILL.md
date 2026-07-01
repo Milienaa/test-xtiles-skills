@@ -348,16 +348,18 @@ between the title and the annotations):
 - Tomorrow's actions as a numbered list.
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
 
-**After a successful write:** call `mcp__xtiles__xtiles_get_planner_content` for
-the same date/period, extract `view_id`, and confirm:
+**After a successful write — run these steps in order, no exceptions:**
 
-```
-✅ Evening reflection saved.
-```
+1. Write `✅ Evening reflection saved.`
+2. Call `mcp__xtiles__xtiles_get_planner_content` for the same date/period,
+   extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see
+   below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`.
+   Translate the button label into the user's language. Never output a
+   markdown link instead of the widget — the button must render every time.
+3. Immediately continue to **step 8 (Schedule)** — do not skip, do not ask
+   first.
 
-Then call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. This renders a tappable button — never rely on a markdown link alone.
-
-Translate the button label into the user's language. On error, say briefly what went wrong and offer to retry.
+On error, say briefly what went wrong and offer to retry.
 
 ---
 
@@ -379,7 +381,34 @@ every evening automatically? What time? (default: 9:00 PM)".
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
       Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`)
-- If the user declines — acknowledge briefly and stop.
+- If the user declines — acknowledge briefly.
+
+Either way, continue to **step 9 (Related workflows)** — do not stop here.
+
+---
+
+### 9. Related workflows
+
+**After every manual run, once step 8 is resolved** (scheduled or declined) —
+offer related workflows. Skip this on scheduled runs, which end silently
+after step 7.
+
+Ask via `AskUserQuestion` (single select): "Want to set up anything else on
+xTiles?"
+- 🌅 Daily Brief — a live morning brief from your connected tools
+- 📰 Today News — a daily news digest on topics you care about
+- 📊 Weekly Review — a weekly summary of what moved forward this week
+- Nothing else, thanks
+
+**Never list these as plain text requiring the user to retype a choice —
+always use the interactive question.**
+
+On selection, send the exact matching phrase to hand off to that skill (do
+not attempt to run it yourself):
+- Daily Brief → `Set workflow of Daily Brief (daily-brief) on xTiles MCP`
+- Today News → `Set workflow of Today News (today-news) on xTiles MCP`
+- Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
+- "Nothing else" — acknowledge briefly and stop.
 
 ---
 
@@ -668,3 +697,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
   reflection instead — never silently downscope.
 - Match the user's language; adapt if they switch.
 - Show widgets in Cowork only — in Claude Code, ask the same questions inline.
+- **The CTA button (step 7) is not optional.** Always call `show_widget` with
+  the CTA widget after a successful write — never end the write step with just
+  the confirmation text.
+- **Never end the flow with a plain-text list of next steps.** After
+  scheduling is resolved (step 8), always offer related workflows through the
+  `AskUserQuestion` in step 9 — the user picks, they never retype a choice.
