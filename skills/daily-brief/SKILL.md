@@ -211,9 +211,9 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:3d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR *@substack.com OR *@beehiiv.com OR *@convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
-- **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from today only** (timestamp ≥ 00:00 local time). Discard older messages. If no messages from today in a channel — skip that channel silently.
+- **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from the last 24 hours only** (timestamp ≥ now − 24 h). Discard older messages. If no messages in the last 24 hours in a channel — skip that channel silently.
 
   After filtering, analyse all Slack messages across all channels and group them semantically:
   - **Topics** — what was discussed; group by theme, one topic = one line, link to the most relevant message, include channel attribution: `[#channel](url)`
@@ -264,9 +264,13 @@ Here's what I've prepared:
 
 *(omit this block if no 🔴 emails)*
 
-### Newsletter: [Name]
-[One-line summary]
-[Open](https://mail.google.com/mail/u/0/#inbox/{threadId})
+### 📧 Newsletters
+
+**[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})**
+One-line summary.
+
+**[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
+One-line summary.
 
 ### 💬 Slack
 **Channels:** #channel1 (N) · #channel2 (N)
@@ -304,7 +308,7 @@ Separate each item with a blank line for readability.
 
 **Rules:**
 - Show only selected sections the user asked for
-- If a connector returned no data — write exactly that ("No unread emails", "No newsletters today") — don't skip silently
+- If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
@@ -357,13 +361,21 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - [one-line action per 🔴 email]
   ```
   Omit this block entirely if no 🔴 emails.
-- **Newsletters**: one separate `###` tile per newsletter; tile title = newsletter name. Body: short 2–3 sentence summary. Last line: **`[Open in Gmail](https://mail.google.com/mail/u/0/#inbox/{threadId})`** — wrap the link text in bold so it renders as a visible hyperlink, not plain text: `**[Open in Gmail](url)**`. **Skip the tile entirely if there are no unread issues from that newsletter.**
+- **Newsletters**: ALL newsletters go in a **single `### 📧 Newsletters` tile** — never create a separate tile per newsletter. Structure:
+  - Each newsletter as a bold hyperlink title followed by a one-line summary on the next line:
+    ```
+    **[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})**
+    One-line summary.
+    ```
+  - Blank line between entries.
+  - The link IS the title — no separate "Open" button or link at the bottom of each entry.
+  - Omit the entire tile only if there are no unread newsletters at all.
 - **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
   - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
   - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](url)`
   - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
   - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
-  - Omit the entire tile if no messages from today.
+  - **If no messages from today across all channels** — still create the tile, skip the `**Channels:**` line and all subheadings, and write a single line: `No updates today.` Never omit the tile entirely — its absence looks like a connector failure.
 - **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
   ```
   ### 📅 Calendar
@@ -723,16 +735,24 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <p class="sub">I'll fetch your signals and write your Daily to xTiles automatically — no need to ask each time.</p>
   <div class="time-row">📅 Every day at <input type="time" id="sched-time" value="09:00"></div>
   <div class="btns">
-    <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
-    <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
+    <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
+    <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function scheduleIt(){
+  lock();
+  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   sendPrompt('Yes, schedule my daily digest at '+label+' every day (cron: '+t+')');
+}
+function noThanks(){
+  lock();
+  document.getElementById('btn-no').textContent='✓ Got it';
+  sendPrompt('No schedule needed');
 }
 </script>
 ```

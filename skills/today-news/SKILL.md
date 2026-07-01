@@ -235,16 +235,24 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <p class="sub">I'll fetch fresh news and write Today's News to xTiles automatically.</p>
   <div class="time-row">Every day at <input type="time" id="sched-time" value="09:00"></div>
   <div class="btns">
-    <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
-    <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
+    <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
+    <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function scheduleIt(){
+  lock();
+  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   sendPrompt('Yes, schedule my today-news at '+label+' every day (cron: '+t+')');
+}
+function noThanks(){
+  lock();
+  document.getElementById('btn-no').textContent='✓ Got it';
+  sendPrompt('No schedule needed');
 }
 </script>
 ```

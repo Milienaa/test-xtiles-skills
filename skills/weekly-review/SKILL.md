@@ -490,18 +490,26 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
     at <input type="time" id="sched-time" value="16:00">
   </div>
   <div class="btns">
-    <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
-    <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
+    <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
+    <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
 var DAYS={1:'Monday',4:'Thursday',5:'Friday'};
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function scheduleIt(){
+  lock();
+  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var d=document.getElementById('sched-day').value;
   var t=document.getElementById('sched-time').value||'16:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   sendPrompt('Yes, schedule my weekly review every '+DAYS[d]+' at '+label+' (cron: '+m+' '+h+' * * '+d+')');
+}
+function noThanks(){
+  lock();
+  document.getElementById('btn-no').textContent='✓ Got it';
+  sendPrompt('No schedule needed');
 }
 </script>
 ```
@@ -554,10 +562,15 @@ p{font-size:14px;color:#555;margin-bottom:12px;line-height:1.4}
 <div class="wrap">
   <p>Share this week's summary as a status update to your team?</p>
   <div class="btns">
-    <button class="btn btn-yes" onclick="sendPrompt('Yes, share to Slack')">Share to Slack</button>
-    <button class="btn btn-no" onclick="sendPrompt('No, keep it personal')">No, keep it personal</button>
+    <button class="btn btn-yes" id="btn-yes" onclick="share()">Share to Slack</button>
+    <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, keep it personal</button>
   </div>
 </div>
+<script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function share(){lock();document.getElementById('btn-yes').textContent='⏳ Sharing…';sendPrompt('Yes, share to Slack');}
+function noThanks(){lock();document.getElementById('btn-no').textContent='✓ Got it';sendPrompt('No, keep it personal');}
+</script>
 ```
 
 ---
