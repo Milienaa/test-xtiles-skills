@@ -411,7 +411,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff;transition:background .15s}
 .btn:hover{background:#333}
 </style>
-<button class="btn" onclick="sendPrompt('Done — connectors connected, continue the flow')">✓ Done</button>
+<button class="btn" id="btn-done" onclick="doneIt()">✓ Done</button>
+<script>
+function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';b.textContent='⏳…';sendPrompt('Done — connectors connected, continue the flow');}
+</script>
 ```
 
 ---

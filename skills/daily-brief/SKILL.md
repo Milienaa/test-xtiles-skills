@@ -157,12 +157,12 @@ input:focus{border-color:#aaa}
     <!-- inject: <div class="card" onclick="tog(this,'#channelname')">#channelname</div> -->
   </div>
   <input type="text" id="other-ch" placeholder="Other channel…">
-  <button class="btn" onclick="submit()">Confirm</button>
+  <button class="btn" id="sub-ch" onclick="submit()">Confirm</button>
 </div>
 <script>
 var sel=new Set();
 function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?sel.add(v):sel.delete(v)}
-function submit(){var o=document.getElementById('other-ch').value.trim();if(o)sel.add(o);sendPrompt('Selected channels: '+Array.from(sel).join(', '))}
+function submit(){var b=document.getElementById('sub-ch');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';b.textContent='⏳…';var o=document.getElementById('other-ch').value.trim();if(o)sel.add(o);sendPrompt('Selected channels: '+Array.from(sel).join(', '))}
 </script>
 ```
 
@@ -193,12 +193,12 @@ input:focus{border-color:#aaa}
     <!-- inject: <div class="card" onclick="tog(this,'Publication Name')">Publication Name</div> -->
   </div>
   <input type="text" id="other-nl" placeholder="Other newsletter…">
-  <button class="btn" onclick="submit()">Confirm</button>
+  <button class="btn" id="sub-nl" onclick="submit()">Confirm</button>
 </div>
 <script>
 var sel=new Set();
 function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?sel.add(v):sel.delete(v)}
-function submit(){var o=document.getElementById('other-nl').value.trim();if(o)sel.add(o);sendPrompt('Selected newsletters: '+Array.from(sel).join(', '))}
+function submit(){var b=document.getElementById('sub-nl');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';b.textContent='⏳…';var o=document.getElementById('other-nl').value.trim();if(o)sel.add(o);sendPrompt('Selected newsletters: '+Array.from(sel).join(', '))}
 </script>
 ```
 
@@ -503,7 +503,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff;transition:background .15s}
 .btn:hover{background:#333}
 </style>
-<button class="btn" onclick="sendPrompt('Done — connectors connected, continue the flow')">✓ Done</button>
+<button class="btn" id="btn-done" onclick="doneIt()">✓ Done</button>
+<script>
+function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';b.textContent='⏳…';sendPrompt('Done — connectors connected, continue the flow');}
+</script>
 ```
 
 ---
@@ -684,6 +687,7 @@ function renderContent(){
 }
 function togCI(el,v){el.classList.toggle('sel');el.classList.contains('sel')?content.add(v):content.delete(v);}
 function submit(){
+  document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});
   var r=role==='__other__'?document.getElementById('role-other-in').value.trim():role;
   var oth=document.getElementById('other-tool').value.trim();
   if(oth)tools.add(oth);
