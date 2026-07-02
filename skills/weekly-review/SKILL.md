@@ -22,6 +22,7 @@ allowed-tools: >
   mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__claude_ai_Linear__list_issues,
   mcp__mcp-registry__suggest_connectors,
+  AskUserQuestion,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
 ---
@@ -274,7 +275,34 @@ After the schedule widget response — call `show_widget` with the **Slack shari
 4. Call `mcp__claude_ai_Slack__slack_send_message` with the channel and message.
 5. Confirm: "Sent to #[channel]."
 
-**If "No, keep it personal"** — acknowledge and stop.
+**If "No, keep it personal"** — acknowledge briefly.
+
+Either way, continue to **step 9 (Related workflows)** — do not stop here.
+
+---
+
+### 9. Related workflows
+
+**After every manual run, once step 8 is resolved** (shared or kept personal)
+— offer related workflows. Skip this on scheduled runs, which end silently
+after step 6.
+
+Ask via `AskUserQuestion` (single select): "Want to set up anything else on
+xTiles?"
+- 🌅 Daily Brief — a live morning brief from your connected tools
+- 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
+- 📰 Today News — a daily news digest on topics you care about
+- Nothing else, thanks
+
+**Never list these as plain text requiring the user to retype a choice —
+always use the interactive question.**
+
+On selection, send the exact matching phrase to hand off to that skill (do
+not attempt to run it yourself):
+- Daily Brief → `Set workflow of Daily Brief (daily-brief) on xTiles MCP`
+- Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
+- Today News → `Set workflow of Today News (today-news) on xTiles MCP`
+- "Nothing else" — acknowledge briefly and stop.
 
 ---
 

@@ -477,7 +477,35 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
   After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
-- If the user selects **"No, thanks"** — acknowledge briefly and stop.
+- If the user selects **"No, thanks"** — acknowledge briefly.
+
+Either way, continue to **step 9 (Related workflows)** — do not stop here.
+
+---
+
+### 9. Related workflows
+
+**After every manual run, once step 8 is resolved** (scheduled or declined) —
+offer related workflows. Skip this on scheduled runs, which end silently
+after step 7.
+
+Ask via `AskUserQuestion` (single select): "Want to set up anything else on
+xTiles?"
+- 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
+- 📰 Today News — a daily news digest on topics you care about
+- 📊 Weekly Review — a weekly summary of what moved forward this week
+- Nothing else, thanks
+
+**Never list these as plain text requiring the user to retype a choice —
+always use the interactive question.**
+
+On selection, send the exact matching phrase to hand off to that skill (do
+not attempt to run it yourself):
+- Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
+- Today News → `Set workflow of Today News (today-news) on xTiles MCP`
+- Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
+- "Nothing else" — acknowledge briefly and stop.
+
 ---
 
 ## How to connect connectors
