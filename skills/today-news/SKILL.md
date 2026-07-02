@@ -98,6 +98,32 @@ If the user schedules: invoke `anthropic-skills:schedule`, then `mcp__scheduled-
 - `schedule`: parse `cron: HH:MM` from the widget message and build `M H * * *` (the widget always schedules every day)
 - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
+If the user declines — acknowledge briefly. Either way, continue to
+**step 7 (Related workflows)** — do not stop here.
+
+### 7. Related workflows
+
+**After every manual run, once step 6 is resolved** (scheduled or declined) —
+offer related workflows. Skip this on scheduled runs, which end silently
+after step 5.
+
+Ask via `AskUserQuestion` (single select): "Want to set up anything else on
+xTiles?"
+- 🌅 Daily Brief — a live morning brief from your connected tools
+- 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
+- 📊 Weekly Review — a weekly summary of what moved forward this week
+- Nothing else, thanks
+
+**Never list these as plain text requiring the user to retype a choice —
+always use the interactive question.**
+
+On selection, send the exact matching phrase to hand off to that skill (do
+not attempt to run it yourself):
+- Daily Brief → `Set workflow of Daily Brief (daily-brief) on xTiles MCP`
+- Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
+- Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
+- "Nothing else" — acknowledge briefly and stop.
+
 ---
 
 ## Digest format
