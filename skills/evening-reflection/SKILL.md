@@ -274,9 +274,8 @@ Here's your reflection for [actual date]:
 - [Specific finds: partnerships, leads, competitor intel, ideas]
 
 → TOMORROW
-1. [Specific action with names — "Message X about Y", not "continue X"]
-2. [max 3 items]
-3. ...
+- [ ] Specific action with names — "Message X about Y", not "continue X"
+- [ ] max 3 items
 ---
 ```
 
@@ -328,8 +327,9 @@ between the title and the annotations):
 
 **→ Tomorrow**
 
-1. [Specific action with names — "Message X about Y", not "continue X"]
-2. [max 3 items total]
+- [ ] [Specific action with names — "Message X about Y", not "continue X"]
+
+- [ ] [max 3 items total]
 
 ⚠️ [unavailable connectors, only if some failed]
 ```
@@ -345,7 +345,8 @@ between the title and the annotations):
 - Separate each item with a blank line — never a continuous block.
 - Slack/email entries that have a URL are Markdown hyperlinks with the priority
   emoji BEFORE the `[`, never inside the brackets.
-- Tomorrow's actions as a numbered list.
+- Tomorrow's actions as task blocks (`- [ ] Task name`), one empty line between
+  each — never a numbered list.
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
 
 **After a successful write — run these steps in order, no exceptions:**
