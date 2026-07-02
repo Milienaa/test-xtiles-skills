@@ -285,7 +285,7 @@ Call `mcp__mcp-registry__suggest_connectors` passing the names of missing connec
 
 ## Review tile format (reference)
 
-Use the example below as the ground-truth formatting reference — match it character for character (blank lines, `####` subheadings, `@colorSize`, `@color`, emoji placement, source attribution).
+Use the example below as the ground-truth formatting reference — match it character for character (blank lines, `#####` subheadings, `@colorSize`, `@color`, emoji placement, source attribution).
 
 ```markdown
 ### ✅ Week recap

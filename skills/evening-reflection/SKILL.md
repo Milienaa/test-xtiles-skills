@@ -146,7 +146,7 @@ connected tools:
 - **No** — don't auto-create tasks, only write the reflection tile
 
 **If Slack is selected and the user has not named channels:** call
-`mcp__claude_ai_Slack__slack_search_channels`, show up to 6 channel names. Ask via
+`mcp__claude_ai_Slack__slack_search_channels` with query `general`, show up to 6 channel names. Ask via
 `AskUserQuestion` (multi allowed): "Which channels reflect your real work? Pick
 all that matter." Include found channels plus a fixed **"Other — I'll type the
 names"** option. Add typed names as-is.
@@ -564,6 +564,7 @@ function renderContent(){
 function togCI(el,v){el.classList.toggle('sel');el.classList.contains('sel')?content.add(v):content.delete(v);}
 function togOther(el){el.classList.toggle('sel');var w=document.getElementById('co-ev');if(w)w.style.display=el.classList.contains('sel')?'block':'none';}
 function submit(){
+  document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});
   var r=role==='__other__'?document.getElementById('role-other-in').value.trim():role;
   var tArr=Array.from(tools);var tOther=document.getElementById('tool-other-in').value.trim();if(tOther)tArr.push(tOther);
   var items=Array.from(content);var inp=document.getElementById('co-ev');if(inp){var v=inp.querySelector('input');if(v&&v.value.trim())items.push(v.value.trim());}
@@ -608,12 +609,15 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
     at <input type="time" id="sched-time" value="21:00">
   </div>
   <div class="btns">
-    <button class="btn btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
-    <button class="btn btn-no" onclick="sendPrompt('No schedule needed')">No, thanks</button>
+    <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
+    <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function scheduleIt(){
+  lock();
+  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'21:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
@@ -621,6 +625,7 @@ function scheduleIt(){
   var dLabel=days==='1-5'?'weekdays':'every day';
   sendPrompt('Yes, schedule my evening reflection at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
+function noThanks(){lock();document.getElementById('btn-no').textContent='✓ Got it';sendPrompt('No schedule needed');}
 </script>
 ```
 

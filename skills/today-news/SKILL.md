@@ -27,7 +27,7 @@ Generate a fresh morning digest from live web sources based on the user's intere
 ## Algorithm
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: incoming message contains `topics:` and `schedule:`. Skip setup. Extract topics and flags (`verify`, `rumors`), search the web, write the digest to today's xTiles Daily.
+- **Scheduled run**: incoming message contains `topics:` and `schedule:`. Skip setup. Extract topics and flags (`verify`, `rumors`), search the web, write the digest to today's xTiles Daily. Also skip step 4 (preview) and step 6 (schedule widget) — the task is already scheduled.
 - **Fast-track**: user names a specific topic ("news about AI"). Skip setup — infer topic and jump to step 3.
 - **Setup**: general request ("set up daily news", "I want morning news"). Run the full flow.
 
@@ -91,11 +91,11 @@ After write: call `mcp__xtiles__xtiles_get_planner_content`, get `view_id`, show
 
 ### 6. Schedule (optional)
 
-After every successful write — show the **Schedule widget HTML**.
+For non-scheduled runs only: after every successful write — show the **Schedule widget HTML**.
 
 If the user schedules: invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`:
 - `prompt`: `Run today-news — topics: {topics} · flags: verify={true/false} rumors={true/false} · schedule: daily-{time}`
-- `schedule`: cron from widget (e.g. `30 8 * * *`)
+- `schedule`: parse `cron: HH:MM` from the widget message and build `M H * * *` (the widget always schedules every day)
 - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
 ---
@@ -230,7 +230,9 @@ function chk(){
   var hasText=document.getElementById('custom').value.trim().length>0;
   document.getElementById('sub').disabled=!(hasSel||hasText);
 }
+function lock(){var b=document.getElementById('sub');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';}
 function submit(){
+  lock();
   var sel=Array.from(document.querySelectorAll('.chip.sel')).map(function(e){return e.textContent;});
   var custom=document.getElementById('custom').value.trim();
   if(custom)sel.push(custom);
@@ -334,15 +336,19 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
   <div class="btns">
     <button class="btn btn-save" id="btn-save" onclick="doSave()">Save to xTiles</button>
     <button class="btn btn-edit" id="btn-edit" onclick="toggleEdit()">Change something</button>
-    <button class="btn btn-cancel" onclick="sendPrompt('Cancel news digest')">Cancel</button>
+    <button class="btn btn-cancel" id="btn-cancel" onclick="cancelIt()">Cancel</button>
   </div>
 </div>
 <script>
 var editing=false;
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function doSave(){
+  lock();
+  document.getElementById('btn-save').textContent='⏳ Saving…';
   var fb=document.getElementById('fbtext').value.trim();
   sendPrompt(fb?'Apply this change then save: '+fb:'Save news digest to xTiles');
 }
+function cancelIt(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel news digest');}
 function toggleEdit(){
   editing=!editing;
   document.getElementById('fb').style.display=editing?'block':'none';
