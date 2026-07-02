@@ -147,7 +147,7 @@ Synthesise the collected data into **3 tiles**, each with `#####` subheadings in
 `##### Suggested priorities` — suggested top 3 for next week. **Priority logic:**
 1. If a Goals tile was found — derive priorities from goal blockers and next steps toward those goals first
 2. Fill remaining slots (or all 3 if no goals) from "Open" by importance
-Format: `1.`, `2.`, `3.` — one line each, specific and actionable.
+Format: `- [ ] [priority]` — one line each, specific and actionable. No assignee, no due date.
 
 ---
 
@@ -226,7 +226,7 @@ Write all sections in a **single call**.
 
 `##### 🔄 Open` — each item: `📌 [what needs to happen] — [source]`
 
-`##### Suggested priorities` — top 3, numbered (`1.` `2.` `3.`), one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
+`##### Suggested priorities` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
 
 **After a successful write — run these steps in order:**
 
@@ -373,11 +373,11 @@ Initiative 38% · Reactive 47% · Decisions 15%
 
 ##### Suggested priorities
 
-1. Merge review-fixes branch and send for review — blocks marketplace submission (goal)
+- [ ] Merge review-fixes branch and send for review — blocks marketplace submission (goal)
 
-2. Send EchoMe follow-up to Todd Savard — move or close by Wednesday
+- [ ] Send EchoMe follow-up to Todd Savard — move or close by Wednesday
 
-3. Finalise Sara Aratake influencer brief before Monday standup
+- [ ] Finalise Sara Aratake influencer brief before Monday standup
 ```
 
 ---
