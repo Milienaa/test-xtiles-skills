@@ -207,11 +207,12 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   1. `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). Filter to last 24 hours (timestamp ≥ now − 24 h). Discard older messages. Skip channels with no messages silently.
   2. `mcp__claude_ai_Slack__slack_search_public_and_private` with query `to:me` to find messages where the user was @mentioned or DM'd. Filter results to last 24 hours. This covers both public and private channels, including ones not in the chosen list.
 
-  After collecting, analyse all messages together and group semantically:
-  - **Mentions** *(highest priority)* — all messages from the `@me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, link to the message. If the mention requires a response — flag it as ⚡.
-  - **Topics** — what was discussed in channels; group by theme, one topic = one line, link to the most relevant message, include channel attribution: `[#channel](url)`
-  - **Decisions** — where something was agreed, committed to, or confirmed
-  - **Open questions** — where a question was raised but no clear answer came yet; mark as ⏳
+  After collecting, analyse all messages together and group semantically. For every item include a **direct permalink to the specific message** — extract `permalink` from the message object (or build `https://slack.com/archives/{channel_id}/p{ts_without_dot}`). Never link to the channel homepage — always to the individual message.
+
+  - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡.
+  - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`
+  - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink
+  - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳
 
 - **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. For each event extract: start/end time, title, participant names (first name + last name or company), and meeting link (Google Meet, Zoom, or other video URL from event data). Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
@@ -255,18 +256,18 @@ Here's what I've prepared:
 
 ### Emails
 🔴 Потребує дії (N)
-[Poke-style description — 1–2 sentences, second person, action + consequence]
-→ [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+- [Poke-style description — 1–2 sentences, second person, action + consequence]
+  → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-[Next 🔴 email, same format]
-→ [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+- [Next 🔴 email, same format]
+  → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
 🟡 До уваги (N)
- [One-line item — no link]
- [One-line item]
+- [One-line item — no link]
+- [One-line item]
 
 ⚪ Шум
- N сповіщень (sources) — нічого термінового
+- N сповіщень (sources) — нічого термінового
 
 **Action items:**
 - [ ] [verb-first task from 🔴 email 1]
@@ -372,21 +373,21 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   ```
   🔴 **Потребує дії (N)**
 
-  [Poke-style description — 1–2 sentences, second person, action + consequence]
-  → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+  - [Poke-style description — 1–2 sentences, second person, action + consequence]
+    → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-  [Next 🔴 item, same format]
-  → [Відкрити лист](url)
+  - [Next 🔴 item, same format]
+    → [Відкрити лист](url)
 
   🟡 **До уваги (N)**
 
-  [One-line item — no link]
+  - [One-line item — no link, never]
 
-  [One-line item]
+  - [One-line item]
 
   ⚪ **Шум**
 
-  N сповіщень (sources) — нічого термінового
+  - N сповіщень (sources) — нічого термінового
 
   ---
 
@@ -407,10 +408,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Omit the entire tile only if there are no unread newsletters at all.
 - **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
   - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
-  - `#### ⚡ Mentions` — messages where the user was @mentioned. One line per mention: `- **@Name** in [#channel](url) — what they asked/said`. Add ` ⚡` at the end if a response is needed. **Omit subheading only if no mentions found.**
-  - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](url)`
-  - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
-  - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
+  - `#### ⚡ Mentions` — messages where the user was @mentioned. One line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit subheading only if no mentions found.**
+  - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`
+  - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. Omit subheading if no decisions.
+  - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. Omit subheading if no open questions.
+  - **All Slack links must point to the specific message permalink, never to the channel homepage.**
   - **If no messages from today across all channels** — still create the tile, skip the `**Channels:**` line and all subheadings, and write a single line: `No updates today.` Never omit the tile entirely — its absence looks like a connector failure.
 - **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
   ```
