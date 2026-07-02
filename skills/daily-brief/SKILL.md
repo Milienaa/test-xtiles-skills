@@ -28,6 +28,7 @@ allowed-tools: >
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
+  mcp__claude_ai_Linear__list_issues,
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
@@ -48,7 +49,7 @@ allowed-tools: >
 **Period is always Daily.** At the start of the flow, tell the user: "I'll set up your **Daily** planner page — a live morning brief from your connected tools." Never ask which period to set up.
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: the incoming message contains `role:`, `tools:`, and `daily_content:` (config injected by the `schedule` skill). Do not show the survey. Extract the config from the message. If a connector from the config is not detected — offer to walk the user through connecting it before continuing. Then jump to **step 4 (Silent data fetch)**.
+- **Scheduled run**: the incoming message contains `role:`, `tools:`, and `daily_content:` (config injected by the `schedule` skill). Do not show the survey. Extract the config from the message. If a connector from the config is not detected — offer to walk the user through connecting it before continuing. **Skip steps 5 and 6 (preview and approval) — after the fetch, write directly to xTiles. Also skip the schedule widget in step 7 — the task is already scheduled.** Then jump to **step 4 (Silent data fetch)**.
 - **Fast-track or fresh manual run**: proceed to step 1.
 
 ### 1. Fast-track
@@ -61,7 +62,7 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with an empty query for Slack). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. Generate the widget with those pre-selections applied, then call `show_widget`.
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. Generate the widget with those pre-selections applied, then call `show_widget`.
 
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
@@ -122,6 +123,8 @@ Do NOT suggest tasks — they're already in xTiles by default.
 | Founder / CEO | `growth`, `product` | `ops`, `leadership`, `all-hands` |
 | Support & Success | `support`, `success` | `customers`, `bugs`, `helpdesk` |
 
+**If role is custom/Other** — use: primary: `general`, `team`; secondary: `announcements`, `updates`, `alerts`.
+
 **Step B — search.** For each query term, call `mcp__claude_ai_Slack__slack_search_channels` with that term as the `query`. Run 2–4 calls total (primary terms only; add secondary if primary yields fewer than 5 channels). **Never use an empty query** — it returns the full unranked channel dump and requires client-side substring filtering, which causes false matches.
 
 **Step C — merge and rank.** Deduplicate results by channel id. Rank in this order:
@@ -166,7 +169,7 @@ function submit(){var o=document.getElementById('other-ch').value.trim();if(o)se
 **If Newsletters is selected:**
 **Important:** if the user selected "Newsletters" in the survey widget (step 2), this discovery flow must still run — do not skip it because newsletters was pre-selected there. The survey captures the preference; this step discovers the actual sources.
 
-First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(*@substack.com OR *@beehiiv.com OR *@convertkit.com OR *@mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
+First, silently call `mcp__claude_ai_Gmail__search_threads` with query `from:(@substack.com OR @beehiiv.com OR @convertkit.com OR @mailchimp.com) newer_than:30d` to discover newsletters already in the inbox. Extract unique sender/publication names from results.
 
 If publications found — call `show_widget` with an HTML multi-select listing the discovered newsletters as selectable cards. Template (inject one card per found publication):
 
@@ -211,8 +214,8 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:unread is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
-- **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR *@substack.com OR *@beehiiv.com OR *@convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
+- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+- **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from the last 24 hours only** (timestamp ≥ now − 24 h). Discard older messages. If no messages in the last 24 hours in a channel — skip that channel silently.
 
   After filtering, analyse all Slack messages across all channels and group them semantically:
@@ -412,11 +415,12 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 2. Compare existing H3 headers (`###`) with what you're about to add
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
-   **After each successful write — run these three steps in order, no exceptions:**
 
-   1. Write `✅ Daily created.`
-   2. Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
-   3. Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
+**After each successful write — run these three steps in order, no exceptions:**
+
+1. Write `✅ Daily created.`
+2. Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
+3. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
@@ -431,10 +435,10 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
 - If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
     ```
-    Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-9am
+    Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}` with the actual values. Do not leave placeholders.
-  - **`schedule`**: cron expression derived from the time the user selected in the widget. The widget sends `cron: HH:MM` in the message — parse that value and build the cron: `M H * * *` where H = hour, M = minute. Example: user picks 08:30 → `30 8 * * *`. If no time is found in the message, default to `0 9 * * *`.
+    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders.
+  - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
@@ -473,10 +477,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .btn-cancel:hover{color:#666}
 </style>
 <div class="btns">
-  <button class="btn btn-yes" onclick="sendPrompt('Looks good — create it')">✓ Looks good — create it</button>
-  <button class="btn btn-edit" onclick="sendPrompt('Change something')">Edit</button>
-  <button class="btn btn-cancel" onclick="sendPrompt('Cancel')">Cancel</button>
+  <button class="btn btn-yes" id="btn-yes" onclick="approve()">✓ Looks good — create it</button>
+  <button class="btn btn-edit" id="btn-edit" onclick="edit()">Edit</button>
+  <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
 </div>
+<script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function approve(){lock();document.getElementById('btn-yes').textContent='⏳ Creating…';sendPrompt('Looks good — create it');}
+function edit(){lock();document.getElementById('btn-edit').textContent='✓ Got it';sendPrompt('Change something');}
+function cancel(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel');}
+</script>
 ```
 
 ---
@@ -720,7 +730,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
 .time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
-.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}

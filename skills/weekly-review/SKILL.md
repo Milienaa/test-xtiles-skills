@@ -43,7 +43,7 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 **Period is always Weekly.**
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: the incoming message starts with `Run weekly review —` AND contains `role:`, `tools:`, and `weekly_content:`. Skip the survey AND skip the preview — fetch data and write directly. Jump to **step 3**.
+- **Scheduled run**: the incoming message starts with `Run weekly review —` AND contains `role:`, `tools:`, and `weekly_content:`. Skip the survey AND skip the preview — fetch data and write directly. After writing, **skip the schedule widget and Slack sharing widget** — the task is already scheduled. Jump to **step 3**.
 - **Fast-track**: user asks "run my weekly review" or similar conversational phrase — skip setup, use all available connectors, jump to **step 3**. Preview (step 5) is still required.
 - **Manual setup**: general request ("set up weekly review") or setup form submission (message contains "Weekly review setup") — run the full flow. Preview (step 5) is still required.
 
@@ -51,7 +51,7 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 
 ### 1. Fast-track
 
-If the user's request is specific enough to infer intent — skip the setup widget and jump to step 3, pulling from all detected connectors.
+If the user's request is specific enough to infer intent — skip the setup widget and jump to step 3, pulling from all detected connectors. For Slack — call `slack_search_channels` with terms `general`, `team` and use the top results as the channel list.
 
 If the request is general — show the setup widget.
 
@@ -86,7 +86,7 @@ After receiving answers — detect which MCP tools are actually available:
 Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for last week. Count accomplishments and open items — used for the week-over-week delta in the summary header.
 
 **xTiles planner — Daily pages:**
-Call `mcp__xtiles__xtiles_get_planner_content` with `period: "day"` for each day of the current week. Extract:
+Call `mcp__xtiles__xtiles_get_planner_content` with `period: "day"` for each day from Monday through today only — do not call for future days. Extract:
 - Completed tasks (checked items, done/completed markers)
 - Overdue or open tasks still present at end of day
 - Notes, saved content, decisions recorded
@@ -98,8 +98,8 @@ Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for the cur
 
 For each connector that was selected or detected — call it now, before analysis. Do not skip connectors because Daily pages were already read. Connector data supplements and cross-references Daily page content and is required for Activities analysis.
 
-- **Slack**: `mcp__claude_ai_Slack__slack_read_channel` for each configured channel — messages this week, filter for decisions, shipped items, open threads
-- **Gmail**: `mcp__claude_ai_Gmail__search_threads` — query `is:important newer_than:7d` — extract key threads that represent decisions or open actions
+- **Slack**: `mcp__claude_ai_Slack__slack_read_channel` for each configured channel. After reading, filter to messages with timestamp ≥ Monday 00:00 of the current week — discard older messages. From filtered messages extract: decisions, shipped items, open threads
+- **Gmail**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox after:{Monday-YYYY/MM/DD}` using this week's Monday date (compute from current date) — extract key threads that represent decisions or open actions
 - **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — this week's events. Count meetings, identify recurring vs one-off, note people present
 - **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items, decisions, and attendees
 - **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — documents created or edited this week
@@ -113,7 +113,7 @@ If a connector call fails — note the failure, continue with remaining data. Do
 
 **Be concise throughout.** Each item is one line. No multi-sentence explanations inside tiles. Dense but scannable.
 
-Synthesise the collected data into **3 tiles**, each with `####` subheadings inside.
+Synthesise the collected data into **3 tiles**, each with `#####` subheadings inside.
 
 ---
 
@@ -231,7 +231,7 @@ Write all sections in a **single call**.
 
 1. Write `✅ Weekly Review saved.`
 2. Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` and this week's date. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. Never output a markdown link instead of the widget.
-3. Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip.
+3. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip.
 
 **If an error occurs:** say what went wrong and offer to retry.
 
@@ -246,12 +246,12 @@ In Claude Code: after writing, ask inline: "Want me to run this automatically ev
 - If **"Yes, schedule it"**: invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - `prompt`: `Run weekly review — role: {role} · tools: {tools} · weekly_content: {content} · schedule: weekly-friday-4pm`  
     Replace every placeholder with real values.
-  - `schedule`: cron from widget — default `0 16 * * 5` (Friday 4 PM). Widget sends `cron: HH:MM weekday` — parse and build accordingly.
+  - `schedule`: cron from widget — default `0 16 * * 5` (Friday 4 PM). Widget sends a pre-built cron expression in the message (e.g. `cron: 00 16 * * 5`) — extract and use it directly as the `schedule` value.
   - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
   After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." Then call `show_widget` with the **CTA widget HTML** again using the same `view_id`.
 
-- If **"No, thanks"** — acknowledge briefly and stop.
+- If **"No, thanks"** — acknowledge briefly and proceed to step 8.
 
 ---
 
@@ -260,7 +260,7 @@ In Claude Code: after writing, ask inline: "Want me to run this automatically ev
 After the schedule widget response — call `show_widget` with the **Slack sharing widget HTML** (see below).
 
 **If "Yes, share to Slack":**
-1. If Slack channels were configured during setup — use those. Otherwise call `mcp__claude_ai_Slack__slack_search_channels` and call `show_widget` with a channel-picker HTML (same pattern as the channel picker in daily-brief).
+1. If Slack channels were configured during setup — use those. Otherwise call `mcp__claude_ai_Slack__slack_search_channels` with query `general` to find main team channels, then call `show_widget` with a channel-picker HTML (same pattern as the channel picker in daily-brief).
 2. Compose a concise Slack status message from the review — 3–5 bullet points max, plain text, no markdown tiles. Format:
    ```
    📋 Week of [dates] — status update
@@ -427,17 +427,20 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
   </div>
 
   <div class="btn-row">
-    <button class="btn btn-s" onclick="sendPrompt('Cancel weekly review setup')">Cancel</button>
+    <button class="btn btn-s" id="btn-cancel" onclick="cancelIt()">Cancel</button>
     <button class="btn btn-p" onclick="submit()">Set up Weekly Review</button>
   </div>
 </div>
 <script>
 var tools=new Set();
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
 function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?tools.add(v):tools.delete(v);}
 function submit(){
+  lock();
   var t=Array.from(tools).join(', ')||'none';
   sendPrompt('Weekly review setup — tools: '+t+' · weekly_content: accomplishments, goal-progress, open-items, decisions');
 }
+function cancelIt(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel weekly review setup');}
 </script>
 ```
 
@@ -534,10 +537,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .btn-cancel:hover{color:#666}
 </style>
 <div class="btns">
-  <button class="btn btn-yes" onclick="sendPrompt('Looks good — save it')">✓ Looks good — save it</button>
-  <button class="btn btn-edit" onclick="sendPrompt('Change something')">Edit</button>
-  <button class="btn btn-cancel" onclick="sendPrompt('Cancel')">Cancel</button>
+  <button class="btn btn-yes" id="btn-yes" onclick="approve()">✓ Looks good — save it</button>
+  <button class="btn btn-edit" id="btn-edit" onclick="edit()">Edit</button>
+  <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
 </div>
+<script>
+function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function approve(){lock();document.getElementById('btn-yes').textContent='⏳ Saving…';sendPrompt('Looks good — save it');}
+function edit(){lock();document.getElementById('btn-edit').textContent='✓ Got it';sendPrompt('Change something');}
+function cancel(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel');}
+</script>
 ```
 
 ---
