@@ -617,18 +617,17 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   </div>
 </div>
 <script>
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
-  lock();
-  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'21:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   var dLabel=days==='1-5'?'weekdays':'every day';
+  collapse('⏳ Scheduling…');
   sendPrompt('Yes, schedule my evening reflection at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
-function noThanks(){lock();document.getElementById('btn-no').textContent='✓ Got it';sendPrompt('No schedule needed');}
+function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>
 ```
 

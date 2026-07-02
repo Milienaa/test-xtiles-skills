@@ -341,14 +341,13 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
 </div>
 <script>
 var editing=false;
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function doSave(){
-  lock();
-  document.getElementById('btn-save').textContent='⏳ Saving…';
   var fb=document.getElementById('fbtext').value.trim();
+  collapse(fb?'⏳ Applying & saving…':'⏳ Saving…');
   sendPrompt(fb?'Apply this change then save: '+fb:'Save news digest to xTiles');
 }
-function cancelIt(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel news digest');}
+function cancelIt(){collapse('✓ Cancelled');sendPrompt('Cancel news digest');}
 function toggleEdit(){
   editing=!editing;
   document.getElementById('fb').style.display=editing?'block':'none';
@@ -411,20 +410,15 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   </div>
 </div>
 <script>
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
-  lock();
-  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
+  collapse('⏳ Scheduling…');
   sendPrompt('Yes, schedule my today-news at '+label+' every day (cron: '+t+')');
 }
-function noThanks(){
-  lock();
-  document.getElementById('btn-no').textContent='✓ Got it';
-  sendPrompt('No schedule needed');
-}
+function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>
 ```
 

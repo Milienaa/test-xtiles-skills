@@ -12,6 +12,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__claude_ai_Slack__slack_search_channels,
+  mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
   mcp__claude_ai_Slack__slack_send_message,
   mcp__claude_ai_Gmail__search_threads,
@@ -51,7 +52,7 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 
 ### 1. Fast-track
 
-If the user's request is specific enough to infer intent — skip the setup widget and jump to step 3, pulling from all detected connectors. For Slack — call `slack_search_channels` with terms `general`, `team` and use the top results as the channel list.
+If the user's request is specific enough to infer intent — skip the setup widget and jump to step 3, pulling from all detected connectors. For Slack — first call `mcp__claude_ai_Slack__slack_search_channels` for universal names (`general`, `all`, `team`, `announcements`, `product`) to collect base channels; then reason from any available context (user role, prior messages) to derive 1–2 phrases reflecting what this person discusses in Slack, and call `mcp__claude_ai_Slack__slack_search_public_and_private` with those phrases to discover additional active channels (public and private). Merge both results and use the top 8 as the channel list.
 
 If the request is general — show the setup widget.
 
@@ -499,21 +500,16 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
 </div>
 <script>
 var DAYS={1:'Monday',4:'Thursday',5:'Friday'};
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
-  lock();
-  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var d=document.getElementById('sched-day').value;
   var t=document.getElementById('sched-time').value||'16:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
+  collapse('⏳ Scheduling…');
   sendPrompt('Yes, schedule my weekly review every '+DAYS[d]+' at '+label+' (cron: '+m+' '+h+' * * '+d+')');
 }
-function noThanks(){
-  lock();
-  document.getElementById('btn-no').textContent='✓ Got it';
-  sendPrompt('No schedule needed');
-}
+function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>
 ```
 
@@ -542,10 +538,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
   <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
 </div>
 <script>
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
-function approve(){lock();document.getElementById('btn-yes').textContent='⏳ Saving…';sendPrompt('Looks good — save it');}
-function edit(){lock();document.getElementById('btn-edit').textContent='✓ Got it';sendPrompt('Change something');}
-function cancel(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel');}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
+function approve(){collapse('⏳ Saving…');sendPrompt('Looks good — save it');}
+function edit(){collapse('✓ Got it');sendPrompt('Change something');}
+function cancel(){collapse('✓ Cancelled');sendPrompt('Cancel');}
 </script>
 ```
 
@@ -576,9 +572,9 @@ p{font-size:14px;color:#555;margin-bottom:12px;line-height:1.4}
   </div>
 </div>
 <script>
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
-function share(){lock();document.getElementById('btn-yes').textContent='⏳ Sharing…';sendPrompt('Yes, share to Slack');}
-function noThanks(){lock();document.getElementById('btn-no').textContent='✓ Got it';sendPrompt('No, keep it personal');}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
+function share(){collapse('⏳ Sharing…');sendPrompt('Yes, share to Slack');}
+function noThanks(){collapse('✓ Got it');sendPrompt('No, keep it personal');}
 </script>
 ```
 

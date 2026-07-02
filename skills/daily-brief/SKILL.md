@@ -21,6 +21,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__claude_ai_Slack__slack_search_channels,
+  mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
@@ -109,31 +110,17 @@ Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
 
-**Step A — build queries.** The search query is the relevance mechanism — Slack's server ranks results; never bypass it with an empty query.
+**Step A — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are always shown regardless of role.
 
-1. **User-stated focus first.** If the user explicitly named a focus ("growth channels", "product stuff", "engineering alerts") — use those exact words as queries. Skip the role table for terms the user already provided.
-2. **Role-derived terms** (for any slots not covered by user context). Derive 2–4 terms from the user's role:
+**Step B — role context search.** Reason from the user's role: what does this person actually write and receive in Slack day-to-day? Derive 2–3 short phrases that would naturally appear in messages in their active channels. Do not use a fixed table — think from the role context. If the user explicitly named topics, use those first.
 
-| Role | Primary terms | Secondary terms |
-|------|--------------|-----------------|
-| Growth & Marketing | `growth`, `marketing` | `acquisition`, `gtm`, `revenue` |
-| Engineer | `eng`, `backend` | `incidents`, `infra`, `release` |
-| Product Manager | `product`, `roadmap` | `pm`, `launch`, `feedback` |
-| Designer | `design`, `ux` | `figma`, `brand`, `product` |
-| Founder / CEO | `growth`, `product` | `ops`, `leadership`, `all-hands` |
-| Support & Success | `support`, `success` | `customers`, `bugs`, `helpdesk` |
+**Step C — merge and rank.**
+1. **Universal channels first** (Step A results that exist), in order: general → all → team → announcements → company → product
+2. **Role-specific channels** from Step B — ranked by message frequency in results (more hits = more relevant to this user)
+3. Remove duplicates — if a role channel matches a universal one, count it once in the universal slot
+4. Drop low-signal: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`
 
-**If role is custom/Other** — use: primary: `general`, `team`; secondary: `announcements`, `updates`, `alerts`.
-
-**Step B — search.** For each query term, call `mcp__claude_ai_Slack__slack_search_channels` with that term as the `query`. Run 2–4 calls total (primary terms only; add secondary if primary yields fewer than 5 channels). **Never use an empty query** — it returns the full unranked channel dump and requires client-side substring filtering, which causes false matches.
-
-**Step C — merge and rank.** Deduplicate results by channel id. Rank in this order:
-1. Channels whose name **starts with or exactly equals** a query term — highest priority. Do NOT substring-match: `eng` must not match `challenges-engineering`, `dev` must not match `developers-random`.
-2. High-signal general channels: name starts with `general`, `team`, `announce`, `alert`, `urgent` — second tier.
-3. **If member count is available in results** — use it as a tiebreaker within each tier (more members = higher rank).
-4. Drop low-signal channels: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`.
-
-Take the top 8. **Fallback only:** if ALL queries return zero results — run one empty-query call and apply the same ranking/filtering above.
+Take top 8. **Fallback:** if Step B returns zero results — call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `team update` and extract channels from those results.
 
 Generate an HTML multi-select widget with the discovered channels as selectable cards and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel):
 
@@ -216,10 +203,13 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
-- **Slack**: call `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). After reading, **filter to messages from the last 24 hours only** (timestamp ≥ now − 24 h). Discard older messages. If no messages in the last 24 hours in a channel — skip that channel silently.
+- **Slack**: two parallel reads:
+  1. `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). Filter to last 24 hours (timestamp ≥ now − 24 h). Discard older messages. Skip channels with no messages silently.
+  2. `mcp__claude_ai_Slack__slack_search_public_and_private` with query `to:me` to find messages where the user was @mentioned or DM'd. Filter results to last 24 hours. This covers both public and private channels, including ones not in the chosen list.
 
-  After filtering, analyse all Slack messages across all channels and group them semantically:
-  - **Topics** — what was discussed; group by theme, one topic = one line, link to the most relevant message, include channel attribution: `[#channel](url)`
+  After collecting, analyse all messages together and group semantically:
+  - **Mentions** *(highest priority)* — all messages from the `@me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, link to the message. If the mention requires a response — flag it as ⚡.
+  - **Topics** — what was discussed in channels; group by theme, one topic = one line, link to the most relevant message, include channel attribution: `[#channel](url)`
   - **Decisions** — where something was agreed, committed to, or confirmed
   - **Open questions** — where a question was raised but no clear answer came yet; mark as ⏳
 
@@ -229,11 +219,20 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **🧠 context** (only if Granola or Gmail connected): for each meeting, find the last Granola note involving the same participants and/or the most recent open Gmail thread with the organiser — write one sentence summarising what the meeting is about or what was discussed last time. Only include if relevant context is found; skip silently otherwise.
   - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
 
-Analyze what you get. Classify each email/Slack signal:
-- 🔴 needs a decision, reply, or action today
-- 🟡 informational / can wait
+Classify emails into three buckets. **Newsletters are fetched separately — exclude them here entirely and do not count them in any bucket.**
 
-For every 🔴 email, extract a one-line action item (e.g. "Reply to Alex re: budget approval", "Review proposal from Legal"). Collect these as a flat list — used in preview and tile.
+- 🔴 **Потребує дії** — emails where the user must take a concrete next step (reply, decide, act, log in)
+- 🟡 **До уваги** — FYI only: confirmed meetings, signed documents, payments, status updates — past/present tense, nothing to do
+- ⚪ **Шум** — notifications, automated alerts, service emails — do not describe individually; count only
+
+**Tone for 🔴 and 🟡 — Poke-style, capitalized:**
+- Retell the email, do not copy the subject line. Subject → action → consequence in second person: not "Your account closed" but "Google закрив твій рекламний акаунт учора"
+- For 🔴: weave the next step into the sentence: "Залогінься і віднови — вікно на апеляцію обмежене"
+- Use people's names, not email addresses. Context in parentheses if needed: "Стефан (influencers.club)"
+- Telegraphic, conversational. First letter capitalized, no bureaucratic language.
+- 🟡 items are one-liners — no link needed.
+
+For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list — used in preview and tile.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -255,17 +254,25 @@ Here's what I've prepared:
 📅 DAILY — [actual date]
 
 ### Emails
-🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})
+🔴 Потребує дії (N)
+[Poke-style description — 1–2 sentences, second person, action + consequence]
+→ [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-🟡 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})
+[Next 🔴 email, same format]
+→ [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-*(emoji always before the `[`, never inside)*
+🟡 До уваги (N)
+ [One-line item — no link]
+ [One-line item]
+
+⚪ Шум
+ N сповіщень (sources) — нічого термінового
 
 **Action items:**
-- [one-line action, e.g. "Reply to Alex re: budget approval"]
-- [one-line action]
+- [ ] [verb-first task from 🔴 email 1]
+- [ ] [verb-first task from 🔴 email 2]
 
-*(omit this block if no 🔴 emails)*
+*(omit Action items entirely if no 🔴 emails)*
 
 ### 📧 Newsletters
 
@@ -277,6 +284,9 @@ One-line summary.
 
 ### 💬 Slack
 **Channels:** #channel1 (N) · #channel2 (N)
+
+#### ⚡ Mentions
+- **@Name** in [#channel](url) — what they asked/said ⚡
 
 #### 💬 Topics
 - **[Topic name]** — [one-sentence summary] — [#channel](url)
@@ -305,8 +315,8 @@ One-line summary.
 ---
 ```
 
-Each email entry must be a Markdown hyperlink using the real `threadId` from `get_thread`.
-Each newsletter is shown as its own named section in the preview.
+Each 🔴 email uses the real `threadId` from `get_thread` for the [Відкрити лист] link. 🟡 items are one-liners with no link.
+Each newsletter is shown as its own named section in the preview — never mixed into the Emails section.
 Separate each item with a blank line for readability.
 
 **Rules:**
@@ -358,12 +368,34 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 **Content formatting inside each tile:**
 - **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
 - Separate each item with a blank line — never write items as a continuous block
-- **Emails**: each entry is a Markdown hyperlink — `🔴 [Subject — from Sender](https://mail.google.com/mail/u/0/#inbox/{threadId})` — the priority emoji goes BEFORE the `[`, never inside the brackets. After all email links, if there are any 🔴 emails, append:
+- **Emails**: structure the tile in three labeled blocks followed by action items:
   ```
-  **Action items:**
-  - [one-line action per 🔴 email]
+  🔴 **Потребує дії (N)**
+
+  [Poke-style description — 1–2 sentences, second person, action + consequence]
+  → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+
+  [Next 🔴 item, same format]
+  → [Відкрити лист](url)
+
+  🟡 **До уваги (N)**
+
+  [One-line item — no link]
+
+  [One-line item]
+
+  ⚪ **Шум**
+
+  N сповіщень (sources) — нічого термінового
+
+  ---
+
+  **Action items**
+
+  - [ ] [Verb-first task from 🔴 email 1]
+  - [ ] [Verb-first task from 🔴 email 2]
   ```
-  Omit this block entirely if no 🔴 emails.
+  Omit `Action items` section entirely if no 🔴 emails. Newsletters are in the separate `### 📧 Newsletters` tile — never include them here.
 - **Newsletters**: ALL newsletters go in a **single `### 📧 Newsletters` tile** — never create a separate tile per newsletter. Structure:
   - Each newsletter as a bold hyperlink title followed by a one-line summary on the next line:
     ```
@@ -375,6 +407,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Omit the entire tile only if there are no unread newsletters at all.
 - **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
   - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
+  - `#### ⚡ Mentions` — messages where the user was @mentioned. One line per mention: `- **@Name** in [#channel](url) — what they asked/said`. Add ` ⚡` at the end if a response is needed. **Omit subheading only if no mentions found.**
   - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](url)`
   - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](url)`. Omit subheading if no decisions.
   - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](url) ⏳`. Omit subheading if no open questions.
@@ -482,10 +515,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
   <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
 </div>
 <script>
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
-function approve(){lock();document.getElementById('btn-yes').textContent='⏳ Creating…';sendPrompt('Looks good — create it');}
-function edit(){lock();document.getElementById('btn-edit').textContent='✓ Got it';sendPrompt('Change something');}
-function cancel(){lock();document.getElementById('btn-cancel').textContent='✓ Cancelled';sendPrompt('Cancel');}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
+function approve(){collapse('⏳ Creating…');sendPrompt('Looks good — create it');}
+function edit(){collapse('✓ Got it');sendPrompt('Change something');}
+function cancel(){collapse('✓ Cancelled');sendPrompt('Cancel');}
 </script>
 ```
 
@@ -761,22 +794,17 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   </div>
 </div>
 <script>
-function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
-  lock();
-  document.getElementById('btn-yes').textContent='⏳ Scheduling…';
   var days=document.getElementById('sched-days').value;
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   var dLabel=days==='1-5'?'weekdays':'every day';
+  collapse('⏳ Scheduling…');
   sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
-function noThanks(){
-  lock();
-  document.getElementById('btn-no').textContent='✓ Got it';
-  sendPrompt('No schedule needed');
-}
+function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>
 ```
 
