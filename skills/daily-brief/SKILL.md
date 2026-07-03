@@ -19,6 +19,7 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_list_tasks,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
@@ -237,7 +238,9 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list — used in preview and tile.
+For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list.
+
+Then call `mcp__xtiles__xtiles_list_tasks` with `completed: false` to fetch all open tasks. For each action item, check if an open task with the same or very similar meaning already exists. **Keep only items that have no match** — these go into the preview and tile as `- [ ] Task`. Silently drop items that already exist as open tasks.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
