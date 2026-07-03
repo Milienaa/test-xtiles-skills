@@ -315,19 +315,17 @@ One-line summary.
 **[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
 One-line summary.
 
-### 💬 Slack
-**Channels:** #channel1 (N) · #channel2 (N)
-
-#### ⚡ Mentions
+### ⚡ Mentions
 - **@Name** in [#channel](url) — what they asked/said ⚡
 
-#### 💬 Topics
+### 💬 Topics
+**Channels:** #channel1 (N) · #channel2 (N)
 - **[Topic name]** — [one-sentence summary] — [#channel](url)
 
-#### ✅ Decisions
+### ✅ Decisions
 - [Decision] — [#channel](url)
 
-#### ❓ Open
+### ❓ Open
 - [Question] — [#channel](url) ⏳
 
 ### 📅 Calendar
@@ -438,14 +436,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between entries.
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
-- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
-  - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
-  - `#### ⚡ Mentions` — messages where the user was @mentioned. One line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit subheading only if no mentions found.**
-  - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`
-  - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. Omit subheading if no decisions.
-  - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. Omit subheading if no open questions.
-  - **All Slack links must point to the specific message permalink, never to the channel homepage.**
-  - **If no messages from today across all channels** — still create the tile, skip the `**Channels:**` line and all subheadings, and write a single line: `No updates today.` Never omit the tile entirely — its absence looks like a connector failure.
+- **Slack**: split into **separate tiles per category** — never one big tile. Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
+  - `### ⚡ Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
+  - `### 💬 Topics` — first line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. **Always create this tile** — if no messages today, write a single line: `No updates today.` Its absence looks like a connector failure.
+  - `### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. **Omit tile entirely if no decisions.**
+  - `### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. **Omit tile entirely if no open questions.**
 - **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
   ```
   ### 📅 Calendar
