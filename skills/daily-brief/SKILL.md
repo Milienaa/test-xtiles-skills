@@ -20,6 +20,9 @@ allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_get_user_timezone,
+  mcp__xtiles__xtiles_get_page_layout,
+  mcp__xtiles__xtiles_get_view_content,
+  mcp__xtiles__xtiles_set_page_layout,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
@@ -483,11 +486,24 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
 
-**After each successful write — run these three steps in order, no exceptions:**
+**After each successful write — run these steps in order, no exceptions:**
 
 1. Write `✅ Daily created.`
-2. Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
-3. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
+2. Call `mcp__xtiles__xtiles_get_planner_content` with the same `date` and `period`. Extract `view_id`.
+3. **Justified-grid layout pass (mandatory, silent — every run, scheduled included).** Newly written tiles land at default sizes that rarely fit their content. Immediately re-lay-out **only the tiles this run just created** so each row of them ends flush at one bottom line and every tile's width/height is proportional to its content. Do not message the user about this pass; if any call fails, skip silently and continue — a slightly-off layout beats a broken flow.
+
+   1. Call `mcp__xtiles__xtiles_get_page_layout` with the `view_id` — read every tile's `tile_id`, `x/y/w/h`, and the grid bounds (`max_width`, `max_height`, `min_tile_width`, `min_tile_height`). Coordinates are grid cells: `(x, y)` = top-left corner (0-based), `(w, h)` = size.
+   2. Call `mcp__xtiles__xtiles_get_view_content` with the same `view_id` — read the markdown so you can measure each tile's content.
+   3. **Identify the tiles you just added** — match the `###` section headers you wrote in this run (e.g. `📧 Newsletters`, `💬 Slack`, `📅 Calendar`) to tile titles in the layout. **Only these are repositioned.** Every pre-existing tile is fixed — never change its `x/y/w/h`, and treat it as an obstacle the added tiles must not overlap. Below, "the tiles" = the added tiles only.
+   4. **Parse each added tile's content into blocks**, each one of: **header** (a `####` / bold subsection label — 1 line, width-independent); **short-line** (a one-line item that never wraps even at `min_tile_width` — checkbox, `**Channels:**` summary, short bullet — 1 line); **paragraph** (a longer block that wraps; its line count depends on width). If unsure, compare the item's character length to the line capacity at `min_tile_width`: fits in one line even there → short-line, else → paragraph.
+   5. **Line capacity by width:** `chars_per_line(w) = (w * col_px − padding_px) / avg_char_px`, with heuristic constants `col_px ≈ 25`, `padding_px ≈ 48`, `avg_char_px ≈ 7.5` (mixed Cyrillic/Latin ~14px; calibrate against a real tile if you can). For a paragraph at width `w`: `lines = ceil(char_count / chars_per_line(w))`. Header/short-line = 1 line regardless of `w`.
+   6. **Tile height at a width** (grid rows ≈ text lines): `H_tile(w) = Σ lines(block, w) + (#header blocks) + (#paragraph→paragraph gaps) + 2` — the `+2` is tile chrome (title + top/bottom padding), the header/gap terms are the blank lines that don't shrink with width. Round up to whole rows, clamp to `≥ min_tile_height`. Naive "height ∝ 1/width" fails because only paragraphs shrink with width.
+   7. **Compose rows** from the added tiles in their existing top-to-bottom order (do not reshuffle content, do not pull in any pre-existing tile). Place them in free grid space that doesn't overlap existing tiles — typically the first empty `y` below everything already on the page. Default to **2 tiles per row**; give a very heavy tile its **own full-width row** (`w = max_width`); avoid a lonely narrow tile when it can pair with a neighbor.
+   8. **Distribute width in each row** across the full `max_width` (fill the band — no leftover gap), proportional to content weight (≈ paragraph char count): light tiles get just above `min_tile_width`; the rest of the columns go to the heavy tile(s) so they wrap less. Every tile stays `≥ min_tile_width`; widths sum to exactly `max_width`.
+   9. **Equalize height (flush-bottom rule):** compute `H_tile(w)` at each tile's assigned width, then set **every tile in the row to `h = max(H_tile)`** so the row ends at one bottom line (empty space under a lighter tile is fine — dashboard look). Set `x` left→right (first tile at the row's left edge, next `x` = previous `x + w`), same `y` for the row, next row `y` = this row's `y + H`. If the max is dominated by one heavy tile, first try widening it (redo step 8) to pull `H` down. If a tile still doesn't fit: narrow its neighbor toward `min_tile_width` and give it the columns; if the neighbor is already at `min_tile_width`, raise `H` by exactly the shortfall.
+   10. Call `mcp__xtiles__xtiles_set_page_layout` once, listing **only the added tiles** (`tile_id` + new `x/y/w/h`). Never include a pre-existing tile. Positions must be in-bounds and must not overlap any tile — added or pre-existing — or the server rejects them.
+4. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
+5. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
