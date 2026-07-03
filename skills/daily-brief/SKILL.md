@@ -126,17 +126,19 @@ Generate an HTML multi-select widget with the discovered channels as selectable 
 
 ```html
 <style>
+:root{--c-surface:#fff;--c-text:#1a1a1a;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
+@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
-.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent}
+.wrap{max-width:480px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
-.card:hover{border-color:#aaa}
-.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
-input:focus{border-color:#aaa}
-.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s}
+.card:hover{border-color:var(--c-border2)}
+.card.sel{background:var(--c-btn-p);color:var(--c-btn-p-text);border-color:var(--c-btn-p)}
+input{width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--c-surface);color:var(--c-text)}
+input:focus{border-color:var(--c-border2)}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text)}
 </style>
 <div class="wrap">
   <h2>Which channels do you open first each morning?</h2>
@@ -162,17 +164,19 @@ If publications found — call `show_widget` with an HTML multi-select listing t
 
 ```html
 <style>
+:root{--c-surface:#fff;--c-text:#1a1a1a;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
+@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
-.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent}
+.wrap{max-width:480px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
-.card:hover{border-color:#aaa}
-.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
-input:focus{border-color:#aaa}
-.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s}
+.card:hover{border-color:var(--c-border2)}
+.card.sel{background:var(--c-btn-p);color:var(--c-btn-p-text);border-color:var(--c-btn-p)}
+input{width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--c-surface);color:var(--c-text)}
+input:focus{border-color:var(--c-border2)}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text)}
 </style>
 <div class="wrap">
   <h2>Which newsletters do you want in your Daily?</h2>
@@ -500,16 +504,15 @@ Show this via `show_widget` after the preview in step 6. If the user clicks "Cha
 
 ```html
 <style>
+:root{--c-btn-p:#1a1a1a;--c-btn-p-text:#fff;--c-btn-s:#f0f0f0;--c-btn-s-text:#1a1a1a;--c-muted:#aaa}
+@media(prefers-color-scheme:dark){:root{--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a;--c-btn-s:#333;--c-btn-s-text:#f0f0f0;--c-muted:#666}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
 .btns{display:flex;flex-direction:column;gap:8px}
 .btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
-.btn-yes{background:#1a1a1a;color:#fff}
-.btn-yes:hover{background:#333}
-.btn-edit{background:#f0f0f0;color:#1a1a1a}
-.btn-edit:hover{background:#e0e0e0}
-.btn-cancel{background:transparent;color:#aaa;font-weight:400}
-.btn-cancel:hover{color:#666}
+.btn-yes{background:var(--c-btn-p);color:var(--c-btn-p-text)}
+.btn-edit{background:var(--c-btn-s);color:var(--c-btn-s-text)}
+.btn-cancel{background:transparent;color:var(--c-muted);font-weight:400}
 </style>
 <div class="btns">
   <button class="btn btn-yes" id="btn-yes" onclick="approve()">✓ Looks good — create it</button>
@@ -517,7 +520,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
   <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
 </div>
 <script>
-function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:var(--c-muted);text-align:center;padding:4px 0">'+msg+'</p>';}
 function approve(){collapse('⏳ Creating…');sendPrompt('Looks good — create it');}
 function edit(){collapse('✓ Got it');sendPrompt('Change something');}
 function cancel(){collapse('✓ Cancelled');sendPrompt('Cancel');}
@@ -533,10 +536,11 @@ The user clicks **Done** when they have finished connecting — this sends a mes
 
 ```html
 <style>
+:root{--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
+@media(prefers-color-scheme:dark){:root{--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
-.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff;transition:background .15s}
-.btn:hover{background:#333}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text);transition:background .15s}
 </style>
 <button class="btn" id="btn-done" onclick="doneIt()">✓ Done</button>
 <script>
@@ -554,8 +558,9 @@ After Submit, the user sends a string of answers to chat — process it and cont
 ```html
 <style>
     :root{--color-background-primary:#fff;--color-background-secondary:#f5f5f5;--color-background-tertiary:#f8f8f8;--color-text-primary:#1a1a1a;--color-text-secondary:#888;--color-border-secondary:#aaa;--color-border-tertiary:#e0e0e0}
+    @media(prefers-color-scheme:dark){:root{--color-background-primary:#2c2c2c;--color-background-secondary:#383838;--color-background-tertiary:#222;--color-text-primary:#f0f0f0;--color-text-secondary:#999;--color-border-secondary:#666;--color-border-tertiary:#3d3d3d}}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:var(--color-background-tertiary);color:var(--color-text-primary)}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--color-text-primary)}
     .wrap{max-width:560px;margin:0 auto;background:var(--color-background-primary);border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
     h2{font-size:18px;font-weight:700;margin-bottom:4px;color:var(--color-text-primary)}
     .step-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:20px}
@@ -745,10 +750,11 @@ Show this immediately after a successful write. Replace `{VIEW_URL}` with the re
 
 ```html
 <style>
+:root{--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
+@media(prefers-color-scheme:dark){:root{--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
-.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
-.btn:hover{background:#333}
+.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:var(--c-btn-p-text);background:var(--c-btn-p);text-align:center;text-decoration:none;transition:background .15s}
 </style>
 <a class="btn" href="{VIEW_URL}" target="_blank">Open in xTiles →</a>
 ```
@@ -762,20 +768,20 @@ After the user clicks a button, the widget calls `sendPrompt()` and the response
 
 ```html
 <style>
+:root{--c-surface:#fff;--c-surface2:#f3f3f3;--c-text:#1a1a1a;--c-text2:#888;--c-text3:#444;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff;--c-btn-s:#f0f0f0;--c-btn-s-text:#555}
+@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-surface2:#383838;--c-text:#f0f0f0;--c-text2:#999;--c-text3:#ccc;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a;--c-btn-s:#383838;--c-btn-s-text:#bbb}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8;color:#1a1a1a}
-.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--c-text)}
+.wrap{max-width:480px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.12);text-align:center}
 .icon{font-size:36px;margin-bottom:12px}
-h2{font-size:17px;font-weight:700;margin-bottom:6px}
-.sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
-.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+h2{font-size:17px;font-weight:700;margin-bottom:6px;color:var(--c-text)}
+.sub{font-size:13px;color:var(--c-text2);margin-bottom:20px;line-height:1.5}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:var(--c-surface2);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--c-text3);margin-bottom:24px}
+.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:var(--c-text);outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.btn-yes{background:#1a1a1a;color:#fff}
-.btn-yes:hover{background:#333}
-.btn-no{background:#f0f0f0;color:#555}
-.btn-no:hover{background:#e0e0e0}
+.btn-yes{background:var(--c-btn-p);color:var(--c-btn-p-text)}
+.btn-no{background:var(--c-btn-s);color:var(--c-btn-s-text)}
 </style>
 
 <div class="wrap">
