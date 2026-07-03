@@ -23,6 +23,7 @@ allowed-tools: >
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
+  mcp__claude_ai_Slack__slack_read_user_profile,
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
@@ -110,24 +111,37 @@ Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
 
-Use the role captured in the form as the anchor for this whole discovery — it drives both the interest search (Step C) and how specialized channels are scored (Step D). The goal is to surface *this specific user's* channels, not a generic company list.
+The goal is to surface *this specific user's* channels — the ones relevant to their profession and the ones they actually use — not a generic company list. Two independent signals drive this: **relevance-by-topic** (does the channel match their role?) and **activity-by-usage** (does the user actually post/get mentioned there?). The final list is their union; channels in both are the strongest picks and are labelled **core**.
 
-**Step A — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are candidates for the shared/general slot, never for the specialized slot.
+**Step A — establish the role anchor.** Call `mcp__claude_ai_Slack__slack_read_user_profile` with **no `user_id`** — it returns the current user's own profile. Take the `title` field (and `department` if present) as the primary anchor. Combine it with the role captured in the survey form: if they agree, you have a strong anchor; if the form role is more specific, prefer it; if the profile is empty, fall back to the form role alone.
 
-**Step B — activity signal (the strongest relevance signal).** Call `mcp__claude_ai_Slack__slack_search_public_and_private` twice: once with query `from:me` (channels where the user actually posts) and once with query `to:me` (channels where the user is @mentioned or replied to). For every result, record the channel and the message timestamp. Per channel, track two things: **recency** — the timestamp of the user's most recent post or mention there, and **frequency** — total hit count across both queries. A channel the user posted or was mentioned in yesterday is more relevant right now than one with more total hits but nothing in weeks — recency is the primary activity signal, frequency only breaks ties between channels with similarly recent activity.
+**Step B — expand the role into keywords.** A profession rarely matches a channel name word-for-word, so expand the title/role into 5–8 related terms before searching: the role name itself, common abbreviations, adjacent technical terms, and the typical tools/processes of that profession. Generate these from the anchor (do not rely on a fixed table). Examples of the mapping to produce:
 
-**Step C — role & interest/affinity search.** Reason from the user's role: what does this person actually write and receive in Slack day-to-day? Derive 2–3 short phrases that would naturally appear in messages in their active channels and search for them. Then run a second, broader pass for interest and affinity-group channels that may exist regardless of role — e.g. terms like `women`, `parents`, `wellness`, `book club`, `volunteering`, `pride`, `remote`, `pets`, or other hobby/interest terms suggested by the role context. Do not use a fixed table for either pass — think from context. If the user explicitly named topics or interests, search those first.
+- **AI Engineer** → ai, ml, llm, agent, automation, mcp, bot, gpt
+- **Product Manager** → product, roadmap, feature, launch, growth, roundup
+- **Designer** → design, ui, ux, figma, brand
+- **Backend / DevOps** → infra, backend, deploy, ci, incidents, oncall
+- **Marketing** → marketing, growth, campaigns, seo, content
 
-**Step D — merge, rank, and select.**
-1. Merge every channel found in Steps A–C, removing duplicates (a channel found in more than one step counts once, keeping its highest score).
-2. Drop low-signal: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`.
-3. Score each channel, in this order: **Step B activity ranks highest** — sort by recency of the user's last post/mention there first, then by frequency as the tiebreaker among similarly-recent channels; **then** role/interest/affinity matches from Step C; **then** bare universal presence from Step A alone. A channel where the user was just mentioned yesterday outranks a role-matched channel they never actually post in.
-4. Show every remaining discovered channel as a selectable card — cast a wide net across interests and affinity groups so the user has real options to add, not just a token list.
-5. **Pre-select (mark active) up to 5 total, no more:** at most 2 from the universal slot (highest-scoring first, e.g. general → all → team → announcements → company → product), and the rest from the highest-scoring specialized channels in Step D's ranking — the channels this specific user actually writes in, is mentioned in, or that match their role/interests. Every other discovered channel stays visible but unchecked — the user decides what else matters to them each morning.
+If the user explicitly named topics or interests, add those to the keyword set first.
 
-**Fallback:** if Steps B and C both return zero results — call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `team update` and extract channels from those results.
+**Step C — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are candidates for the shared/general slot, never for the specialized slot.
 
-Generate an HTML multi-select widget with the discovered channels as selectable cards — mark the up-to-5 chosen in Step D.5 with the pre-selected `sel` state — and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel; add `sel` to the class and keep `data-v` in sync for the pre-selected ones):
+**Step D — keyword search (relevance-by-topic).** For each keyword from Step B, call `mcp__claude_ai_Slack__slack_search_channels` with `query=<keyword>` and `channel_types="public_channel,private_channel"`. Private channels in results are already ones the user belongs to (the API filters by token access), so no extra membership check is needed. `slack_search_channels` returns at most 20 per call — paginate via `cursor` when a keyword yields more. Collect all results and dedupe by channel ID. Then run one broader pass for interest/affinity-group channels that exist regardless of role — e.g. `women`, `parents`, `wellness`, `book club`, `volunteering`, `pride`, `remote`, `pets`, or other terms the role context suggests. Score each candidate by boolean signals (no weighting needed): channel **name** contains a keyword (strong); **purpose/topic** mentions a keyword (strong); channel was **created by the user** (strong — it's "their" topic); type is `private_channel` (moderate — profile-specific work channels are more often private than open ones).
+
+**Step E — activity signal (activity-by-usage, the strongest relevance signal).** Separately from keyword search, measure where the user actually writes. Call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `from:<@USER_ID>` (the user's own ID from Step A's profile), `sort="timestamp"`, `limit=20`, paginating through `cursor` for 3–5 pages (≈60–100 recent messages); narrow with `after:YYYY-MM-DD` if a specific period is wanted. Also run `to:me` to catch channels where the user is @mentioned or replied to. Per channel, track **recency** (timestamp of the user's most recent post/mention) and **frequency** (total hit count), and flag DMs / group DMs (personal) separately from named channels (team activity). Recency is the primary signal — a channel the user posted in yesterday outranks one with more total hits but nothing in weeks; frequency only breaks ties between similarly-recent channels.
+
+**Step F — merge, rank, and label.**
+1. Merge every channel from Steps C–E, removing duplicates (a channel found in more than one step counts once, keeping its highest score).
+2. Drop low-signal: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`. Exclude DMs / group DMs from the channel list.
+3. Rank, in this order: **Step E activity first** (by recency, then frequency), **then** relevance-by-topic from Step D (keyword/created-by-user matches), **then** bare universal presence from Step C alone.
+4. Label each channel: **core** if it appears in *both* Step D (topic-relevant) and Step E (actually used) — these are the strongest picks; **relevant-by-topic** if only Step D; **active-by-usage** if only Step E, even when it never matched a keyword (high activity is itself a signal of importance).
+5. Show every remaining discovered channel as a selectable card — cast a wide net across role, interests, and affinity groups so the user has real options, not a token list.
+6. **Pre-select (mark active) up to 5 total, no more:** all **core** channels first, then the highest-scoring **active-by-usage**, then **relevant-by-topic**, capped so at most 2 come from the universal slot (highest-scoring first, e.g. general → all → team → announcements → company → product). Every other discovered channel stays visible but unchecked — the user decides what else matters each morning.
+
+**Fallback:** if Steps D and E both return zero results — call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `team update` and extract channels from those results. If keyword search returns too few channels, widen the Step B keyword set with more synonyms for the role.
+
+Generate an HTML multi-select widget with the discovered channels as selectable cards — mark the up-to-5 chosen in Step F.6 with the pre-selected `sel` state — and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel; add `sel` to the class and keep `data-v` in sync for the pre-selected ones):
 
 ```html
 <style>
@@ -141,6 +155,7 @@ h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
 .card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s}
 .card:hover{border-color:var(--c-border2)}
 .card.sel{background:var(--c-btn-p);color:var(--c-btn-p-text);border-color:var(--c-btn-p)}
+.grp{flex-basis:100%;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--c-border2);margin:6px 0 -2px}
 input{width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--c-surface);color:var(--c-text)}
 input:focus{border-color:var(--c-border2)}
 .btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text)}
@@ -149,7 +164,12 @@ input:focus{border-color:var(--c-border2)}
   <h2>Which channels do you open first each morning?</h2>
   <p style="font-size:12px;color:#888;margin:-8px 0 12px">Pre-selected: your most active and relevant channels. Add any others you want to see.</p>
   <div class="cards" id="ch">
-    <!-- inject: <div class="card[ sel]" data-v="#channelname" onclick="tog(this,'#channelname')">#channelname</div> — add " sel" to class for the up-to-5 pre-selected channels from Step D.5 -->
+    <!-- Group the discovered channels under the three Step F.4 labels, each preceded by a group heading. Omit any group that has no channels.
+         <div class="grp">Core — relevant &amp; active</div>
+         <div class="grp">Active — where you post most</div>
+         <div class="grp">Relevant to your role</div>
+         Inject one card per channel under its group: <div class="card[ sel]" data-v="#channelname" onclick="tog(this,'#channelname')">#channelname</div>
+         Add " sel" to the class for the up-to-5 pre-selected channels from Step F.6 (all core first). -->
   </div>
   <input type="text" id="other-ch" placeholder="Other channel…">
   <button class="btn" id="sub-ch" onclick="submit()">Confirm</button>
@@ -181,6 +201,7 @@ h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
 .card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s}
 .card:hover{border-color:var(--c-border2)}
 .card.sel{background:var(--c-btn-p);color:var(--c-btn-p-text);border-color:var(--c-btn-p)}
+.grp{flex-basis:100%;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--c-border2);margin:6px 0 -2px}
 input{width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--c-surface);color:var(--c-text)}
 input:focus{border-color:var(--c-border2)}
 .btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text)}
