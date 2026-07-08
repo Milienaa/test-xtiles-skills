@@ -137,7 +137,9 @@ The goal is to surface *this specific user's* channels — the ones relevant to 
 
 **Step A — establish the role anchor.** Call `mcp__claude_ai_Slack__slack_read_user_profile` with **no `user_id`** — it returns the current user's own profile. Take the `title` field (and `department` if present) as the primary anchor. Combine it with the role captured in the survey form: if they agree, you have a strong anchor; if the form role is more specific, prefer it; if the profile is empty, fall back to the form role alone.
 
-**Step B — expand the role into keywords.** A profession rarely matches a channel name word-for-word, so expand the title/role into 5–8 related terms before searching: the role name itself, common abbreviations, adjacent technical terms, and the typical tools/processes of that profession. Generate these from the anchor (do not rely on a fixed table). Examples of the mapping to produce:
+**Speed matters here — this whole discovery must finish before the channel-picker widget can even be shown, so the user is staring at a blank screen the entire time.** Steps C, D, and E don't depend on each other's results (only on Step A/B being done first) — **issue their calls in parallel, in a single batch, never sequentially waiting for one to finish before starting the next.** Cap the total number of Slack calls across C+D+E at roughly 10–12; the per-step limits below are already sized for that budget — don't pad past them "just in case."
+
+**Step B — expand the role into keywords.** A profession rarely matches a channel name word-for-word, so expand the title/role into **3–4** related terms before searching (fewer than before — each extra keyword is another parallel call, and returns rapidly diminish past 4): the role name itself plus the 2–3 most distinctive adjacent terms for that profession. Generate these from the anchor (do not rely on a fixed table). Examples of the mapping to produce:
 
 - **AI Engineer** → ai, ml, llm, agent, automation, mcp, bot, gpt
 - **Product Manager** → product, roadmap, feature, launch, growth, roundup
@@ -149,9 +151,9 @@ If the user explicitly named topics or interests, add those to the keyword set f
 
 **Step C — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are candidates for the shared/general slot, never for the specialized slot.
 
-**Step D — keyword search (relevance-by-topic).** For each keyword from Step B, call `mcp__claude_ai_Slack__slack_search_channels` with `query=<keyword>` and `channel_types="public_channel,private_channel"`. Private channels in results are already ones the user belongs to (the API filters by token access), so no extra membership check is needed. `slack_search_channels` returns at most 20 per call — paginate via `cursor` when a keyword yields more. Collect all results and dedupe by channel ID. Then run one broader pass for interest/affinity-group channels that exist regardless of role — e.g. `women`, `parents`, `wellness`, `book club`, `volunteering`, `pride`, `remote`, `pets`, or other terms the role context suggests. Score each candidate by boolean signals (no weighting needed): channel **name** contains a keyword (strong); **purpose/topic** mentions a keyword (strong); channel was **created by the user** (strong — it's "their" topic); type is `private_channel` (moderate — profile-specific work channels are more often private than open ones).
+**Step D — keyword search (relevance-by-topic).** For each keyword from Step B, call `mcp__claude_ai_Slack__slack_search_channels` with `query=<keyword>` and `channel_types="public_channel,private_channel"`. Private channels in results are already ones the user belongs to (the API filters by token access), so no extra membership check is needed. **Take the first page only (no pagination)** — `slack_search_channels` returns up to 20 per call, which is already more than enough signal per keyword; don't chase a second page. Collect all results and dedupe by channel ID. **Skip the separate affinity/interest-group pass** — if an affinity channel is relevant, Step E's activity signal will surface it anyway; a dedicated extra pass isn't worth its latency cost. Score each candidate by boolean signals (no weighting needed): channel **name** contains a keyword (strong); **purpose/topic** mentions a keyword (strong); channel was **created by the user** (strong — it's "their" topic); type is `private_channel` (moderate — profile-specific work channels are more often private than open ones).
 
-**Step E — activity signal (activity-by-usage, the strongest relevance signal).** Separately from keyword search, measure where the user actually writes. Call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `from:<@USER_ID>` (the user's own ID from Step A's profile), `sort="timestamp"`, `limit=20`, paginating through `cursor` for 3–5 pages (≈60–100 recent messages); narrow with `after:YYYY-MM-DD` if a specific period is wanted. Also run `to:me` to catch channels where the user is @mentioned or replied to. Per channel, track **recency** (timestamp of the user's most recent post/mention) and **frequency** (total hit count), and flag DMs / group DMs (personal) separately from named channels (team activity). Recency is the primary signal — a channel the user posted in yesterday outranks one with more total hits but nothing in weeks; frequency only breaks ties between similarly-recent channels.
+**Step E — activity signal (activity-by-usage, the strongest relevance signal).** Separately from keyword search, measure where the user actually writes. Call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `from:<@USER_ID>` (the user's own ID from Step A's profile), `sort="timestamp"`, `limit=20`, **a single page only (≈20 recent messages — do not paginate further)**; narrow with `after:YYYY-MM-DD` if a specific period is wanted. Also run `to:me` the same way (single page), **in parallel with the `from:` call, not after it**. Per channel, track **recency** (timestamp of the user's most recent post/mention) and **frequency** (hit count within that one page), and flag DMs / group DMs (personal) separately from named channels (team activity). Recency is the primary signal — a channel the user posted in yesterday outranks one with more total hits but nothing in weeks; frequency only breaks ties between similarly-recent channels. One page is enough to find where someone is *currently* active — this signal cares about recency, not exhaustive history.
 
 **Step F — merge, rank, and label.**
 1. Merge every channel from Steps C–E, removing duplicates (a channel found in more than one step counts once, keeping its highest score).
@@ -253,7 +255,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
-**4.0 Read yesterday's digest and apply its feedback tile** (skip the read/apply parts only on the very first digest ever — nothing to read yet; still do 4.0d by pure rotation).
+**4.0 Read yesterday's digest and apply its feedback tile.** On the very first digest ever, there's no prior page to fetch — skip *only* the read-and-apply steps immediately below. **Everything else in 4.0–4.0e still runs in full on day one**: 4.0b analyses today's own data instead of yesterday's, 4.0c/4.0d still produce 3–5 real questions, and the `### 🎛️ Tune your digest` tile still gets written. "First digest ever" changes *what data 4.0b looks at* — it never means "skip the feedback tile logic."
 
 Call `mcp__xtiles__xtiles_get_planner_content` once for yesterday's date (`period: "day"`) and split the result into two things that are used very differently:
 - **Yesterday's content tiles** — every tile except the feedback tiles (Emails, Slack tiles, Workload, Linear, Google Drive, custom connectors, etc.). This is read-only input for 4.0b's structural analysis; never treated as an answer source.
@@ -285,7 +287,7 @@ Call `mcp__xtiles__xtiles_get_planner_content` once for yesterday's date (`perio
 - Never suggest dropping/removing a channel, newsletter, topic, or keyword that isn't currently part of the config — nothing to remove.
 - Never suggest "give more detail" for a section already in `detail_sections`, or for a section the user didn't select at all.
 
-**4.0b Analyse yesterday's content tiles for structural signals** (skip entirely on the first-ever digest). Read the actual tiles yesterday's digest wrote — the already-composed output, not raw Slack/Gmail data — and look for:
+**4.0b Analyse content tiles for structural signals.** On any digest after the first, read **yesterday's** tiles (the already-composed output, not raw Slack/Gmail data). **On the first-ever digest, run this exact same analysis against TODAY's own content instead of skipping it** — categories 1, 3, 5, and 6 only need one day of real data (a dominant source, a big topic, a thin section, a new theme), so day one is not signal-free just because there's no history yet. Only the genuinely cross-day checks (near-empty *repeatedly*, pinned-topic-quiet, detail-stale, scattered-topic-over-14-days) are unavailable on day one — that's fine, those simply won't fire yet. Look for:
 - **Biggest tile** — notably more items/length than the others → category 3 candidate (split it up).
 - **Duplicate tiles** — two tiles whose content substantially overlaps → category 4 candidate (merge).
 - **Dominant source** — one channel/sender appearing across multiple tiles/sections → category 1 candidate (promote it).
@@ -308,14 +310,20 @@ Call `mcp__xtiles__xtiles_get_planner_content` once for yesterday's date (`perio
 
 Keyword highlighting is **not** one of these 9 — it has its own dedicated tile with its own read/propose/apply cycle. See "Keyword tile" below.
 
-**4.0d Select 3–5 questions for today's feedback tile** (a hard range — never fewer than 3, never more than 5):
-1. Rank categories with a real 4.0b signal highest; break ties by oldest `question_history` date.
+**4.0d Select 3–5 questions for today's feedback tile** (a hard range — never fewer than 3, never more than 5). **This tile is never silently skipped, on any digest, including the first one ever — if you find yourself with zero questions, that's a sign to use the day-one fallback below, not a reason to omit the tile:**
+1. Rank categories with a real 4.0b signal highest (on day one, this already includes today's-data signals per 4.0b — see below); break ties by oldest `question_history` date.
 2. Skip categories currently in cooldown (per 4.0) — unless that's the only way to reach the 3-question minimum, in which case break cooldown for the single oldest-cooldown category rather than shipping fewer than 3.
-3. Fewer than 3 signal-backed categories? Fill the rest by rotation — least-recently-asked in `question_history` first. On the first-ever digest every category is unasked, so just take 3–5 in any stable order.
+3. Still fewer than 3 after signals and rotation? **Day-one fallback — use these verbatim (translated/adapted to the user's language), filling only as many as needed to reach 3:**
+   - *"Want me to always add a specific channel or newsletter you check daily, even if it doesn't come up much yet?"* (category 1)
+   - *"Should any section get more detail by default going forward (not just headlines)?"* (category 5)
+   - *"Prefer a shorter 'top-5' version of the digest instead of the full one?"* (category 7)
+   - *"Want a different tone — shorter and less formal, or is the current one fine?"* (category 9)
+
+   These are intentionally generic on day one **only** — every day after, real signals from 4.0b/4.0c should crowd them out. Never use this fallback once `question_history` shows any category has real prior signal data.
 4. Never two questions from the same category in one tile.
 5. Update `question_history` for every category actually asked today, stamped with today's date.
 
-Never phrase a question as generic filler — personalize with the real name/topic/channel that triggered it.
+Never phrase a question as generic filler — personalize with the real name/topic/channel that triggered it. **Exception: the day-one fallback in 4.0d step 3 is deliberately generic** — that's the one and only case where generic phrasing is correct, precisely because signal-backed data doesn't exist yet.
 
 **4.0e Keyword tile — read yesterday's proposals, then propose today's** (its own separate cycle, independent of 4.0a–4.0d; skip the read/apply half only on the first-ever digest).
 
@@ -626,7 +634,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Cap 5 candidates. Blank line between numbered items. The prompt line always comes last, after a blank line.
   - Next digest reads this exact tile back in step 4.0e — whatever the user types on the page below the prompt line is the reply; don't reword the structure into something the read-back can't parse.
   - **Applying confirmed keywords**: wrap every occurrence of a name/project/company from `highlighted_keywords` in `**bold**`, in every tile it appears in today (Emails, Slack, Workload participant names, Linear, Google Drive, custom connectors — anywhere the exact keyword shows up in running text). Don't double-wrap a keyword that's already inside an existing bold span. If a tile's content is genuinely dominated by a highlighted keyword (not just a passing mention), prefer `BERMUDA` as that tile's `@color` when the rotation allows it, so the same "this matters" color becomes recognizable over time — but never break the "no repeat color two tiles in a row" rule to force it.
-- **Feedback tile — always the last tile in the write, every digest from the first one on.** Titled `### 🎛️ Tune your digest`, as a **numbered list plus a free-text prompt** (never checkboxes) containing exactly the 3–5 questions selected in step 4.0d:
+- **Feedback tile — always the last tile in the write, every digest from the first one on, with zero exceptions.** Before finalizing the markdown for this write call, explicitly check: does it include the `### 🎛️ Tune your digest` tile? If not — go back to 4.0d, it must produce 3–5 items (use the day-one fallback if nothing else qualifies), and this tile must be added before calling the write tool. **A digest written without this tile is an incomplete write, the same category of mistake as forgetting the Emails tile.** Titled `### 🎛️ Tune your digest`, as a **numbered list plus a free-text prompt** (never checkboxes) containing exactly the 3–5 questions selected in step 4.0d:
   ```
   ### 🎛️ Tune your digest
   @colorSize: LIGHTER
@@ -641,7 +649,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   Write the numbers of the items you'd like applied to the next digest
   ```
   - This is a **tile in the digest itself**, in the same `xtiles_create_tiles_from_markdown_in_my_planner` call as every other tile — never a separate chat widget, never a follow-up message. It participates in step 7's layout pass exactly like every other tile (via `tile_ids`) — no special handling needed there.
-  - Always present, on every digest including the very first one (first-ever picks its 3–5 by pure rotation per 4.0d — there's simply no history to weight them by yet).
+  - Always present, on every digest including the very first one. **"No history yet" is never a valid reason to omit this tile** — 4.0b runs against today's own data on day one, and 4.0d's day-one fallback guarantees 3 questions even if nothing else qualifies.
   - Never fewer than 3 items, never more than 5.
   - Blank line between every numbered item. The prompt line always comes last, after a blank line.
   - The next digest reads this exact tile back in step 4.0 — whatever the user types on the page below the prompt line is the reply, parsed for referenced item numbers. Don't reword or restructure it in a way that would make that read-back ambiguous.
