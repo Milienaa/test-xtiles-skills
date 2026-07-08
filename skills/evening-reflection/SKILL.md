@@ -18,6 +18,8 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tasks,
   mcp__xtiles__xtiles_update_task,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_get_page_layout,
+  mcp__xtiles__xtiles_set_page_layout,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
@@ -49,6 +51,7 @@ tomorrow.
    sees live content. Never invent names, meetings, or messages.
 3. **Match the user's language** throughout the entire flow — match the language
    of the user's first message and adapt if they switch.
+4. **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant the reflection tile is added in step 7, re-lay-out only that new tile into a justified grid (step 7's layout pass) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
 
 ---
 
@@ -349,15 +352,24 @@ between the title and the annotations):
   each — never a numbered list.
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
 
-**After a successful write — run these steps in order, no exceptions:**
+**After a successful write — run these steps in order, no exceptions. Step 2 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 3's CTA button is even composed:**
 
 1. Write `✅ Evening reflection saved.`
-2. Call `mcp__xtiles__xtiles_get_planner_content` for the same date/period,
+2. **Justified-grid layout pass — mandatory, silent, automatic, every single run (scheduled runs included).**
+   1. Read `view_id` and `tile_ids` **directly from the response of the write call in step 7** (`xtiles_create_tiles_from_markdown_in_my_planner` returns both). `tile_ids` will contain exactly one id — the reflection tile just written. **Do not** re-derive `view_id` via `get_planner_content` for this purpose (you'll still need `get_planner_content` separately for step 3's CTA widget).
+   2. Call `mcp__xtiles__xtiles_get_page_layout` with the `view_id` — this gives the full picture of the current page: the grid bounds (`max_width`, `max_height`, `min_tile_width`, `min_tile_height`) and every tile on the page (new and pre-existing, since daily-brief and today-news can already have written to this same Daily page) with its `tile_id`/`x`/`y`/`w`/`h`. The one tile matching `tile_ids` is the tile you'll position; every other tile is a fixed obstacle — read it, never modify it.
+   3. **Reuse the markdown you already composed** for the write in step 7 to measure the tile's content — no need to re-fetch it. Parse its content into blocks: **header** (a bold subsection label, e.g. `**🎯 Results**` — 1 line, width-independent); **short-line** (a one-line item that never wraps even at `min_tile_width` — a checkbox item, a divider — 1 line); **paragraph** (a longer block that wraps; its line count depends on width).
+   4. **Line capacity by width:** `chars_per_line(w) = (w * col_px − padding_px) / avg_char_px`, with heuristic constants `col_px ≈ 25`, `padding_px ≈ 48`, `avg_char_px ≈ 7.5` (mixed Cyrillic/Latin ~14px; calibrate against a real tile if you can). For a paragraph at width `w`: `lines = ceil(char_count / chars_per_line(w))`. Header/short-line = 1 line regardless of `w`.
+   5. **Tile height at a width** (grid rows ≈ text lines): `H_tile(w) = Σ lines(block, w) + (#header blocks) + (#paragraph→paragraph gaps) + 2` — the `+2` is tile chrome (title + top/bottom padding). Round up to whole rows, clamp to `≥ min_tile_height`.
+   6. **Choose width and position:** the reflection tile is the digest's single most substantial artifact of the day, so default to a generous width — `max_width` if nothing else occupies that row, or the largest free band available next to existing tiles. Place it in free grid space from the full-page layout (step 2) that doesn't overlap any existing tile — typically the first empty `y` below everything already on the page.
+   7. **Self-check before calling:** the tile's rectangle doesn't overlap any existing tile from step 2's full layout; `w ≥ min_tile_width` and `h ≥ min_tile_height`. Fix any violation yourself — don't rely on the server to catch it.
+   8. Call `mcp__xtiles__xtiles_set_page_layout` once, with the reflection tile's `tile_id` + new `x/y/w/h`. Never include an existing tile. **If the call is rejected**, retry once with a simple fallback: full-width row (`w = max_width`) at a height equal to `H_tile(max_width)` from step 5. Only if the retry also fails, skip silently and continue — a slightly-off layout beats a broken flow.
+3. Call `mcp__xtiles__xtiles_get_planner_content` for the same date/period,
    extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see
    below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`.
    Translate the button label into the user's language. Never output a
    markdown link instead of the widget — the button must render every time.
-3. Immediately continue to **step 8 (Schedule)** — do not skip, do not ask
+4. Immediately continue to **step 8 (Schedule)** — do not skip, do not ask
    first.
 
 On error, say briefly what went wrong and offer to retry.

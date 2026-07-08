@@ -14,6 +14,11 @@ description: >
   "run my digest". Also runs automatically via scheduled tasks.
 
   Config is read from the scheduled task prompt — no separate file needed.
+  It also carries pinned_topics/trial_topics/detail_sections/secondary_channels/
+  digest_format/tone_style/signal_trail/question_history/highlighted_keywords/
+  keyword_cooldown, built up over time from answers to the "Tune your digest"
+  and "Important keywords" tiles written at the end of each digest (see step
+  4.0 and the tile formats in step 7).
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
 allowed-tools: >
@@ -30,6 +35,7 @@ allowed-tools: >
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
+  mcp__claude_ai_Gmail__unlabel_message,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
@@ -68,14 +74,20 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. Generate the widget with those pre-selections applied, then call `show_widget`.
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"` **and matching `data-tool` attribute** (see Survey widget HTML below — the card's pre-selected visual state and its underlying `tools` value must both be set, or a user who deselects it will have the click silently do nothing and it'll leak back in). Generate the widget with those pre-selections applied, then call `show_widget`.
+
+**The submitted `tools` list is authoritative from this point on.** If the user deselects a pre-selected/technically-connected tool (e.g. Calendar responds fine to the probe but the user unchecks it), it must not reappear anywhere downstream — not as a content option in step 3, not in the fetch in step 4, not as a tile in step 7 — regardless of what the detection probe found. "Detected" only controls whether a tool is *offered*; the user's actual selection controls whether it's *used*.
 
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
-**Connected tools** (multi select, show all regardless of what's actually detected):
+**Connected tools** (multi select, show all regardless of what's actually detected — this matches the actual Survey widget cards below, one-to-one):
 - Slack
 - Gmail
-- Other 
+- Calendar
+- Granola
+- Linear
+- Google Drive
+- Other
 
 
 After receiving answers — detect which MCP tools are actually available:
@@ -92,7 +104,11 @@ After receiving answers — detect which MCP tools are actually available:
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
-**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
+**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools (use `ToolSearch` with the connector's name to find its MCP tools, since it won't be in the table above); if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
+
+**Ask what to pull from a custom connector — don't guess.** Right after naming/connecting a custom connector, ask what content it should contribute to the Daily. Generate 2–3 concrete options from the connector's likely purpose plus an "Other" free-text option, e.g. for Plaud: "1) List of meetings · 2) Meetings + action points · 3) Other (describe)". Use `show_widget` with a small options list (same `.pill`/`.card` style as the rest of the survey) in Cowork, or ask inline in Claude Code. Store the answer as part of that connector's config entry (e.g. `Plaud:meetings+action_points`) — this is what step 4's generic custom-connector fetch (below) uses to know what to pull.
+
+**A custom connector is only "connected" once it can actually produce a tile — connecting auth is not enough on its own.** See step 4 for the generic fetch/write instructions that make this concrete; a custom connector that has no fetch path by the time step 4 runs must be surfaced as an error (per step 4's rule below), never silently dropped.
 
 **If xTiles is not connected** — do not continue. Immediately walk the user through connecting xTiles (see **How to connect connectors** below). Wait for confirmation that xTiles is connected before proceeding.
 
@@ -112,6 +128,8 @@ Options — include only those relevant to connected tools:
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
+
+**If "Unread emails that need a reply" is selected — ask one follow-up:** "Should I mark ⚪ Noise emails (notifications, automated alerts — nothing to act on) as read automatically, so your inbox count reflects what actually needs attention?" Yes/No. Store the answer as `mark_noise_read: yes` or `mark_noise_read: no` in the config (default `no` if unanswered — never mark emails read without explicit opt-in). See step 4 for how this is applied.
 
 **If Slack is selected and the user has not already named their channels:**
 
@@ -235,9 +253,89 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
+**4.0 Read yesterday's digest and apply its feedback tile** (skip the read/apply parts only on the very first digest ever — nothing to read yet; still do 4.0d by pure rotation).
+
+Call `mcp__xtiles__xtiles_get_planner_content` once for yesterday's date (`period: "day"`) and split the result into two things that are used very differently:
+- **Yesterday's content tiles** — every tile except the feedback tiles (Emails, Slack tiles, Workload, Linear, Google Drive, custom connectors, etc.). This is read-only input for 4.0b's structural analysis; never treated as an answer source.
+- **Yesterday's feedback tile** — the single `### 🎛️ Tune your digest` tile, if present. It's a numbered list of 3–5 questions followed by a prompt line asking the user to write which numbers they want. The reply is **whatever text exists in the tile beyond the original numbered items and prompt line** — the user may type it directly below the prompt, but they might also edit inline or add it elsewhere on the same tile. Diff against what was originally written; don't assume a fixed position. Read only for that reply, never re-analysed for new signals.
+
+**Apply yesterday's feedback tile answers immediately, before anything else in this step:**
+- Parse the user's free-text reply (in whatever language they wrote it) for referenced item numbers — digits ("1, 3"), ordinal words ("the first and third"), "all" (treat every item as mentioned), or a clear paraphrase of a specific question's content. Be liberal about matching intent, but when a mention is genuinely ambiguous, don't apply it.
+- Each numbered item **mentioned** in the reply → patch the config field its category maps to (see the 9 categories in 4.0c).
+- Each numbered item **not mentioned** → don't apply it. Update `question_history` for that category to today's date with a short 7-day cooldown — silence isn't a hard "no," so don't penalize it as harshly as an explicit decline.
+- If the reply explicitly declines everything (e.g. "none", "not now") → same as above for every item, but use the longer 14–28-day cooldown (21 default) for all of them — this is an explicit signal, not silence.
+- No reply at all (blank, or the tile wasn't edited since it was written) → treat exactly like "not mentioned" for every item — the short 7-day cooldown, not the harsh one. A scheduled run with nobody watching shouldn't be penalized as a rejection.
+- No feedback tile found (first-ever digest, or the user removed it) — nothing to apply; proceed straight to today's fetch.
+
+**Config fields carried in the scheduled task prompt** (alongside role/tools/daily_content), all optional/empty until first used:
+- `pinned_topics` — topics confirmed to always get their own tile, stored with the date they last had real content, optionally followed by a `weekday_only` flag (category 8), e.g. `TopicA(2026-07-05), TopicB(2026-07-08,weekday_only)`. Keep splitting each of these out into its own `###` tile today automatically — unless it's flagged `weekday_only` and today is Saturday/Sunday, in which case skip it for today only. A pinned topic whose stored date is more than 3 days old is gone quiet — skip its tile today and let that feed a category-4 question in 4.0c.
+- `trial_topics` — topics proposed via category 3 or 6 (4.0c), split into a one-off tile once, awaiting the yes/no that promotes them into `pinned_topics` (or drops them if declined).
+- `detail_sections` — sections given extra detail, stored with the date added, e.g. `Calendar(2026-07-05)`. One extra sentence of context every day. Older than 14 days → eligible for a category-5 "revert?" question.
+- `secondary_channels` — channels de-prioritized (category 2's "lower priority" action, as opposed to full removal): still fetched, but folded into one compressed line instead of full detail.
+- `digest_format` — `full` (default) or `top5` (category 7).
+- `tone_style` — `default` or `concise` (category 9).
+- `signal_trail` — structural signals accumulated over the last 14 days, e.g. `topic-scattered:AI:2026-06-25|2026-06-29|2026-07-03`. Prune any date older than 14 days every run. **This is the only field that looks past yesterday** — everything else in this step reads yesterday alone.
+- `question_history` — last-asked date per category, e.g. `1:2026-06-20;3:2026-07-01`. Drives rotation and cooldown in 4.0d.
+- `highlighted_keywords` / `keyword_cooldown` — driven by the separate **keyword tile** cycle, not the 9 categories above. See 4.0e.
+
+**Matching topics across days:** topic names are free text, so the same topic may be phrased slightly differently day to day (e.g. "API migration" vs "migrating to the new API"). Match by meaning, not exact string.
+
+**Always check current config membership before proposing anything — never suggest a no-op:**
+- Never suggest adding a channel, newsletter, topic, or keyword that's already in the relevant config field (`pinned_topics`/`trial_topics`/`highlighted_keywords`/channel list).
+- Never suggest dropping/removing a channel, newsletter, topic, or keyword that isn't currently part of the config — nothing to remove.
+- Never suggest "give more detail" for a section already in `detail_sections`, or for a section the user didn't select at all.
+
+**4.0b Analyse yesterday's content tiles for structural signals** (skip entirely on the first-ever digest). Read the actual tiles yesterday's digest wrote — the already-composed output, not raw Slack/Gmail data — and look for:
+- **Biggest tile** — notably more items/length than the others → category 3 candidate (split it up).
+- **Duplicate tiles** — two tiles whose content substantially overlaps → category 4 candidate (merge).
+- **Dominant source** — one channel/sender appearing across multiple tiles/sections → category 1 candidate (promote it).
+- **Scattered topic** — mentioned in passing across 2+ tiles without its own tile → log it into `signal_trail` under a `topic-scattered:` key with today's date. Only becomes a strong category-3/6 candidate once `signal_trail` shows it on 3+ distinct days within the last 14 days — one day's mention is too weak to act on alone.
+- **Near-empty tile** — only 1 item, or "No updates today," repeatedly → category 2/4 candidate.
+- **Pinned topic gone quiet** (per 4.0's 3-day rule) → category 4 candidate — retire it from `pinned_topics`.
+- **A `detail_sections` entry older than 14 days** (per 4.0) → category 5 candidate — ask whether to keep the extra detail or revert to normal length.
+
+**4.0c The 9 question categories.** Each maps to a config action; vary the verb inside a category (add / remove / merge / split / mute / boost priority / switch format) so repeats don't read like a template with one variable swapped. All nine are yes/no only — a concrete proposal to confirm or decline, never "describe what's wrong":
+
+1. **Channels — adding** → patches the channel/newsletter list. *"Source X came up several times today in connection with topic Y — add it as its own channel?"*
+2. **Channels — priority / noise** → patches `secondary_channels` (lower priority) OR the channel list (remove) — pick exactly one action per question, never both in the same yes/no. *"Channel Z hasn't surfaced anything useful in the last 5 days — lower its priority?"*
+3. **Structure — new tile** → patches `trial_topics`. *"Topic 'AI regulation' took up half of today's digest — split it into its own tile?"*
+4. **Structure — merge / simplify / retire inactive** → either merges two topics/tiles into one `pinned_topics` label, or retires a `pinned_topics` entry that's gone quiet. *"Tiles 'Crypto' and 'Fintech' have been partially overlapping this past week — merge them?"* / *"Topic '[X]' hasn't come up in several days — retire it from the pinned tiles?"*
+5. **Depth of information** → patches `detail_sections`, in either direction. *"Topic X only gets headlines right now — add a short context sentence going forward?"* / *"Topic X has had expanded context for [N] days now — keep it, or revert to the terse format?"*
+6. **New direction / theme** → patches `trial_topics`, same mechanism as category 3 but triggered by a genuinely new theme with zero prior config presence rather than an existing one overflowing. *"A new direction ('space') has shown up — it's never been in the config, but 3 sources covered it today. Add it as a tracked topic?"*
+7. **Presentation format** → patches `digest_format`. *"The digest has been running long this past week — switch to a 'top-5 + details on request' format?"*
+8. **Frequency / schedule** → sets a `weekday_only` flag on the relevant `pinned_topics` entry. *"Activity on topic X is minimal on weekends — skip that topic on Saturday/Sunday?"*
+9. **Tone / delivery style** → patches `tone_style`. *"Headlines have been running long and formal lately — make them shorter and simpler?"*
+
+Keyword highlighting is **not** one of these 9 — it has its own dedicated tile with its own read/propose/apply cycle. See "Keyword tile" below.
+
+**4.0d Select 3–5 questions for today's feedback tile** (a hard range — never fewer than 3, never more than 5):
+1. Rank categories with a real 4.0b signal highest; break ties by oldest `question_history` date.
+2. Skip categories currently in cooldown (per 4.0) — unless that's the only way to reach the 3-question minimum, in which case break cooldown for the single oldest-cooldown category rather than shipping fewer than 3.
+3. Fewer than 3 signal-backed categories? Fill the rest by rotation — least-recently-asked in `question_history` first. On the first-ever digest every category is unasked, so just take 3–5 in any stable order.
+4. Never two questions from the same category in one tile.
+5. Update `question_history` for every category actually asked today, stamped with today's date.
+
+Never phrase a question as generic filler — personalize with the real name/topic/channel that triggered it.
+
+**4.0e Keyword tile — read yesterday's proposals, then propose today's** (its own separate cycle, independent of 4.0a–4.0d; skip the read/apply half only on the first-ever digest).
+
+*Read yesterday's answer* (from the same `xtiles_get_planner_content` call in step 4.0): find the `### 🔑 Important keywords` tile, if present — a numbered list of candidates followed by a prompt asking the user to write which numbers matter, plus whatever free text they typed below it.
+- Parse the reply for referenced numbers (digits, ordinal words, or a clear paraphrase of the keyword itself).
+- Each candidate **mentioned** → add it to `highlighted_keywords`, stamped with today's date.
+- Each candidate **not mentioned**, or no reply at all → add it to `keyword_cooldown` with today's date — don't re-propose that exact keyword for 14 days. A fresh recurrence after the cooldown passes is fair game again.
+- No keyword tile found → nothing to apply.
+
+*Propose today's candidates* (while composing today's content in the main fetch below — not from yesterday's data): watch for a person, project, or company name that comes up **2+ times across at least 2 different tiles today** — a single mention in one place isn't enough. For each candidate, skip it if it's already in `highlighted_keywords` or currently in `keyword_cooldown`. Cap at 5 candidates.
+
+**If zero candidates are found — omit the `### 🔑 Important keywords` tile entirely for today.** Unlike the "Tune your digest" tile, this one has no forced minimum — an organic signal that isn't there shouldn't be manufactured.
+
+`highlighted_keywords` — confirmed important names/projects/companies, stored with the date last seen, e.g. `Andrew(2026-07-05), PluginLaunch(2026-07-08)`. Every occurrence across any tile today gets wrapped in `**bold**` (see step 7). Update the date whenever a keyword actually appears today. Unseen for 10+ days → drop it silently from `highlighted_keywords` (no question needed — this one decays quietly rather than asking, since re-adding it later costs nothing).
+
+`keyword_cooldown` — declined keywords with the date declined, e.g. `PluginLaunch(2026-07-01)`. Prune entries older than 14 days every run.
+
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`). `get_thread` returns the thread's individual messages — also capture each message's own `messageId` (not just the threadId), needed later for `mark_noise_read` (see below); a thread can contain several messages, each with a distinct `messageId`.
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: two parallel reads:
   1. `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). Filter to last 24 hours (timestamp ≥ now − 24 h). Discard older messages. Skip channels with no messages silently.
@@ -246,6 +344,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   After collecting, analyse all messages together and group semantically. For every item include a **direct permalink to the specific message** — extract `permalink` from the message object (or build `https://slack.com/archives/{channel_id}/p{ts_without_dot}`). Never link to the channel homepage — always to the individual message.
 
   - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡.
+  - **Потребує дії** — every ⚡-flagged mention also becomes an item here: a short poke-style line (what's being asked, second person, same tone as email's 🔴 bucket) plus the message permalink. For each, derive one verb-first action item (e.g. "Відповісти Марії в #product"). These flow into the same task-dedup step as email action items below — collect them together, don't dedup separately.
   - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`
   - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink
   - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳
@@ -256,11 +355,21 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **🧠 context** (only if Granola or Gmail connected): for each meeting, find the last Granola note involving the same participants and/or the most recent open Gmail thread with the organiser — write one sentence summarising what the meeting is about or what was discussed last time. Only include if relevant context is found; skip silently otherwise.
   - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
 
+- **Linear**: `mcp__claude_ai_Linear__list_issues` — issues assigned to or recently updated by the user, filtered to the last 24 hours (or since the last digest). For each: title, status, and the issue URL. Group into two lines: **New** (created in the last 24h) and **Updated** (status/comment changed in the last 24h). Skip silently if empty on a given day, but the tile itself follows the same "always create, write 'No updates today' if empty" rule as Slack Topics — its total absence would look like a connector failure.
+- **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — files modified in the last 24 hours. For each: file name, who last modified it, and the file's URL. One line per file, newest first. Omit the tile entirely if nothing changed (unlike Linear, a quiet Drive day is unremarkable and not worth calling out).
+- **Custom ("Other") connectors** — this skill can't hardcode every possible tool, so every custom connector needs this generic path (this is the step that was previously missing and caused custom connectors to silently vanish from the digest):
+  1. Use the MCP tools discovered for this connector during step 2's detection/connection (search with `ToolSearch` if needed to find the right "list recent items" style tool).
+  2. Pull data matching the content preference collected in step 2 (e.g. `Plaud:meetings+action_points` → fetch recent meetings and their action points), scoped to roughly the last 24 hours unless the connector only supports a longer window.
+  3. If the fetch succeeds — this connector gets its own `###` tile later (step 7), titled with the connector's name and a fitting emoji.
+  4. **If the fetch fails, or no working MCP tool can be found for this connector at all** — do not silently drop it. Surface it explicitly in step 5's preview as "Could not fetch [Connector] data — connector error" (same rule as the built-in connectors below), and still write that line into the digest in step 7 rather than omitting the connector's tile entirely. The user must see that something they asked for didn't work, never see it just disappear.
+
 Classify emails into three buckets. **Newsletters are fetched separately — exclude them here entirely and do not count them in any bucket.**
 
 - 🔴 **Потребує дії** — emails where the user must take a concrete next step (reply, decide, act, log in)
 - 🟡 **До уваги** — FYI only: confirmed meetings, signed documents, payments, status updates — past/present tense, nothing to do
 - ⚪ **Шум** — notifications, automated alerts, service emails — do not describe individually; count only
+
+**If `mark_noise_read: yes` is set in the config:** for every **thread** placed in the ⚪ Шум bucket, call `mcp__claude_ai_Gmail__unlabel_message` with `labelIds: ["UNREAD"]` once per **individual message** inside that thread (using each message's own `messageId` captured above) — `unlabel_message` acts on one message at a time, and a thread with several unread messages needs one call per message, or only some (or none) of it will actually be marked read. Do this silently — don't ask again each run. Mention the count briefly in the preview/tile line, e.g. "⚪ Шум — N сповіщень (sources) — позначено прочитаними." If `mark_noise_read` is `no` or unset, leave messages untouched (current behavior — count only, don't act on them).
 
 **Tone for 🔴 and 🟡 — Poke-style, capitalized:**
 - Retell the email, do not copy the subject line. Subject → action → consequence in second person: not "Your account closed" but "Google закрив твій рекламний акаунт учора"
@@ -269,9 +378,9 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list.
+For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list, **combined with the verb-first action items derived from Slack's ⚡-flagged mentions** (see the Slack section's "Потребує дії" bullet above) — one shared list across both sources.
 
-Then call `mcp__xtiles__xtiles_list_tasks` with `completed: false` to fetch all open tasks. For each action item, check if an open task with the same or very similar meaning already exists. **Keep only items that have no match** — these go into the preview and tile as `- [ ] Task`. Silently drop items that already exist as open tasks.
+Then call `mcp__xtiles__xtiles_list_tasks` **once** with `completed: false` to fetch all open tasks. For each action item in the combined list, check if an open task with the same or very similar meaning already exists. **Keep only items that have no match** — email-derived ones go into the Emails tile's Action items block as `- [ ] Task`, Slack-derived ones go into the `### 🔴 Потребує дії` tile's Задачі block as `- [ ] Task` (see step 7). Silently drop items that already exist as open tasks, regardless of which source they came from.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -321,6 +430,12 @@ One-line summary.
 **[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
 One-line summary.
 
+### 🔴 Потребує дії
+- [Poke-style one-liner of what's being asked] — [#channel](url)
+
+**Задачі**
+- [ ] [verb-first task]
+
 ### ⚡ Mentions
 - **@Name** in [#channel](url) — what they asked/said ⚡
 
@@ -334,7 +449,7 @@ One-line summary.
 ### ❓ Open
 - [Question] — [#channel](url) ⏳
 
-### 📅 Calendar
+### 📅 Workload
 **N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
 
 **HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
@@ -349,6 +464,20 @@ One-line summary.
 
 ⚠️ [anomaly — e.g. two external calls back-to-back in the evening, 30 min gap between them]
 
+### 🔑 Important keywords
+*(only if at least one real candidate was found — see 4.0e)*
+1. [Name/Project 1]
+2. [Name/Project 2]
+
+Write the numbers of the words that genuinely matter to you
+
+### 🎛️ Tune your digest
+1. [Question 1]
+2. [Question 2]
+3. [Question 3]
+
+Write the numbers of the items you'd like applied to the next digest
+
 ---
 ```
 
@@ -361,6 +490,8 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
+- `### 🎛️ Tune your digest` is always the last section, regardless of which other sections are present — never reorder it earlier
+- `### 🔑 Important keywords` sits right before it (second-to-last) whenever it's present — omitted entirely on days with no real candidate
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -443,13 +574,14 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
 - **Slack**: split into **separate tiles per category** — never one big tile. Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
+  - `### 🔴 Потребує дії` (Slack) — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Задачі**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Відповісти Марії в #product"). These tasks go through the **same open-task dedup step as email action items** (see step 4 — call `xtiles_list_tasks` once, covering both sources, keep only items with no existing match). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Mentions` below for full context.
   - `### ⚡ Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
   - `### 💬 Topics` — first line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. **Always create this tile** — if no messages today, write a single line: `No updates today.` Its absence looks like a connector failure.
   - `### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. **Omit tile entirely if no decisions.**
   - `### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. **Omit tile entirely if no open questions.**
-- **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
+- **Calendar**: tile titled `### 📅 Workload`. Use this exact structure:
   ```
-  ### 📅 Calendar
+  ### 📅 Workload
   @colorSize: LIGHTER
   @color: [pick randomly from the color list]
 
@@ -475,6 +607,44 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between every item (event, 🧠, ⚠️) for readability
   - Omit tile entirely if Calendar returned no events
 - This ensures the tile is scannable, not a wall of text
+- **Linear**: tile titled `### 📌 Linear`. Two labeled lines: `**New**` followed by one item per newly created issue (`- [Title](url) — status`), then `**Updated**` the same way for issues that changed status/got comments. **Always create this tile** if Linear is selected — if nothing happened, write a single line: `No updates today.` (same rule as Slack Topics — its absence would look like a connector failure).
+- **Google Drive**: tile titled `### 📁 Google Drive`. One line per changed file: `- [File name](url) — edited by Name`. Blank line between entries. Omit the tile entirely if nothing changed in the last 24 hours.
+- **Custom ("Other") connectors**: one `###` tile per connector, titled with its name and a fitting emoji (e.g. `### 🎙️ Plaud`). Structure the content to match the preference collected in step 2 (meetings list, meetings + action points, etc.) — one item per blank-line-separated entry, Markdown hyperlinks where a URL exists, same `@colorSize`/`@color` annotation as every other tile. **If the connector's fetch failed or had no working MCP tool** (see step 4), still create this tile with a single line: "Could not fetch [Connector] data — connector error." Never omit the tile silently — its disappearance is indistinguishable from the connector never having been asked for in the first place.
+- **Keyword tile — second-to-last, only when 4.0e found at least one real candidate.** Titled `### 🔑 Important keywords`, as a **numbered list plus a free-text prompt** (never checkboxes):
+  ```
+  ### 🔑 Important keywords
+  @colorSize: LIGHTER
+  @color: [pick randomly from the color list]
+
+  1. [Name/Project 1]
+
+  2. [Name/Project 2]
+
+  Write the numbers of the words that genuinely matter to you
+  ```
+  - Omit this tile entirely on a day with zero candidates — no forced minimum, unlike the feedback tile below.
+  - Cap 5 candidates. Blank line between numbered items. The prompt line always comes last, after a blank line.
+  - Next digest reads this exact tile back in step 4.0e — whatever the user types on the page below the prompt line is the reply; don't reword the structure into something the read-back can't parse.
+  - **Applying confirmed keywords**: wrap every occurrence of a name/project/company from `highlighted_keywords` in `**bold**`, in every tile it appears in today (Emails, Slack, Workload participant names, Linear, Google Drive, custom connectors — anywhere the exact keyword shows up in running text). Don't double-wrap a keyword that's already inside an existing bold span. If a tile's content is genuinely dominated by a highlighted keyword (not just a passing mention), prefer `BERMUDA` as that tile's `@color` when the rotation allows it, so the same "this matters" color becomes recognizable over time — but never break the "no repeat color two tiles in a row" rule to force it.
+- **Feedback tile — always the last tile in the write, every digest from the first one on.** Titled `### 🎛️ Tune your digest`, as a **numbered list plus a free-text prompt** (never checkboxes) containing exactly the 3–5 questions selected in step 4.0d:
+  ```
+  ### 🎛️ Tune your digest
+  @colorSize: LIGHTER
+  @color: [pick randomly from the color list]
+
+  1. [Question 1 — concrete proposal, ends in "?"]
+
+  2. [Question 2]
+
+  3. [Question 3]
+
+  Write the numbers of the items you'd like applied to the next digest
+  ```
+  - This is a **tile in the digest itself**, in the same `xtiles_create_tiles_from_markdown_in_my_planner` call as every other tile — never a separate chat widget, never a follow-up message. It participates in step 7's layout pass exactly like every other tile (via `tile_ids`) — no special handling needed there.
+  - Always present, on every digest including the very first one (first-ever picks its 3–5 by pure rotation per 4.0d — there's simply no history to weight them by yet).
+  - Never fewer than 3 items, never more than 5.
+  - Blank line between every numbered item. The prompt line always comes last, after a blank line.
+  - The next digest reads this exact tile back in step 4.0 — whatever the user types on the page below the prompt line is the reply, parsed for referenced item numbers. Don't reword or restructure it in a way that would make that read-back ambiguous.
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
@@ -517,7 +687,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders.
+    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. If `mark_noise_read` was answered in step 3, append `· mark_noise_read: yes` (only when "yes" — omit the field entirely when "no", since "no" is the default). Once the feedback tile starts producing answers (step 4.0), append whichever of `pinned_topics`, `trial_topics`, `detail_sections`, `secondary_channels`, `digest_format`, `tone_style`, `signal_trail`, `question_history`, `highlighted_keywords`, `keyword_cooldown` are non-empty to this same string when re-creating the scheduled task — this is how those fields persist across runs. Use `;` to separate multiple entries within a single field (topic/channel names may contain commas).
   - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
@@ -564,7 +734,8 @@ Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect 
 1. Call `mcp__mcp-registry__suggest_connectors` passing the names of the missing connectors.
 2. Show the **Done widget** (see **Done widget HTML** below) directly under the connector form.
 3. The user clicks the connect buttons in the UI — the auth flow runs natively. When finished, they click **"Done"**.
-4. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
+4. **Re-probe before declaring success — never trust the "Done" click alone.** Re-run the same lightweight detection call from step 2 for each connector that was just connected. Only for the ones that now respond without an auth error, confirm: "Connected. Continuing…" and resume the flow.
+   - **If a connector still fails detection after "Done"** — say so plainly (e.g. "Outlook still isn't responding — want to try connecting it again, or skip it for now?"). Never silently continue as if it worked; a connector that reports "connected" but then has no working fetch path in step 4 is exactly how a custom connector gets lost from the digest without anyone noticing.
 ---
 
 ## Approval widget HTML
@@ -693,15 +864,12 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="sec-title">Which tools do you use?</div>
       <div class="hint">Select all that apply — I'll pull live data from them</div>
       <div class="cards" id="tool-cards">
-        <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
-        <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
-        <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
-        <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
-        <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
-        <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
-        <div class="card" onclick="togTool(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
-        <div class="card" onclick="togTool(this,'Gamma')"><div class="chk">✓</div>Gamma</div>
-        <div class="card" onclick="togTool(this,'Figma')"><div class="chk">✓</div>Figma</div>
+        <div class="card" data-tool="Slack" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
+        <div class="card" data-tool="Gmail" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
+        <div class="card" data-tool="Calendar" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
+        <div class="card" data-tool="Granola" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
+        <div class="card" data-tool="Linear" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
+        <div class="card" data-tool="GoogleDrive" onclick="togTool(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
       </div>
       <div class="custom-in" style="margin-top:8px">
         <input type="text" id="other-tool" placeholder="Other connector (e.g. Plaud, Notion)…">
@@ -739,22 +907,20 @@ var TM={
   'Calendar':    {daily:['Workload — calendar analysis']},
   'Granola':     {daily:['Granola — meeting notes & summaries']},
   'Linear':      {daily:['Linear issues — new & updated']},
-  'GitHub':      {daily:['GitHub — PRs & review requests']},
-  'GoogleDrive': {daily:['Google Drive — shared files updated']},
-  'Gamma':       {daily:['Gamma — presentations updated']},
-  'Figma':       {daily:['Figma — design updates & comments']}
+  'GoogleDrive': {daily:['Google Drive — shared files updated']}
 };
 var AM=[];
 
 var ROLE_DEFAULTS={
   'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis','Linear issues — new & updated','Granola — meeting notes & summaries'],
-  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis'],
-  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — calendar analysis'],
-  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated','Workload — calendar analysis'],
+  'Designer':          ['Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis'],
+  'Engineer':          ['Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — calendar analysis'],
+  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Workload — calendar analysis'],
   'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries','Workload — calendar analysis'],
   'Support & Success': ['Important emails — unread inbox','Slack messages — work chat signals']
 };
 
+document.querySelectorAll('#tool-cards .card.sel').forEach(function(el){tools.add(el.dataset.tool)});
 function pickRole(el,v){
   document.querySelectorAll('#role-pills .pill').forEach(function(p){p.classList.remove('sel')});
   el.classList.add('sel'); role=v;
@@ -901,4 +1067,5 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
+- **The "Tune your digest" and "Important keywords" tiles are written to xTiles as part of the digest itself — never a chat widget, never a follow-up message.** "Tune your digest" is always present (3–5 questions, last tile in the write, every digest including the first); "Important keywords" is second-to-last and only appears when there's a real candidate.
  

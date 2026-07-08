@@ -10,6 +10,8 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_get_page_layout,
+  mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
@@ -37,6 +39,7 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 1. **Real data only.** Read actual content from the planner and connectors. Never invent accomplishments, decisions, or goal assessments.
 2. **Progress over activity.** The point is not a log of everything done, but whether the week moved things forward.
 3. **Match the user's language** throughout — match the language of the first message and adapt if they switch.
+4. **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant tiles are added in step 6, re-lay-out only those new tiles into a justified grid (step 6's layout pass) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
 
 ---
 
@@ -229,11 +232,22 @@ Write all sections in a **single call**.
 
 `##### Suggested priorities` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
 
-**After a successful write — run these steps in order:**
+**After a successful write — run these steps in order, no exceptions. Step 2 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 3's CTA button is even composed:**
 
 1. Write `✅ Weekly Review saved.`
-2. Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` and this week's date. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. Never output a markdown link instead of the widget.
-3. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip.
+2. **Justified-grid layout pass — mandatory, silent, automatic, every single run (scheduled runs included).**
+   1. Read `view_id` and `tile_ids` **directly from the response of the write call in step 6** (`xtiles_create_tiles_from_markdown_in_my_planner` returns both). `tile_ids` is ordered to match the 3 `###` sections in the markdown you just wrote — `tile_ids[i]` is the tile created for the *i*-th section.
+   2. Call `mcp__xtiles__xtiles_get_page_layout` with the `view_id` — gives the grid bounds (`max_width`, `max_height`, `min_tile_width`, `min_tile_height`) and every tile on the page, new and pre-existing. Split by `tile_id`: the 3 matching `tile_ids` are the **added** tiles you'll position; every other tile is a fixed obstacle — read it, never modify it.
+   3. **Reuse the markdown you already composed** for the write in step 6 to measure each added tile's content — no need to re-fetch it. Parse each into blocks: **header** (a `#####` subsection label — 1 line, width-independent); **short-line** (a one-line item that never wraps even at `min_tile_width` — a numbered accomplishment, a single-line activity-type summary — 1 line); **paragraph** (a longer block that wraps; its line count depends on width).
+   4. **Line capacity by width:** `chars_per_line(w) = (w * col_px − padding_px) / avg_char_px`, with heuristic constants `col_px ≈ 25`, `padding_px ≈ 48`, `avg_char_px ≈ 7.5` (mixed Cyrillic/Latin ~14px; calibrate against a real tile if you can). For a paragraph at width `w`: `lines = ceil(char_count / chars_per_line(w))`. Header/short-line = 1 line regardless of `w`.
+   5. **Tile height at a width** (grid rows ≈ text lines): `H_tile(w) = Σ lines(block, w) + (#header blocks) + (#paragraph→paragraph gaps) + 2` — the `+2` is tile chrome (title + top/bottom padding). Round up to whole rows, clamp to `≥ min_tile_height`.
+   6. **Compose rows** from the 3 added tiles in their existing order (Week recap, Activities, Next week) — do not reshuffle. Place them in free grid space from the full-page layout (step 2) that doesn't overlap any existing tile. Default to all 3 tiles filling one row if their combined natural width fits comfortably; otherwise let the heaviest tile (usually Activities, given four subheadings) take more width or its own row.
+   7. **Distribute width** across the full `max_width` proportional to content weight (≈ paragraph char count); every tile stays `≥ min_tile_width`; widths in a row sum to exactly `max_width`.
+   8. **Equalize height (flush-bottom rule):** compute `H_tile(w)` at each tile's assigned width, then set every tile in a row to `h = max(H_tile)` so the row ends at one bottom line. Set `x` left→right, same `y` per row.
+   9. **Self-check before calling:** widths in each row sum to exactly `max_width`; every `w`/`h` is `≥ min_tile_width`/`min_tile_height`; no added tile overlaps another added tile or an existing tile. Fix any violation yourself.
+   10. Call `mcp__xtiles__xtiles_set_page_layout` once, listing only the 3 added tiles (`tile_id` + new `x/y/w/h`). Never include an existing tile. **If the call is rejected**, retry once with a simpler fallback: one full-width row per tile (`w = max_width`), height = that tile's `H_tile(max_width)`. Only if the retry also fails, skip silently and continue.
+3. Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` and this week's date. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. Never output a markdown link instead of the widget.
+4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip.
 
 **If an error occurs:** say what went wrong and offer to retry.
 
