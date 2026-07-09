@@ -13,12 +13,8 @@ description: >
   Digest triggers: "show me my morning brief", "what do I need to know today",
   "run my digest". Also runs automatically via scheduled tasks.
 
-  Config is read from the scheduled task prompt — no separate file needed.
-  It also carries pinned_topics/trial_topics/detail_sections/secondary_channels/
-  digest_format/tone_style/signal_trail/question_history/highlighted_keywords/
-  keyword_cooldown, built up over time from answers to the "Tune your digest"
-  and "Important keywords" tiles written at the end of each digest (see step
-  4.0 and the tile formats in step 7).
+  Config (role/tools/daily_content) is read from the scheduled task prompt —
+  no separate file needed.
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
 allowed-tools: >
@@ -255,92 +251,6 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
-**4.0 Read yesterday's digest and apply its feedback tile.** On the very first digest ever, there's no prior page to fetch — skip *only* the read-and-apply steps immediately below. **Everything else in 4.0–4.0e still runs in full on day one**: 4.0b analyses today's own data instead of yesterday's, 4.0c/4.0d still produce 3–5 real questions, and the `### 🎛️ Tune your digest` tile still gets written. "First digest ever" changes *what data 4.0b looks at* — it never means "skip the feedback tile logic."
-
-Call `mcp__xtiles__xtiles_get_planner_content` once for yesterday's date (`period: "day"`) and split the result into two things that are used very differently:
-- **Yesterday's content tiles** — every tile except the feedback tiles (Emails, Slack tiles, Workload, Linear, Google Drive, custom connectors, etc.). This is read-only input for 4.0b's structural analysis; never treated as an answer source.
-- **Yesterday's feedback tile** — the single `### 🎛️ Tune your digest` tile, if present. It's a numbered list of 3–5 questions followed by a prompt line asking the user to write which numbers they want. The reply is **whatever text exists in the tile beyond the original numbered items and prompt line** — the user may type it directly below the prompt, but they might also edit inline or add it elsewhere on the same tile. Diff against what was originally written; don't assume a fixed position. Read only for that reply, never re-analysed for new signals.
-
-**Apply yesterday's feedback tile answers immediately, before anything else in this step:**
-- Parse the user's free-text reply (in whatever language they wrote it) for referenced item numbers — digits ("1, 3"), ordinal words ("the first and third"), "all" (treat every item as mentioned), or a clear paraphrase of a specific question's content. Be liberal about matching intent, but when a mention is genuinely ambiguous, don't apply it.
-- Each numbered item **mentioned** in the reply → patch the config field its category maps to (see the 9 categories in 4.0c).
-- Each numbered item **not mentioned** → don't apply it. Update `question_history` for that category to today's date with a short 7-day cooldown — silence isn't a hard "no," so don't penalize it as harshly as an explicit decline.
-- If the reply explicitly declines everything (e.g. "none", "not now") → same as above for every item, but use the longer 14–28-day cooldown (21 default) for all of them — this is an explicit signal, not silence.
-- No reply at all (blank, or the tile wasn't edited since it was written) → treat exactly like "not mentioned" for every item — the short 7-day cooldown, not the harsh one. A scheduled run with nobody watching shouldn't be penalized as a rejection.
-- No feedback tile found (first-ever digest, or the user removed it) — nothing to apply; proceed straight to today's fetch.
-
-**Config fields carried in the scheduled task prompt** (alongside role/tools/daily_content), all optional/empty until first used:
-- `pinned_topics` — topics confirmed to always get their own tile, stored with the date they last had real content, optionally followed by a `weekday_only` flag (category 8), e.g. `TopicA(2026-07-05), TopicB(2026-07-08,weekday_only)`. Keep splitting each of these out into its own `###` tile today automatically — unless it's flagged `weekday_only` and today is Saturday/Sunday, in which case skip it for today only. A pinned topic whose stored date is more than 3 days old is gone quiet — skip its tile today and let that feed a category-4 question in 4.0c.
-- `trial_topics` — topics proposed via category 3 or 6 (4.0c), split into a one-off tile once, awaiting the yes/no that promotes them into `pinned_topics` (or drops them if declined).
-- `detail_sections` — sections given extra detail, stored with the date added, e.g. `Calendar(2026-07-05)`. One extra sentence of context every day. Older than 14 days → eligible for a category-5 "revert?" question.
-- `secondary_channels` — channels de-prioritized (category 2's "lower priority" action, as opposed to full removal): still fetched, but folded into one compressed line instead of full detail.
-- `digest_format` — `full` (default) or `top5` (category 7).
-- `tone_style` — `default` or `concise` (category 9).
-- `signal_trail` — structural signals accumulated over the last 14 days, e.g. `topic-scattered:AI:2026-06-25|2026-06-29|2026-07-03`. Prune any date older than 14 days every run. **This is the only field that looks past yesterday** — everything else in this step reads yesterday alone.
-- `question_history` — last-asked date per category, e.g. `1:2026-06-20;3:2026-07-01`. Drives rotation and cooldown in 4.0d.
-- `highlighted_keywords` / `keyword_cooldown` — driven by the separate **keyword tile** cycle, not the 9 categories above. See 4.0e.
-
-**Matching topics across days:** topic names are free text, so the same topic may be phrased slightly differently day to day (e.g. "API migration" vs "migrating to the new API"). Match by meaning, not exact string.
-
-**Always check current config membership before proposing anything — never suggest a no-op:**
-- Never suggest adding a channel, newsletter, topic, or keyword that's already in the relevant config field (`pinned_topics`/`trial_topics`/`highlighted_keywords`/channel list).
-- Never suggest dropping/removing a channel, newsletter, topic, or keyword that isn't currently part of the config — nothing to remove.
-- Never suggest "give more detail" for a section already in `detail_sections`, or for a section the user didn't select at all.
-
-**4.0b Analyse content tiles for structural signals.** On any digest after the first, read **yesterday's** tiles (the already-composed output, not raw Slack/Gmail data). **On the first-ever digest, run this exact same analysis against TODAY's own content instead of skipping it** — categories 1, 3, 5, and 6 only need one day of real data (a dominant source, a big topic, a thin section, a new theme), so day one is not signal-free just because there's no history yet. Only the genuinely cross-day checks (near-empty *repeatedly*, pinned-topic-quiet, detail-stale, scattered-topic-over-14-days) are unavailable on day one — that's fine, those simply won't fire yet. Look for:
-- **Biggest tile** — notably more items/length than the others → category 3 candidate (split it up).
-- **Duplicate tiles** — two tiles whose content substantially overlaps → category 4 candidate (merge).
-- **Dominant source** — one channel/sender appearing across multiple tiles/sections → category 1 candidate (promote it).
-- **Scattered topic** — mentioned in passing across 2+ tiles without its own tile → log it into `signal_trail` under a `topic-scattered:` key with today's date. Only becomes a strong category-3/6 candidate once `signal_trail` shows it on 3+ distinct days within the last 14 days — one day's mention is too weak to act on alone.
-- **Near-empty tile** — only 1 item, or "No updates today," repeatedly → category 2/4 candidate.
-- **Pinned topic gone quiet** (per 4.0's 3-day rule) → category 4 candidate — retire it from `pinned_topics`.
-- **A `detail_sections` entry older than 14 days** (per 4.0) → category 5 candidate — ask whether to keep the extra detail or revert to normal length.
-
-**4.0c The 9 question categories.** Each maps to a config action; vary the verb inside a category (add / remove / merge / split / mute / boost priority / switch format) so repeats don't read like a template with one variable swapped. All nine are yes/no only — a concrete proposal to confirm or decline, never "describe what's wrong":
-
-1. **Channels — adding** → patches the channel/newsletter list. *"Source X came up several times today in connection with topic Y — add it as its own channel?"*
-2. **Channels — priority / noise** → patches `secondary_channels` (lower priority) OR the channel list (remove) — pick exactly one action per question, never both in the same yes/no. *"Channel Z hasn't surfaced anything useful in the last 5 days — lower its priority?"*
-3. **Structure — new tile** → patches `trial_topics`. *"Topic 'AI regulation' took up half of today's digest — split it into its own tile?"*
-4. **Structure — merge / simplify / retire inactive** → either merges two topics/tiles into one `pinned_topics` label, or retires a `pinned_topics` entry that's gone quiet. *"Tiles 'Crypto' and 'Fintech' have been partially overlapping this past week — merge them?"* / *"Topic '[X]' hasn't come up in several days — retire it from the pinned tiles?"*
-5. **Depth of information** → patches `detail_sections`, in either direction. *"Topic X only gets headlines right now — add a short context sentence going forward?"* / *"Topic X has had expanded context for [N] days now — keep it, or revert to the terse format?"*
-6. **New direction / theme** → patches `trial_topics`, same mechanism as category 3 but triggered by a genuinely new theme with zero prior config presence rather than an existing one overflowing. *"A new direction ('space') has shown up — it's never been in the config, but 3 sources covered it today. Add it as a tracked topic?"*
-7. **Presentation format** → patches `digest_format`. *"The digest has been running long this past week — switch to a 'top-5 + details on request' format?"*
-8. **Frequency / schedule** → sets a `weekday_only` flag on the relevant `pinned_topics` entry. *"Activity on topic X is minimal on weekends — skip that topic on Saturday/Sunday?"*
-9. **Tone / delivery style** → patches `tone_style`. *"Headlines have been running long and formal lately — make them shorter and simpler?"*
-
-Keyword highlighting is **not** one of these 9 — it has its own dedicated tile with its own read/propose/apply cycle. See "Keyword tile" below.
-
-**4.0d Select 3–5 questions for today's feedback tile** (a hard range — never fewer than 3, never more than 5). **This tile is never silently skipped, on any digest, including the first one ever — if you find yourself with zero questions, that's a sign to use the day-one fallback below, not a reason to omit the tile:**
-1. Rank categories with a real 4.0b signal highest (on day one, this already includes today's-data signals per 4.0b — see below); break ties by oldest `question_history` date.
-2. Skip categories currently in cooldown (per 4.0) — unless that's the only way to reach the 3-question minimum, in which case break cooldown for the single oldest-cooldown category rather than shipping fewer than 3.
-3. Still fewer than 3 after signals and rotation? **Day-one fallback — use these verbatim (translated/adapted to the user's language), filling only as many as needed to reach 3:**
-   - *"Want me to always add a specific channel or newsletter you check daily, even if it doesn't come up much yet?"* (category 1)
-   - *"Should any section get more detail by default going forward (not just headlines)?"* (category 5)
-   - *"Prefer a shorter 'top-5' version of the digest instead of the full one?"* (category 7)
-   - *"Want a different tone — shorter and less formal, or is the current one fine?"* (category 9)
-
-   These are intentionally generic on day one **only** — every day after, real signals from 4.0b/4.0c should crowd them out. Never use this fallback once `question_history` shows any category has real prior signal data.
-4. Never two questions from the same category in one tile.
-5. Update `question_history` for every category actually asked today, stamped with today's date.
-
-Never phrase a question as generic filler — personalize with the real name/topic/channel that triggered it. **Exception: the day-one fallback in 4.0d step 3 is deliberately generic** — that's the one and only case where generic phrasing is correct, precisely because signal-backed data doesn't exist yet.
-
-**4.0e Keyword tile — read yesterday's proposals, then propose today's** (its own separate cycle, independent of 4.0a–4.0d; skip the read/apply half only on the first-ever digest).
-
-*Read yesterday's answer* (from the same `xtiles_get_planner_content` call in step 4.0): find the `### 🔑 Important keywords` tile, if present — a numbered list of candidates followed by a prompt asking the user to write which numbers matter, plus whatever free text they typed below it.
-- Parse the reply for referenced numbers (digits, ordinal words, or a clear paraphrase of the keyword itself).
-- Each candidate **mentioned** → add it to `highlighted_keywords`, stamped with today's date.
-- Each candidate **not mentioned**, or no reply at all → add it to `keyword_cooldown` with today's date — don't re-propose that exact keyword for 14 days. A fresh recurrence after the cooldown passes is fair game again.
-- No keyword tile found → nothing to apply.
-
-*Propose today's candidates* (while composing today's content in the main fetch below — not from yesterday's data): watch for a person, project, or company name that comes up **2+ times across at least 2 different tiles today** — a single mention in one place isn't enough. For each candidate, skip it if it's already in `highlighted_keywords` or currently in `keyword_cooldown`. Cap at 5 candidates.
-
-**If zero candidates are found — omit the `### 🔑 Important keywords` tile entirely for today.** Unlike the "Tune your digest" tile, this one has no forced minimum — an organic signal that isn't there shouldn't be manufactured.
-
-`highlighted_keywords` — confirmed important names/projects/companies, stored with the date last seen, e.g. `Andrew(2026-07-05), PluginLaunch(2026-07-08)`. Every occurrence across any tile today gets wrapped in `**bold**` (see step 7). Update the date whenever a keyword actually appears today. Unseen for 10+ days → drop it silently from `highlighted_keywords` (no question needed — this one decays quietly rather than asking, since re-adding it later costs nothing).
-
-`keyword_cooldown` — declined keywords with the date declined, e.g. `PluginLaunch(2026-07-01)`. Prune entries older than 14 days every run.
-
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`). `get_thread` returns the thread's individual messages — also capture each message's own `messageId` (not just the threadId), needed later for `mark_noise_read` (see below); a thread can contain several messages, each with a distinct `messageId`.
@@ -472,20 +382,6 @@ One-line summary.
 
 ⚠️ [anomaly — e.g. two external calls back-to-back in the evening, 30 min gap between them]
 
-### 🔑 Important keywords
-*(only if at least one real candidate was found — see 4.0e)*
-1. [Name/Project 1]
-2. [Name/Project 2]
-
-Write the numbers of the words that genuinely matter to you
-
-### 🎛️ Tune your digest
-1. [Question 1]
-2. [Question 2]
-3. [Question 3]
-
-Write the numbers of the items you'd like applied to the next digest
-
 ---
 ```
 
@@ -498,8 +394,6 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- `### 🎛️ Tune your digest` is always the last section, regardless of which other sections are present — never reorder it earlier
-- `### 🔑 Important keywords` sits right before it (second-to-last) whenever it's present — omitted entirely on days with no real candidate
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -618,41 +512,6 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - **Linear**: tile titled `### 📌 Linear`. Two labeled lines: `**New**` followed by one item per newly created issue (`- [Title](url) — status`), then `**Updated**` the same way for issues that changed status/got comments. **Always create this tile** if Linear is selected — if nothing happened, write a single line: `No updates today.` (same rule as Slack Topics — its absence would look like a connector failure).
 - **Google Drive**: tile titled `### 📁 Google Drive`. One line per changed file: `- [File name](url) — edited by Name`. Blank line between entries. Omit the tile entirely if nothing changed in the last 24 hours.
 - **Custom ("Other") connectors**: one `###` tile per connector, titled with its name and a fitting emoji (e.g. `### 🎙️ Plaud`). Structure the content to match the preference collected in step 2 (meetings list, meetings + action points, etc.) — one item per blank-line-separated entry, Markdown hyperlinks where a URL exists, same `@colorSize`/`@color` annotation as every other tile. **If the connector's fetch failed or had no working MCP tool** (see step 4), still create this tile with a single line: "Could not fetch [Connector] data — connector error." Never omit the tile silently — its disappearance is indistinguishable from the connector never having been asked for in the first place.
-- **Keyword tile — second-to-last, only when 4.0e found at least one real candidate.** Titled `### 🔑 Important keywords`, as a **numbered list plus a free-text prompt** (never checkboxes):
-  ```
-  ### 🔑 Important keywords
-  @colorSize: LIGHTER
-  @color: [pick randomly from the color list]
-
-  1. [Name/Project 1]
-
-  2. [Name/Project 2]
-
-  Write the numbers of the words that genuinely matter to you
-  ```
-  - Omit this tile entirely on a day with zero candidates — no forced minimum, unlike the feedback tile below.
-  - Cap 5 candidates. Blank line between numbered items. The prompt line always comes last, after a blank line.
-  - Next digest reads this exact tile back in step 4.0e — whatever the user types on the page below the prompt line is the reply; don't reword the structure into something the read-back can't parse.
-  - **Applying confirmed keywords**: wrap every occurrence of a name/project/company from `highlighted_keywords` in `**bold**`, in every tile it appears in today (Emails, Slack, Workload participant names, Linear, Google Drive, custom connectors — anywhere the exact keyword shows up in running text). Don't double-wrap a keyword that's already inside an existing bold span. If a tile's content is genuinely dominated by a highlighted keyword (not just a passing mention), prefer `BERMUDA` as that tile's `@color` when the rotation allows it, so the same "this matters" color becomes recognizable over time — but never break the "no repeat color two tiles in a row" rule to force it.
-- **Feedback tile — always the last tile in the write, every digest from the first one on, with zero exceptions.** Before finalizing the markdown for this write call, explicitly check: does it include the `### 🎛️ Tune your digest` tile? If not — go back to 4.0d, it must produce 3–5 items (use the day-one fallback if nothing else qualifies), and this tile must be added before calling the write tool. **A digest written without this tile is an incomplete write, the same category of mistake as forgetting the Emails tile.** Titled `### 🎛️ Tune your digest`, as a **numbered list plus a free-text prompt** (never checkboxes) containing exactly the 3–5 questions selected in step 4.0d:
-  ```
-  ### 🎛️ Tune your digest
-  @colorSize: LIGHTER
-  @color: [pick randomly from the color list]
-
-  1. [Question 1 — concrete proposal, ends in "?"]
-
-  2. [Question 2]
-
-  3. [Question 3]
-
-  Write the numbers of the items you'd like applied to the next digest
-  ```
-  - This is a **tile in the digest itself**, in the same `xtiles_create_tiles_from_markdown_in_my_planner` call as every other tile — never a separate chat widget, never a follow-up message. It participates in step 7's layout pass exactly like every other tile (via `tile_ids`) — no special handling needed there.
-  - Always present, on every digest including the very first one. **"No history yet" is never a valid reason to omit this tile** — 4.0b runs against today's own data on day one, and 4.0d's day-one fallback guarantees 3 questions even if nothing else qualifies.
-  - Never fewer than 3 items, never more than 5.
-  - Blank line between every numbered item. The prompt line always comes last, after a blank line.
-  - The next digest reads this exact tile back in step 4.0 — whatever the user types on the page below the prompt line is the reply, parsed for referenced item numbers. Don't reword or restructure it in a way that would make that read-back ambiguous.
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
@@ -695,7 +554,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. If `mark_noise_read` was answered in step 3, append `· mark_noise_read: yes` (only when "yes" — omit the field entirely when "no", since "no" is the default). Once the feedback tile starts producing answers (step 4.0), append whichever of `pinned_topics`, `trial_topics`, `detail_sections`, `secondary_channels`, `digest_format`, `tone_style`, `signal_trail`, `question_history`, `highlighted_keywords`, `keyword_cooldown` are non-empty to this same string when re-creating the scheduled task — this is how those fields persist across runs. Use `;` to separate multiple entries within a single field (topic/channel names may contain commas).
+    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. If `mark_noise_read` was answered in step 3, append `· mark_noise_read: yes` (only when "yes" — omit the field entirely when "no", since "no" is the default).
   - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
@@ -1075,5 +934,4 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
-- **The "Tune your digest" and "Important keywords" tiles are written to xTiles as part of the digest itself — never a chat widget, never a follow-up message.** "Tune your digest" is always present (3–5 questions, last tile in the write, every digest including the first); "Important keywords" is second-to-last and only appears when there's a real candidate.
  
