@@ -38,7 +38,9 @@ allowed-tools: >
   mcp__claude_ai_Linear__list_issues,
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
-  mcp__scheduled-tasks__create-scheduled-tasks
+  mcp__scheduled-tasks__create-scheduled-tasks,
+  show_widget,
+  AskUserQuestion
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -74,7 +76,7 @@ If the request is general — run the full flow.
 
 **The submitted `tools` list is authoritative from this point on.** If the user deselects a pre-selected/technically-connected tool (e.g. Calendar responds fine to the probe but the user unchecks it), it must not reappear anywhere downstream — not as a content option in step 3, not in the fetch in step 4, not as a tile in step 7 — regardless of what the detection probe found. "Detected" only controls whether a tool is *offered*; the user's actual selection controls whether it's *used*.
 
-**Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
+**Show the survey widget** (HTML form) via `show_widget` — always. The HTML widget is the only survey mechanism: never fall back to inline plain-text questions or `AskUserQuestion`, in any environment. If `show_widget` is unavailable, say so and stop — do not substitute an inline questionnaire.
 
 **Connected tools** (multi select, show all regardless of what's actually detected — this matches the actual Survey widget cards below, one-to-one):
 - Slack
@@ -102,7 +104,7 @@ These connectors are external and optional — they are not shipped with this pl
 
 **For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools (use `ToolSearch` with the connector's name to find its MCP tools, since it won't be in the table above); if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
 
-**Ask what to pull from a custom connector — don't guess.** Right after naming/connecting a custom connector, ask what content it should contribute to the Daily. Generate 2–3 concrete options from the connector's likely purpose plus an "Other" free-text option, e.g. for Plaud: "1) List of meetings · 2) Meetings + action points · 3) Other (describe)". Use `show_widget` with a small options list (same `.pill`/`.card` style as the rest of the survey) in Cowork, or ask inline in Claude Code. Store the answer as part of that connector's config entry (e.g. `Plaud:meetings+action_points`) — this is what step 4's generic custom-connector fetch (below) uses to know what to pull.
+**Ask what to pull from a custom connector — don't guess.** Right after naming/connecting a custom connector, ask what content it should contribute to the Daily. Generate 2–3 concrete options from the connector's likely purpose plus an "Other" free-text option, e.g. for Plaud: "1) List of meetings · 2) Meetings + action points · 3) Other (describe)". Use `show_widget` with a small options list (same `.pill`/`.card` style as the rest of the survey) — always via the HTML widget, never an inline plain-text prompt or `AskUserQuestion`. Store the answer as part of that connector's config entry (e.g. `Plaud:meetings+action_points`) — this is what step 4's generic custom-connector fetch (below) uses to know what to pull.
 
 **A custom connector is only "connected" once it can actually produce a tile — connecting auth is not enough on its own.** See step 4 for the generic fetch/write instructions that make this concrete; a custom connector that has no fetch path by the time step 4 runs must be surfaced as an error (per step 4's rule below), never silently dropped.
 
@@ -545,9 +547,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 ### 8. Schedule (optional)
 
-The schedule widget is shown in step 7 above. This step handles the user's response.
-
-In Claude Code (no Cowork): after writing, ask inline: "Want me to run this every morning automatically? What time? (default: 9:00 AM)"
+The schedule widget is shown in step 7 above. This step handles the user's response. The Schedule widget HTML is the only mechanism — never fall back to an inline plain-text "want me to schedule this?" question.
 
 - If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
@@ -922,7 +922,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ## How to behave
 
-- Use the survey widget for setup; ask inline for approval and any follow-up clarifications
+- Use the HTML survey widget for setup, and `show_widget` HTML widgets for approval and every follow-up clarification — never inline plain-text questions or `AskUserQuestion`
 - **Never output the digest as plain text in chat** and ask the user to copy it manually — always write to xTiles directly, or walk through connecting xTiles first
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
@@ -933,5 +933,5 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Real data from connectors always beats placeholders
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch
-- Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
+- Always show the survey via the HTML widget (`show_widget`); never ask the survey questions inline as plain text or via `AskUserQuestion`
  
