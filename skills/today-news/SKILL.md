@@ -6,7 +6,7 @@ description: >
   briefing, or wants to track a topic, company, market, or technology.
   Trigger phrases: "give me morning news", "what's happening in AI today",
   "set up daily news", "today's news about fintech".
-allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
+allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
 ---
 
 # Today News
@@ -21,7 +21,7 @@ Generate a fresh morning digest from live web sources based on the user's intere
 - **News** — verified against reputable primary sources (Reuters, AP, Bloomberg, FT, TechCrunch). Never aggregators or PR.
 - **Rumors & Leaks** (optional) — unverified tips from X/Twitter, Reddit, insider blogs. Always labeled as unverified.
 - Never invent events, dates, quotes, metrics, names, or URLs.
-- **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant tiles are added in step 5, re-lay-out only those new tiles into a justified grid (step 5's layout pass) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
+- **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant tiles are added in step 5, re-lay-out only those new tiles into a justified grid (step 5's layout pass, via the shared `tile-layout` workflow) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
 
 ---
 
@@ -90,16 +90,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **After a successful write — run these steps in order, no exceptions. Step 1 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before the CTA button is even composed:**
 
-1. **Justified-grid layout pass — mandatory, silent, automatic, every single run (scheduled runs included).**
-   1. Read `view_id` and `tile_ids` **directly from the response of the write call above** (`xtiles_create_tiles_from_markdown_in_my_planner` returns both). `tile_ids` is ordered to match the News/Rumors sections you just wrote (1 or 2 entries).
-   2. Call `mcp__xtiles__xtiles_get_page_layout` with the `view_id` — gives the grid bounds (`max_width`, `max_height`, `min_tile_width`, `min_tile_height`) and every tile on the page, new and pre-existing (daily-brief and evening-reflection can already have written to this same Daily page). The tiles matching `tile_ids` are the ones you'll position; every other tile is a fixed obstacle — read it, never modify it.
-   3. **Reuse the markdown you already composed** for the write above to measure each added tile's content — no need to re-fetch it. Parse each into blocks: **header** (a bold topic label, e.g. `**AI & Product**` — 1 line, width-independent); **short-line** (a one-line headline that never wraps even at `min_tile_width` — 1 line); **paragraph** (a 2–3 sentence summary that wraps; its line count depends on width).
-   4. **Line capacity by width:** `chars_per_line(w) = (w * col_px − padding_px) / avg_char_px`, with heuristic constants `col_px ≈ 25`, `padding_px ≈ 48`, `avg_char_px ≈ 7.5` (calibrate against a real tile if you can). For a paragraph at width `w`: `lines = ceil(char_count / chars_per_line(w))`. Header/short-line = 1 line regardless of `w`.
-   5. **Tile height at a width:** `H_tile(w) = Σ lines(block, w) + (#header blocks) + (#paragraph→paragraph gaps) + 2` (the `+2` is tile chrome). Round up to whole rows, clamp to `≥ min_tile_height`.
-   6. **Compose and size:** if only the News tile was written, give it a generous width (`max_width`, or the largest free band next to existing tiles). If both News and Rumors were written, place them side by side in one row when their combined natural width fits, otherwise News gets the wider share (it's normally the heavier tile). Place in free grid space from the full-page layout (step 2) that doesn't overlap any existing tile.
-   7. **Equalize height if in the same row (flush-bottom rule):** compute `H_tile(w)` at each tile's assigned width, set both to `h = max(H_tile)`.
-   8. **Self-check before calling:** widths sum to `max_width` if sharing a row; every `w`/`h` is `≥ min_tile_width`/`min_tile_height`; no overlap with existing tiles. Fix any violation yourself.
-   9. Call `mcp__xtiles__xtiles_set_page_layout` once, listing only the added tile(s). **If the call is rejected**, retry once with a simple fallback: full-width row per tile at `H_tile(max_width)`. Only if the retry also fails, skip silently and continue.
+1. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the News/Rumors sections you just wrote — 1 or 2 entries), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** 1–2 tiles (News + optional Rumors) · if both, place side by side in one row when they fit, else News gets the wider share · News is the heavier tile. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
 2. Call `mcp__xtiles__xtiles_get_planner_content`, get `view_id`, show the **CTA widget HTML** with `{VIEW_URL}` = `https://xtiles.app/{view_id}`.
 
 ### 6. Schedule (optional)
