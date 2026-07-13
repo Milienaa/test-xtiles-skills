@@ -39,8 +39,7 @@ allowed-tools: >
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks,
-  show_widget,
-  AskUserQuestion
+  show_widget
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -72,11 +71,15 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"` **and matching `data-tool` attribute** (see Survey widget HTML below — the card's pre-selected visual state and its underlying `tools` value must both be set, or a user who deselects it will have the click silently do nothing and it'll leak back in). Generate the widget with those pre-selections applied, then call `show_widget`.
+**Your first action in this step is to call `show_widget` with the Survey widget HTML (see "Survey widget HTML" below).** This is the only mechanism that collects role, tools, and content — there is no text-based alternative, on any model or in any environment. These rules are non-negotiable and must behave identically on every model:
+
+- **Send the Survey widget HTML exactly as written below — verbatim.** Do not paraphrase it, rebuild it from memory, shorten it, or "simplify" it. Copy the whole block, apply only the tool pre-selections described below, and pass that to `show_widget`. (Rebuilding it is what makes the form render differently run-to-run.)
+- **Role and tools are chosen by clicking** the pills and cards inside the form. Never ask the user to type their role, never present roles or tools as a plain-text list, and never use `AskUserQuestion` for any part of the survey. If you find yourself about to write "What's your role?" as text or as an options dialog, that is the bug — call `show_widget` instead.
+- **If `show_widget` is genuinely unavailable** in the runtime, say so plainly and stop — do not substitute an inline questionnaire or `AskUserQuestion`.
+
+**Pre-selection probe (do this before the `show_widget` call, then bake the results into the HTML you send):** Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card by setting `class="card sel"` **and matching `data-tool` attribute** (see Survey widget HTML below — the card's pre-selected visual state and its underlying `tools` value must both be set, or a user who deselects it will have the click silently do nothing and it'll leak back in). Apply only these pre-selections; change nothing else in the HTML.
 
 **The submitted `tools` list is authoritative from this point on.** If the user deselects a pre-selected/technically-connected tool (e.g. Calendar responds fine to the probe but the user unchecks it), it must not reappear anywhere downstream — not as a content option in step 3, not in the fetch in step 4, not as a tile in step 7 — regardless of what the detection probe found. "Detected" only controls whether a tool is *offered*; the user's actual selection controls whether it's *used*.
-
-**Show the survey widget** (HTML form) via `show_widget` — always. The HTML widget is the only survey mechanism: never fall back to inline plain-text questions or `AskUserQuestion`, in any environment. If `show_widget` is unavailable, say so and stop — do not substitute an inline questionnaire.
 
 **Connected tools** (multi select, show all regardless of what's actually detected — this matches the actual Survey widget cards below, one-to-one):
 - Slack
@@ -114,20 +117,19 @@ These connectors are external and optional — they are not shipped with this pl
 
 ---
 
-### 3. Daily content clarification
+### 3. Daily content — read from the survey form (do not re-ask)
 
-Question: "What do you want to see on your Daily each morning?"
+The *"What do you want to see each morning?"* content is **already collected by the main survey widget (step 2), on its second screen** ("STEP 2 of 2 — Your Daily" — the `daily-content` checkboxes, auto-populated from the selected tools + role defaults). The submit string carries it as `daily_content: …`.
 
-Options — include only those relevant to connected tools:
-- Unread emails that need a reply *(only if Gmail connected)*
-- Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
-- Slack messages from key channels *(only if Slack connected)*
-- Workload — calendar analysis: day shape, conflicts, focus windows *(only if Calendar connected)*
-- Other (describe in next message)
+**Do not restate this as a separate question** — no extra widget, no plain-text list, no `AskUserQuestion`. Read the selections straight from the survey submit. There is no standalone "step 3 form"; this content lives on screen 2 of the one survey form. For reference, the checkboxes that screen offers map to connectors like this (shown only for connected tools):
+- Unread emails that need a reply *(Gmail)*
+- Newsletters — curated summaries *(Gmail)*
+- Slack messages from key channels *(Slack)*
+- Workload — calendar analysis: day shape, conflicts, focus windows *(Calendar)*
 
-Do NOT suggest tasks — they're already in xTiles by default.
+Custom ("Other") connectors contribute content via their own "what to pull" question in step 2 — not here. Do NOT include tasks — they're already in xTiles by default.
 
-**If "Unread emails that need a reply" is selected — ask one follow-up:** "Should I mark ⚪ Noise emails (notifications, automated alerts — nothing to act on) as read automatically, so your inbox count reflects what actually needs attention?" Yes/No. Store the answer as `mark_noise_read: yes` or `mark_noise_read: no` in the config (default `no` if unanswered — never mark emails read without explicit opt-in). See step 4 for how this is applied.
+**If "Unread emails…" is among the submitted `daily_content` — ask one follow-up via `show_widget`** (a small yes/no widget, same style as the Approval widget HTML — never plain text or `AskUserQuestion`): "Should I mark ⚪ Noise emails (notifications, automated alerts — nothing to act on) as read automatically, so your inbox count reflects what actually needs attention?" Store the answer as `mark_noise_read: yes` or `mark_noise_read: no` in the config (default `no` if unanswered — never mark emails read without explicit opt-in). See step 4 for how this is applied.
 
 **If Slack is selected and the user has not already named their channels:**
 
@@ -573,18 +575,18 @@ Either way, continue to **step 9 (Related workflows)** — do not stop here.
 offer related workflows. Skip this on scheduled runs, which end silently
 after step 7.
 
-Ask via `AskUserQuestion` (single select): "Want to set up anything else on
-xTiles?"
+Call `show_widget` with the **Related workflows widget HTML** (see below): "Want to
+set up anything else on xTiles?" with these single-select options —
 - 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
 - 📰 Today News — a daily news digest on topics you care about
 - 📊 Weekly Review — a weekly summary of what moved forward this week
 - Nothing else, thanks
 
-**Never list these as plain text requiring the user to retype a choice —
-always use the interactive question.**
+**Never list these as plain text requiring the user to retype a choice, and never
+use `AskUserQuestion` — always the HTML widget via `show_widget`.**
 
-On selection, send the exact matching phrase to hand off to that skill (do
-not attempt to run it yourself):
+The widget's `sendPrompt()` already emits the exact hand-off phrase for the chosen
+option (do not attempt to run the target skill yourself):
 - Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
 - Today News → `Set workflow of Today News (today-news) on xTiles MCP`
 - Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
@@ -659,8 +661,8 @@ function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.st
 
 ## Survey widget HTML
 
-Show this form via `show_widget` at the start of setup in Cowork.
-After Submit, the user sends a string of answers to chat — process it and continue the flow.
+Show this form via `show_widget` at the start of setup — on every model, in every environment.
+**Send it verbatim** — copy the whole block below unchanged; apply only the tool `card sel` pre-selections from step 2, and change nothing else. Do not regenerate, retype, or condense it — that is what makes the form look different run-to-run. Role is picked by clicking a pill (never typed except via the optional "Other role…" escape). After Submit, the user sends a string of answers to chat — process it and continue the flow.
 
 ```html
 <style>
@@ -915,6 +917,45 @@ function scheduleIt(){
   sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
 function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
+</script>
+```
+
+---
+
+## Related workflows widget HTML
+
+Show this via `show_widget` in step 9, after step 8 is resolved (manual runs only). Single-select — clicking an option immediately submits its exact hand-off phrase via `sendPrompt()`. Never use `AskUserQuestion` here.
+
+```html
+<style>
+:root{--c-surface:#fff;--c-text:#1a1a1a;--c-text2:#888;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
+@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-text2:#999;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--c-text)}
+.wrap{max-width:420px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s;text-align:left}
+.opt:hover{border-color:var(--c-border2)}
+.opt .ico{font-size:16px;flex-shrink:0}
+.opt .sub{display:block;font-size:11px;color:var(--c-text2);margin-top:2px}
+.opt.none{justify-content:center;color:var(--c-text2);font-weight:500}
+</style>
+<div class="wrap">
+  <h2>Want to set up anything else on xTiles?</h2>
+  <div class="opts">
+    <button class="opt" onclick="pick(this,'Set workflow of Evening Reflection (evening-reflection) on xTiles MCP')"><span class="ico">🌙</span><span>Evening Reflection<span class="sub">An end-of-day synthesis seeded for tomorrow</span></span></button>
+    <button class="opt" onclick="pick(this,'Set workflow of Today News (today-news) on xTiles MCP')"><span class="ico">📰</span><span>Today News<span class="sub">A daily news digest on topics you care about</span></span></button>
+    <button class="opt" onclick="pick(this,'Set workflow of Weekly Review (weekly-review) on xTiles MCP')"><span class="ico">📊</span><span>Weekly Review<span class="sub">A weekly summary of what moved forward</span></span></button>
+    <button class="opt none" onclick="pick(this,'Nothing else, thanks')">Nothing else, thanks</button>
+  </div>
+</div>
+<script>
+function pick(el,phrase){
+  var w=document.querySelector('.opts');
+  w.innerHTML='<p style="font-size:13px;color:var(--c-text2);text-align:center;padding:6px 0">✓ Got it</p>';
+  sendPrompt(phrase);
+}
 </script>
 ```
 
