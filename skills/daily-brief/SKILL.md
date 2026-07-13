@@ -72,11 +72,15 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"` **and matching `data-tool` attribute** (see Survey widget HTML below — the card's pre-selected visual state and its underlying `tools` value must both be set, or a user who deselects it will have the click silently do nothing and it'll leak back in). Generate the widget with those pre-selections applied, then call `show_widget`.
+**Your first action in this step is to call `show_widget` with the Survey widget HTML (see "Survey widget HTML" below).** This is the only mechanism that collects role, tools, and content — there is no text-based alternative, on any model or in any environment. These rules are non-negotiable and must behave identically on every model:
+
+- **Send the Survey widget HTML exactly as written below — verbatim.** Do not paraphrase it, rebuild it from memory, shorten it, or "simplify" it. Copy the whole block, apply only the tool pre-selections described below, and pass that to `show_widget`. (Rebuilding it is what makes the form render differently run-to-run.)
+- **Role and tools are chosen by clicking** the pills and cards inside the form. Never ask the user to type their role, never present roles or tools as a plain-text list, and never use `AskUserQuestion` for any part of the survey. If you find yourself about to write "What's your role?" as text or as an options dialog, that is the bug — call `show_widget` instead.
+- **If `show_widget` is genuinely unavailable** in the runtime, say so plainly and stop — do not substitute an inline questionnaire or `AskUserQuestion`.
+
+**Pre-selection probe (do this before the `show_widget` call, then bake the results into the HTML you send):** Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card by setting `class="card sel"` **and matching `data-tool` attribute** (see Survey widget HTML below — the card's pre-selected visual state and its underlying `tools` value must both be set, or a user who deselects it will have the click silently do nothing and it'll leak back in). Apply only these pre-selections; change nothing else in the HTML.
 
 **The submitted `tools` list is authoritative from this point on.** If the user deselects a pre-selected/technically-connected tool (e.g. Calendar responds fine to the probe but the user unchecks it), it must not reappear anywhere downstream — not as a content option in step 3, not in the fetch in step 4, not as a tile in step 7 — regardless of what the detection probe found. "Detected" only controls whether a tool is *offered*; the user's actual selection controls whether it's *used*.
-
-**Show the survey widget** (HTML form) via `show_widget` — always. The HTML widget is the only survey mechanism: never fall back to inline plain-text questions or `AskUserQuestion`, in any environment. If `show_widget` is unavailable, say so and stop — do not substitute an inline questionnaire.
 
 **Connected tools** (multi select, show all regardless of what's actually detected — this matches the actual Survey widget cards below, one-to-one):
 - Slack
@@ -114,20 +118,19 @@ These connectors are external and optional — they are not shipped with this pl
 
 ---
 
-### 3. Daily content clarification
+### 3. Daily content — read from the survey form (do not re-ask)
 
-Question: "What do you want to see on your Daily each morning?"
+The *"What do you want to see each morning?"* content is **already collected by the main survey widget (step 2), on its second screen** ("STEP 2 of 2 — Your Daily" — the `daily-content` checkboxes, auto-populated from the selected tools + role defaults). The submit string carries it as `daily_content: …`.
 
-Options — include only those relevant to connected tools:
-- Unread emails that need a reply *(only if Gmail connected)*
-- Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
-- Slack messages from key channels *(only if Slack connected)*
-- Workload — calendar analysis: day shape, conflicts, focus windows *(only if Calendar connected)*
-- Other (describe in next message)
+**Do not restate this as a separate question** — no extra widget, no plain-text list, no `AskUserQuestion`. Read the selections straight from the survey submit. There is no standalone "step 3 form"; this content lives on screen 2 of the one survey form. For reference, the checkboxes that screen offers map to connectors like this (shown only for connected tools):
+- Unread emails that need a reply *(Gmail)*
+- Newsletters — curated summaries *(Gmail)*
+- Slack messages from key channels *(Slack)*
+- Workload — calendar analysis: day shape, conflicts, focus windows *(Calendar)*
 
-Do NOT suggest tasks — they're already in xTiles by default.
+Custom ("Other") connectors contribute content via their own "what to pull" question in step 2 — not here. Do NOT include tasks — they're already in xTiles by default.
 
-**If "Unread emails that need a reply" is selected — ask one follow-up:** "Should I mark ⚪ Noise emails (notifications, automated alerts — nothing to act on) as read automatically, so your inbox count reflects what actually needs attention?" Yes/No. Store the answer as `mark_noise_read: yes` or `mark_noise_read: no` in the config (default `no` if unanswered — never mark emails read without explicit opt-in). See step 4 for how this is applied.
+**If "Unread emails…" is among the submitted `daily_content` — ask one follow-up via `show_widget`** (a small yes/no widget, same style as the Approval widget HTML — never plain text or `AskUserQuestion`): "Should I mark ⚪ Noise emails (notifications, automated alerts — nothing to act on) as read automatically, so your inbox count reflects what actually needs attention?" Store the answer as `mark_noise_read: yes` or `mark_noise_read: no` in the config (default `no` if unanswered — never mark emails read without explicit opt-in). See step 4 for how this is applied.
 
 **If Slack is selected and the user has not already named their channels:**
 
@@ -659,8 +662,8 @@ function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.st
 
 ## Survey widget HTML
 
-Show this form via `show_widget` at the start of setup in Cowork.
-After Submit, the user sends a string of answers to chat — process it and continue the flow.
+Show this form via `show_widget` at the start of setup — on every model, in every environment.
+**Send it verbatim** — copy the whole block below unchanged; apply only the tool `card sel` pre-selections from step 2, and change nothing else. Do not regenerate, retype, or condense it — that is what makes the form look different run-to-run. Role is picked by clicking a pill (never typed except via the optional "Other role…" escape). After Submit, the user sends a string of answers to chat — process it and continue the flow.
 
 ```html
 <style>
