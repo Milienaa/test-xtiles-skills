@@ -39,8 +39,7 @@ allowed-tools: >
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks,
-  show_widget,
-  AskUserQuestion
+  show_widget
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
@@ -576,18 +575,18 @@ Either way, continue to **step 9 (Related workflows)** — do not stop here.
 offer related workflows. Skip this on scheduled runs, which end silently
 after step 7.
 
-Ask via `AskUserQuestion` (single select): "Want to set up anything else on
-xTiles?"
+Call `show_widget` with the **Related workflows widget HTML** (see below): "Want to
+set up anything else on xTiles?" with these single-select options —
 - 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
 - 📰 Today News — a daily news digest on topics you care about
 - 📊 Weekly Review — a weekly summary of what moved forward this week
 - Nothing else, thanks
 
-**Never list these as plain text requiring the user to retype a choice —
-always use the interactive question.**
+**Never list these as plain text requiring the user to retype a choice, and never
+use `AskUserQuestion` — always the HTML widget via `show_widget`.**
 
-On selection, send the exact matching phrase to hand off to that skill (do
-not attempt to run it yourself):
+The widget's `sendPrompt()` already emits the exact hand-off phrase for the chosen
+option (do not attempt to run the target skill yourself):
 - Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
 - Today News → `Set workflow of Today News (today-news) on xTiles MCP`
 - Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
@@ -918,6 +917,45 @@ function scheduleIt(){
   sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
 }
 function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
+</script>
+```
+
+---
+
+## Related workflows widget HTML
+
+Show this via `show_widget` in step 9, after step 8 is resolved (manual runs only). Single-select — clicking an option immediately submits its exact hand-off phrase via `sendPrompt()`. Never use `AskUserQuestion` here.
+
+```html
+<style>
+:root{--c-surface:#fff;--c-text:#1a1a1a;--c-text2:#888;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
+@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-text2:#999;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--c-text)}
+.wrap{max-width:420px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s;text-align:left}
+.opt:hover{border-color:var(--c-border2)}
+.opt .ico{font-size:16px;flex-shrink:0}
+.opt .sub{display:block;font-size:11px;color:var(--c-text2);margin-top:2px}
+.opt.none{justify-content:center;color:var(--c-text2);font-weight:500}
+</style>
+<div class="wrap">
+  <h2>Want to set up anything else on xTiles?</h2>
+  <div class="opts">
+    <button class="opt" onclick="pick(this,'Set workflow of Evening Reflection (evening-reflection) on xTiles MCP')"><span class="ico">🌙</span><span>Evening Reflection<span class="sub">An end-of-day synthesis seeded for tomorrow</span></span></button>
+    <button class="opt" onclick="pick(this,'Set workflow of Today News (today-news) on xTiles MCP')"><span class="ico">📰</span><span>Today News<span class="sub">A daily news digest on topics you care about</span></span></button>
+    <button class="opt" onclick="pick(this,'Set workflow of Weekly Review (weekly-review) on xTiles MCP')"><span class="ico">📊</span><span>Weekly Review<span class="sub">A weekly summary of what moved forward</span></span></button>
+    <button class="opt none" onclick="pick(this,'Nothing else, thanks')">Nothing else, thanks</button>
+  </div>
+</div>
+<script>
+function pick(el,phrase){
+  var w=document.querySelector('.opts');
+  w.innerHTML='<p style="font-size:13px;color:var(--c-text2);text-align:center;padding:6px 0">✓ Got it</p>';
+  sendPrompt(phrase);
+}
 </script>
 ```
 
