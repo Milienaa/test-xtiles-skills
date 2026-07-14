@@ -13,44 +13,36 @@ description: >
   Digest triggers: "show me my morning brief", "what do I need to know today",
   "run my digest". Also runs automatically via scheduled tasks.
 
-  Config (role/tools/daily_content) is read from the scheduled task prompt —
-  no separate file needed.
+  Config is read from the scheduled task prompt — no separate file needed.
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
-  mcp__xtiles__xtiles_list_tasks,
   mcp__xtiles__xtiles_get_user_timezone,
-  mcp__xtiles__xtiles_get_page_layout,
-  mcp__xtiles__xtiles_set_page_layout,
-  mcp__xtiles__xtiles_get_workflow,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
-  mcp__claude_ai_Slack__slack_read_user_profile,
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
-  mcp__claude_ai_Gmail__unlabel_message,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__claude_ai_Linear__list_issues,
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
-  mcp__scheduled-tasks__create-scheduled-tasks,
-  show_widget
+  mcp__scheduled-tasks__create-scheduled-tasks
 ---
 
 # xTiles Daily Planner — Setup & Daily Digest
 
-## Three principles
+## Four principles
 
 1. **Survey first, write to xTiles last.** Nothing gets created until the user has seen the preview and said "yes".
 2. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
 3. **Match the user's language** throughout the entire flow — match the language of the user's first message and adapt if they switch.
-4. **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant tiles are added in step 7, re-lay-out only those new tiles into a justified grid (step 7's layout pass, via the shared `tile-layout` workflow) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
+4. **Every write is followed by the layout pass.** The moment tiles are created in step 7, re-lay them out into a justified grid via the shared `tile-layout` workflow — automatically, before the CTA, never skipped.
 
 ---
 
@@ -72,24 +64,14 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Your first action in this step is to call `show_widget` with the Survey widget HTML (see "Survey widget HTML" below).** This is the only mechanism that collects role, tools, and content — there is no text-based alternative, on any model or in any environment. These rules are non-negotiable and must behave identically on every model:
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. Generate the widget with those pre-selections applied, then call `show_widget`.
 
-- **Send the Survey widget HTML exactly as written below — verbatim.** Do not paraphrase it, rebuild it from memory, shorten it, or "simplify" it. Copy the whole block, apply only the tool pre-selections described below, and pass that to `show_widget`. (Rebuilding it is what makes the form render differently run-to-run.)
-- **Role and tools are chosen by clicking** the pills and cards inside the form. Never ask the user to type their role, never present roles or tools as a plain-text list, and never use `AskUserQuestion` for any part of the survey. If you find yourself about to write "What's your role?" as text or as an options dialog, that is the bug — call `show_widget` instead.
-- **If `show_widget` is genuinely unavailable** in the runtime, say so plainly and stop — do not substitute an inline questionnaire or `AskUserQuestion`.
+**Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
-**Pre-selection probe (do this before the `show_widget` call, then bake the results into the HTML you send):** Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card by setting `class="card sel"` **and matching `data-tool` attribute** (see Survey widget HTML below — the card's pre-selected visual state and its underlying `tools` value must both be set, or a user who deselects it will have the click silently do nothing and it'll leak back in). Apply only these pre-selections; change nothing else in the HTML.
-
-**The submitted `tools` list is authoritative from this point on.** If the user deselects a pre-selected/technically-connected tool (e.g. Calendar responds fine to the probe but the user unchecks it), it must not reappear anywhere downstream — not as a content option in step 3, not in the fetch in step 4, not as a tile in step 7 — regardless of what the detection probe found. "Detected" only controls whether a tool is *offered*; the user's actual selection controls whether it's *used*.
-
-**Connected tools** (multi select, show all regardless of what's actually detected — this matches the actual Survey widget cards below, one-to-one):
+**Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
 - Gmail
-- Calendar
-- Granola
-- Linear
-- Google Drive
-- Other
+- Other 
 
 
 After receiving answers — detect which MCP tools are actually available:
@@ -106,11 +88,7 @@ After receiving answers — detect which MCP tools are actually available:
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
 
-**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools (use `ToolSearch` with the connector's name to find its MCP tools, since it won't be in the table above); if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
-
-**Ask what to pull from a custom connector — don't guess.** Right after naming/connecting a custom connector, ask what content it should contribute to the Daily. Generate 2–3 concrete options from the connector's likely purpose plus an "Other" free-text option, e.g. for Plaud: "1) List of meetings · 2) Meetings + action points · 3) Other (describe)". Use `show_widget` with a small options list (same `.pill`/`.card` style as the rest of the survey) — always via the HTML widget, never an inline plain-text prompt or `AskUserQuestion`. Store the answer as part of that connector's config entry (e.g. `Plaud:meetings+action_points`) — this is what step 4's generic custom-connector fetch (below) uses to know what to pull.
-
-**A custom connector is only "connected" once it can actually produce a tile — connecting auth is not enough on its own.** See step 4 for the generic fetch/write instructions that make this concrete; a custom connector that has no fetch path by the time step 4 runs must be surfaced as an error (per step 4's rule below), never silently dropped.
+**For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
 
 **If xTiles is not connected** — do not continue. Immediately walk the user through connecting xTiles (see **How to connect connectors** below). Wait for confirmation that xTiles is connected before proceeding.
 
@@ -118,83 +96,59 @@ These connectors are external and optional — they are not shipped with this pl
 
 ---
 
-### 3. Daily content — read from the survey form (do not re-ask)
+### 3. Daily content clarification
 
-The *"What do you want to see each morning?"* content is **already collected by the main survey widget (step 2), on its second screen** ("STEP 2 of 2 — Your Daily" — the `daily-content` checkboxes, auto-populated from the selected tools + role defaults). The submit string carries it as `daily_content: …`.
+Question: "What do you want to see on your Daily each morning?"
 
-**Do not restate this as a separate question** — no extra widget, no plain-text list, no `AskUserQuestion`. Read the selections straight from the survey submit. There is no standalone "step 3 form"; this content lives on screen 2 of the one survey form. For reference, the checkboxes that screen offers map to connectors like this (shown only for connected tools):
-- Unread emails that need a reply *(Gmail)*
-- Newsletters — curated summaries *(Gmail)*
-- Slack messages from key channels *(Slack)*
-- Workload — calendar analysis: day shape, conflicts, focus windows *(Calendar)*
+Options — include only those relevant to connected tools:
+- Unread emails that need a reply *(only if Gmail connected)*
+- Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
+- Slack messages from key channels *(only if Slack connected)*
+- Workload — calendar analysis: day shape, conflicts, focus windows *(only if Calendar connected)*
+- Other (describe in next message)
 
-Custom ("Other") connectors contribute content via their own "what to pull" question in step 2 — not here. Do NOT include tasks — they're already in xTiles by default.
-
-**If "Unread emails…" is among the submitted `daily_content` — ask one follow-up via `show_widget`** (a small yes/no widget, same style as the Approval widget HTML — never plain text or `AskUserQuestion`): "Should I mark ⚪ Noise emails (notifications, automated alerts — nothing to act on) as read automatically, so your inbox count reflects what actually needs attention?" Store the answer as `mark_noise_read: yes` or `mark_noise_read: no` in the config (default `no` if unanswered — never mark emails read without explicit opt-in). See step 4 for how this is applied.
+Do NOT suggest tasks — they're already in xTiles by default.
 
 **If Slack is selected and the user has not already named their channels:**
 
-The goal is to surface *this specific user's* channels — the ones relevant to their profession and the ones they actually use — not a generic company list. Two independent signals drive this: **relevance-by-topic** (does the channel match their role?) and **activity-by-usage** (does the user actually post/get mentioned there?). The final list is their union; channels in both are the strongest picks and are labelled **core**.
+Use the role captured in the form as the anchor for this whole discovery — it drives both the interest search (Step C) and how specialized channels are scored (Step D). The goal is to surface *this specific user's* channels, not a generic company list.
 
-**Step A — establish the role anchor.** Call `mcp__claude_ai_Slack__slack_read_user_profile` with **no `user_id`** — it returns the current user's own profile. Take the `title` field (and `department` if present) as the primary anchor. Combine it with the role captured in the survey form: if they agree, you have a strong anchor; if the form role is more specific, prefer it; if the profile is empty, fall back to the form role alone.
+**Step A — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are candidates for the shared/general slot, never for the specialized slot.
 
-**Speed matters here — this whole discovery must finish before the channel-picker widget can even be shown, so the user is staring at a blank screen the entire time.** Steps C, D, and E don't depend on each other's results (only on Step A/B being done first) — **issue their calls in parallel, in a single batch, never sequentially waiting for one to finish before starting the next.** Cap the total number of Slack calls across C+D+E at roughly 10–12; the per-step limits below are already sized for that budget — don't pad past them "just in case."
+**Step B — activity signal (the strongest relevance signal).** Call `mcp__claude_ai_Slack__slack_search_public_and_private` twice: once with query `from:me` (channels where the user actually posts) and once with query `to:me` (channels where the user is @mentioned or replied to). For every result, record the channel and the message timestamp. Per channel, track two things: **recency** — the timestamp of the user's most recent post or mention there, and **frequency** — total hit count across both queries. A channel the user posted or was mentioned in yesterday is more relevant right now than one with more total hits but nothing in weeks — recency is the primary activity signal, frequency only breaks ties between channels with similarly recent activity.
 
-**Step B — expand the role into keywords.** A profession rarely matches a channel name word-for-word, so expand the title/role into **3–4** related terms before searching (fewer than before — each extra keyword is another parallel call, and returns rapidly diminish past 4): the role name itself plus the 2–3 most distinctive adjacent terms for that profession. Generate these from the anchor (do not rely on a fixed table). Examples of the mapping to produce:
+**Step C — role & interest/affinity search.** Reason from the user's role: what does this person actually write and receive in Slack day-to-day? Derive 2–3 short phrases that would naturally appear in messages in their active channels and search for them. Then run a second, broader pass for interest and affinity-group channels that may exist regardless of role — e.g. terms like `women`, `parents`, `wellness`, `book club`, `volunteering`, `pride`, `remote`, `pets`, or other hobby/interest terms suggested by the role context. Do not use a fixed table for either pass — think from context. If the user explicitly named topics or interests, search those first.
 
-- **AI Engineer** → ai, ml, llm, agent, automation, mcp, bot, gpt
-- **Product Manager** → product, roadmap, feature, launch, growth, roundup
-- **Designer** → design, ui, ux, figma, brand
-- **Backend / DevOps** → infra, backend, deploy, ci, incidents, oncall
-- **Marketing** → marketing, growth, campaigns, seo, content
+**Step D — merge, rank, and select.**
+1. Merge every channel found in Steps A–C, removing duplicates (a channel found in more than one step counts once, keeping its highest score).
+2. Drop low-signal: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`.
+3. Score each channel, in this order: **Step B activity ranks highest** — sort by recency of the user's last post/mention there first, then by frequency as the tiebreaker among similarly-recent channels; **then** role/interest/affinity matches from Step C; **then** bare universal presence from Step A alone. A channel where the user was just mentioned yesterday outranks a role-matched channel they never actually post in.
+4. Show every remaining discovered channel as a selectable card — cast a wide net across interests and affinity groups so the user has real options to add, not just a token list.
+5. **Pre-select (mark active) up to 5 total, no more:** at most 2 from the universal slot (highest-scoring first, e.g. general → all → team → announcements → company → product), and the rest from the highest-scoring specialized channels in Step D's ranking — the channels this specific user actually writes in, is mentioned in, or that match their role/interests. Every other discovered channel stays visible but unchecked — the user decides what else matters to them each morning.
 
-If the user explicitly named topics or interests, add those to the keyword set first.
+**Fallback:** if Steps B and C both return zero results — call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `team update` and extract channels from those results.
 
-**Step C — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are candidates for the shared/general slot, never for the specialized slot.
-
-**Step D — keyword search (relevance-by-topic).** For each keyword from Step B, call `mcp__claude_ai_Slack__slack_search_channels` with `query=<keyword>` and `channel_types="public_channel,private_channel"`. Private channels in results are already ones the user belongs to (the API filters by token access), so no extra membership check is needed. **Take the first page only (no pagination)** — `slack_search_channels` returns up to 20 per call, which is already more than enough signal per keyword; don't chase a second page. Collect all results and dedupe by channel ID. **Skip the separate affinity/interest-group pass** — if an affinity channel is relevant, Step E's activity signal will surface it anyway; a dedicated extra pass isn't worth its latency cost. Score each candidate by boolean signals (no weighting needed): channel **name** contains a keyword (strong); **purpose/topic** mentions a keyword (strong); channel was **created by the user** (strong — it's "their" topic); type is `private_channel` (moderate — profile-specific work channels are more often private than open ones).
-
-**Step E — activity signal (activity-by-usage, the strongest relevance signal).** Separately from keyword search, measure where the user actually writes. Call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `from:<@USER_ID>` (the user's own ID from Step A's profile), `sort="timestamp"`, `limit=20`, **a single page only (≈20 recent messages — do not paginate further)**; narrow with `after:YYYY-MM-DD` if a specific period is wanted. Also run `to:me` the same way (single page), **in parallel with the `from:` call, not after it**. Per channel, track **recency** (timestamp of the user's most recent post/mention) and **frequency** (hit count within that one page), and flag DMs / group DMs (personal) separately from named channels (team activity). Recency is the primary signal — a channel the user posted in yesterday outranks one with more total hits but nothing in weeks; frequency only breaks ties between similarly-recent channels. One page is enough to find where someone is *currently* active — this signal cares about recency, not exhaustive history.
-
-**Step F — merge, rank, and label.**
-1. Merge every channel from Steps C–E, removing duplicates (a channel found in more than one step counts once, keeping its highest score).
-2. Drop low-signal: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`. Exclude DMs / group DMs from the channel list.
-3. Rank, in this order: **Step E activity first** (by recency, then frequency), **then** relevance-by-topic from Step D (keyword/created-by-user matches), **then** bare universal presence from Step C alone.
-4. Label each channel: **core** if it appears in *both* Step D (topic-relevant) and Step E (actually used) — these are the strongest picks; **relevant-by-topic** if only Step D; **active-by-usage** if only Step E, even when it never matched a keyword (high activity is itself a signal of importance).
-5. Show every remaining discovered channel as a selectable card — cast a wide net across role, interests, and affinity groups so the user has real options, not a token list.
-6. **Pre-select (mark active) up to 5 total, no more:** all **core** channels first, then the highest-scoring **active-by-usage**, then **relevant-by-topic**, capped so at most 2 come from the universal slot (highest-scoring first, e.g. general → all → team → announcements → company → product). Every other discovered channel stays visible but unchecked — the user decides what else matters each morning.
-
-**Fallback:** if Steps D and E both return zero results — call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `team update` and extract channels from those results. If keyword search returns too few channels, widen the Step B keyword set with more synonyms for the role.
-
-Generate an HTML multi-select widget with the discovered channels as selectable cards — mark the up-to-5 chosen in Step F.6 with the pre-selected `sel` state — and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel; add `sel` to the class and keep `data-v` in sync for the pre-selected ones):
+Generate an HTML multi-select widget with the discovered channels as selectable cards — mark the up-to-5 chosen in Step D.5 with the pre-selected `sel` state — and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel; add `sel` to the class and keep `data-v` in sync for the pre-selected ones):
 
 ```html
 <style>
-:root{--c-surface:#fff;--c-text:#1a1a1a;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
-@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent}
-.wrap{max-width:480px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s}
-.card:hover{border-color:var(--c-border2)}
-.card.sel{background:var(--c-btn-p);color:var(--c-btn-p-text);border-color:var(--c-btn-p)}
-.grp{flex-basis:100%;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--c-border2);margin:6px 0 -2px}
-input{width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--c-surface);color:var(--c-text)}
-input:focus{border-color:var(--c-border2)}
-.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text)}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
+.card:hover{border-color:#aaa}
+.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
+input:focus{border-color:#aaa}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
 </style>
 <div class="wrap">
   <h2>Which channels do you open first each morning?</h2>
   <p style="font-size:12px;color:#888;margin:-8px 0 12px">Pre-selected: your most active and relevant channels. Add any others you want to see.</p>
   <div class="cards" id="ch">
-    <!-- Group the discovered channels under the three Step F.4 labels, each preceded by a group heading. Omit any group that has no channels.
-         <div class="grp">Core — relevant &amp; active</div>
-         <div class="grp">Active — where you post most</div>
-         <div class="grp">Relevant to your role</div>
-         Inject one card per channel under its group: <div class="card[ sel]" data-v="#channelname" onclick="tog(this,'#channelname')">#channelname</div>
-         Add " sel" to the class for the up-to-5 pre-selected channels from Step F.6 (all core first). -->
+    <!-- inject: <div class="card[ sel]" data-v="#channelname" onclick="tog(this,'#channelname')">#channelname</div> — add " sel" to class for the up-to-5 pre-selected channels from Step D.5 -->
   </div>
   <input type="text" id="other-ch" placeholder="Other channel…">
   <button class="btn" id="sub-ch" onclick="submit()">Confirm</button>
@@ -216,20 +170,17 @@ If publications found — call `show_widget` with an HTML multi-select listing t
 
 ```html
 <style>
-:root{--c-surface:#fff;--c-text:#1a1a1a;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
-@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent}
-.wrap{max-width:480px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s}
-.card:hover{border-color:var(--c-border2)}
-.card.sel{background:var(--c-btn-p);color:var(--c-btn-p-text);border-color:var(--c-btn-p)}
-.grp{flex-basis:100%;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--c-border2);margin:6px 0 -2px}
-input{width:100%;padding:8px 12px;border:1.5px solid var(--c-border);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--c-surface);color:var(--c-text)}
-input:focus{border-color:var(--c-border2)}
-.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text)}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
+.card:hover{border-color:#aaa}
+.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
+input:focus{border-color:#aaa}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
 </style>
 <div class="wrap">
   <h2>Which newsletters do you want in your Daily?</h2>
@@ -258,7 +209,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`). `get_thread` returns the thread's individual messages — also capture each message's own `messageId` (not just the threadId), needed later for `mark_noise_read` (see below); a thread can contain several messages, each with a distinct `messageId`.
+- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: two parallel reads:
   1. `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). Filter to last 24 hours (timestamp ≥ now − 24 h). Discard older messages. Skip channels with no messages silently.
@@ -267,7 +218,6 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   After collecting, analyse all messages together and group semantically. For every item include a **direct permalink to the specific message** — extract `permalink` from the message object (or build `https://slack.com/archives/{channel_id}/p{ts_without_dot}`). Never link to the channel homepage — always to the individual message.
 
   - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡.
-  - **Потребує дії** — every ⚡-flagged mention also becomes an item here: a short poke-style line (what's being asked, second person, same tone as email's 🔴 bucket) plus the message permalink. For each, derive one verb-first action item (e.g. "Відповісти Марії в #product"). These flow into the same task-dedup step as email action items below — collect them together, don't dedup separately.
   - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`
   - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink
   - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳
@@ -278,21 +228,11 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **🧠 context** (only if Granola or Gmail connected): for each meeting, find the last Granola note involving the same participants and/or the most recent open Gmail thread with the organiser — write one sentence summarising what the meeting is about or what was discussed last time. Only include if relevant context is found; skip silently otherwise.
   - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
 
-- **Linear**: `mcp__claude_ai_Linear__list_issues` — issues assigned to or recently updated by the user, filtered to the last 24 hours (or since the last digest). For each: title, status, and the issue URL. Group into two lines: **New** (created in the last 24h) and **Updated** (status/comment changed in the last 24h). Skip silently if empty on a given day, but the tile itself follows the same "always create, write 'No updates today' if empty" rule as Slack Topics — its total absence would look like a connector failure.
-- **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — files modified in the last 24 hours. For each: file name, who last modified it, and the file's URL. One line per file, newest first. Omit the tile entirely if nothing changed (unlike Linear, a quiet Drive day is unremarkable and not worth calling out).
-- **Custom ("Other") connectors** — this skill can't hardcode every possible tool, so every custom connector needs this generic path (this is the step that was previously missing and caused custom connectors to silently vanish from the digest):
-  1. Use the MCP tools discovered for this connector during step 2's detection/connection (search with `ToolSearch` if needed to find the right "list recent items" style tool).
-  2. Pull data matching the content preference collected in step 2 (e.g. `Plaud:meetings+action_points` → fetch recent meetings and their action points), scoped to roughly the last 24 hours unless the connector only supports a longer window.
-  3. If the fetch succeeds — this connector gets its own `###` tile later (step 7), titled with the connector's name and a fitting emoji.
-  4. **If the fetch fails, or no working MCP tool can be found for this connector at all** — do not silently drop it. Surface it explicitly in step 5's preview as "Could not fetch [Connector] data — connector error" (same rule as the built-in connectors below), and still write that line into the digest in step 7 rather than omitting the connector's tile entirely. The user must see that something they asked for didn't work, never see it just disappear.
-
 Classify emails into three buckets. **Newsletters are fetched separately — exclude them here entirely and do not count them in any bucket.**
 
 - 🔴 **Потребує дії** — emails where the user must take a concrete next step (reply, decide, act, log in)
 - 🟡 **До уваги** — FYI only: confirmed meetings, signed documents, payments, status updates — past/present tense, nothing to do
 - ⚪ **Шум** — notifications, automated alerts, service emails — do not describe individually; count only
-
-**If `mark_noise_read: yes` is set in the config:** for every **thread** placed in the ⚪ Шум bucket, call `mcp__claude_ai_Gmail__unlabel_message` with `labelIds: ["UNREAD"]` once per **individual message** inside that thread (using each message's own `messageId` captured above) — `unlabel_message` acts on one message at a time, and a thread with several unread messages needs one call per message, or only some (or none) of it will actually be marked read. Do this silently — don't ask again each run. Mention the count briefly in the preview/tile line, e.g. "⚪ Шум — N сповіщень (sources) — позначено прочитаними." If `mark_noise_read` is `no` or unset, leave messages untouched (current behavior — count only, don't act on them).
 
 **Tone for 🔴 and 🟡 — Poke-style, capitalized:**
 - Retell the email, do not copy the subject line. Subject → action → consequence in second person: not "Your account closed" but "Google закрив твій рекламний акаунт учора"
@@ -301,9 +241,7 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list, **combined with the verb-first action items derived from Slack's ⚡-flagged mentions** (see the Slack section's "Потребує дії" bullet above) — one shared list across both sources.
-
-Then call `mcp__xtiles__xtiles_list_tasks` **once** with `completed: false` to fetch all open tasks. For each action item in the combined list, check if an open task with the same or very similar meaning already exists. **Keep only items that have no match** — email-derived ones go into the Emails tile's Action items block as `- [ ] Task`, Slack-derived ones go into the `### 🔴 Потребує дії` tile's Задачі block as `- [ ] Task` (see step 7). Silently drop items that already exist as open tasks, regardless of which source they came from.
+For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list — used in preview and tile.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -353,26 +291,22 @@ One-line summary.
 **[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
 One-line summary.
 
-### 🔴 Потребує дії
-- [Poke-style one-liner of what's being asked] — [#channel](url)
+### 💬 Slack
+**Channels:** #channel1 (N) · #channel2 (N)
 
-**Задачі**
-- [ ] [verb-first task]
-
-### ⚡ Mentions
+#### ⚡ Mentions
 - **@Name** in [#channel](url) — what they asked/said ⚡
 
-### 💬 Topics
-**Channels:** #channel1 (N) · #channel2 (N)
+#### 💬 Topics
 - **[Topic name]** — [one-sentence summary] — [#channel](url)
 
-### ✅ Decisions
+#### ✅ Decisions
 - [Decision] — [#channel](url)
 
-### ❓ Open
+#### ❓ Open
 - [Question] — [#channel](url) ⏳
 
-### 📅 Workload
+### 📅 Calendar
 **N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
 
 **HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
@@ -480,15 +414,17 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between entries.
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
-- **Slack**: split into **separate tiles per category** — never one big tile. Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
-  - `### 🔴 Потребує дії` (Slack) — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Задачі**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Відповісти Марії в #product"). These tasks go through the **same open-task dedup step as email action items** (see step 4 — call `xtiles_list_tasks` once, covering both sources, keep only items with no existing match). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Mentions` below for full context.
-  - `### ⚡ Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
-  - `### 💬 Topics` — first line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. **Always create this tile** — if no messages today, write a single line: `No updates today.` Its absence looks like a connector failure.
-  - `### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. **Omit tile entirely if no decisions.**
-  - `### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. **Omit tile entirely if no open questions.**
-- **Calendar**: tile titled `### 📅 Workload`. Use this exact structure:
+- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
+  - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
+  - `#### ⚡ Mentions` — messages where the user was @mentioned. One line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit subheading only if no mentions found.**
+  - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`
+  - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. Omit subheading if no decisions.
+  - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. Omit subheading if no open questions.
+  - **All Slack links must point to the specific message permalink, never to the channel homepage.**
+  - **If no messages from today across all channels** — still create the tile, skip the `**Channels:**` line and all subheadings, and write a single line: `No updates today.` Never omit the tile entirely — its absence looks like a connector failure.
+- **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
   ```
-  ### 📅 Workload
+  ### 📅 Calendar
   @colorSize: LIGHTER
   @color: [pick randomly from the color list]
 
@@ -514,9 +450,6 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between every item (event, 🧠, ⚠️) for readability
   - Omit tile entirely if Calendar returned no events
 - This ensures the tile is scannable, not a wall of text
-- **Linear**: tile titled `### 📌 Linear`. Two labeled lines: `**New**` followed by one item per newly created issue (`- [Title](url) — status`), then `**Updated**` the same way for issues that changed status/got comments. **Always create this tile** if Linear is selected — if nothing happened, write a single line: `No updates today.` (same rule as Slack Topics — its absence would look like a connector failure).
-- **Google Drive**: tile titled `### 📁 Google Drive`. One line per changed file: `- [File name](url) — edited by Name`. Blank line between entries. Omit the tile entirely if nothing changed in the last 24 hours.
-- **Custom ("Other") connectors**: one `###` tile per connector, titled with its name and a fitting emoji (e.g. `### 🎙️ Plaud`). Structure the content to match the preference collected in step 2 (meetings list, meetings + action points, etc.) — one item per blank-line-separated entry, Markdown hyperlinks where a URL exists, same `@colorSize`/`@color` annotation as every other tile. **If the connector's fetch failed or had no working MCP tool** (see step 4), still create this tile with a single line: "Could not fetch [Connector] data — connector error." Never omit the tile silently — its disappearance is indistinguishable from the connector never having been asked for in the first place.
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
@@ -526,13 +459,17 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
 
-**After each successful write — run these steps in order, no exceptions. Step 3 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 4's CTA button is even composed:**
+**After each successful write — run these four steps in order, no exceptions:**
 
 1. Write `✅ Daily created.`
-2. Read `view_id` and `tile_ids` **directly from the response of the write call in this step** (`xtiles_create_tiles_from_markdown_in_my_planner` returns both). `tile_ids` is ordered to match the `###` sections in the markdown you just wrote — `tile_ids[i]` is the tile created for the *i*-th section. **Do not** re-derive `view_id` via `get_planner_content`. This list is only an identity key for step 3 — it tells you *which* tiles are new; it is not a substitute for reading the page's layout.
-3. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the `###` sections you just wrote), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** 1–N tiles · default 2 per row · give a very heavy tile its own full-width row (w = max_width). Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-4. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
-5. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
+
+2. **Layout pass — mandatory stage after adding tiles. Runs on every write (scheduled runs included); never skipped, never deferred, never asked about.** Freshly written tiles land in a default stack — re-lay them out *now*, before the CTA and schedule widgets below:
+   - Read `view_id` and `tile_ids` straight from the `xtiles_create_tiles_from_markdown_in_my_planner` response (`tile_ids` is ordered to match the `###` sections you just wrote). Keep `view_id` — step 3 reuses it, do not re-fetch it.
+   - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Slack or Emails) its own full-width row.
+   - Apply the layout silently — no message, no confirmation. Only once it is applied, continue to step 3.
+
+3. Reuse the `view_id` from the write response (step 2) — **do not call `get_planner_content` to re-derive it.** Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
+4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
@@ -540,14 +477,16 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 ### 8. Schedule (optional)
 
-The schedule widget is shown in step 7 above. This step handles the user's response. The Schedule widget HTML is the only mechanism — never fall back to an inline plain-text "want me to schedule this?" question.
+The schedule widget is shown in step 7 above. This step handles the user's response.
+
+In Claude Code (no Cowork): after writing, ask inline: "Want me to run this every morning automatically? What time? (default: 9:00 AM)"
 
 - If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. If `mark_noise_read` was answered in step 3, append `· mark_noise_read: yes` (only when "yes" — omit the field entirely when "no", since "no" is the default).
+    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders.
   - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
@@ -566,18 +505,18 @@ Either way, continue to **step 9 (Related workflows)** — do not stop here.
 offer related workflows. Skip this on scheduled runs, which end silently
 after step 7.
 
-Call `show_widget` with the **Related workflows widget HTML** (see below): "Want to
-set up anything else on xTiles?" with these single-select options —
+Ask via `AskUserQuestion` (single select): "Want to set up anything else on
+xTiles?"
 - 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
 - 📰 Today News — a daily news digest on topics you care about
 - 📊 Weekly Review — a weekly summary of what moved forward this week
 - Nothing else, thanks
 
-**Never list these as plain text requiring the user to retype a choice, and never
-use `AskUserQuestion` — always the HTML widget via `show_widget`.**
+**Never list these as plain text requiring the user to retype a choice —
+always use the interactive question.**
 
-The widget's `sendPrompt()` already emits the exact hand-off phrase for the chosen
-option (do not attempt to run the target skill yourself):
+On selection, send the exact matching phrase to hand off to that skill (do
+not attempt to run it yourself):
 - Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
 - Today News → `Set workflow of Today News (today-news) on xTiles MCP`
 - Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
@@ -594,8 +533,7 @@ Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect 
 1. Call `mcp__mcp-registry__suggest_connectors` passing the names of the missing connectors.
 2. Show the **Done widget** (see **Done widget HTML** below) directly under the connector form.
 3. The user clicks the connect buttons in the UI — the auth flow runs natively. When finished, they click **"Done"**.
-4. **Re-probe before declaring success — never trust the "Done" click alone.** Re-run the same lightweight detection call from step 2 for each connector that was just connected. Only for the ones that now respond without an auth error, confirm: "Connected. Continuing…" and resume the flow.
-   - **If a connector still fails detection after "Done"** — say so plainly (e.g. "Outlook still isn't responding — want to try connecting it again, or skip it for now?"). Never silently continue as if it worked; a connector that reports "connected" but then has no working fetch path in step 4 is exactly how a custom connector gets lost from the digest without anyone noticing.
+4. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
 ---
 
 ## Approval widget HTML
@@ -604,15 +542,16 @@ Show this via `show_widget` after the preview in step 6. If the user clicks "Cha
 
 ```html
 <style>
-:root{--c-btn-p:#1a1a1a;--c-btn-p-text:#fff;--c-btn-s:#f0f0f0;--c-btn-s-text:#1a1a1a;--c-muted:#aaa}
-@media(prefers-color-scheme:dark){:root{--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a;--c-btn-s:#333;--c-btn-s-text:#f0f0f0;--c-muted:#666}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
 .btns{display:flex;flex-direction:column;gap:8px}
 .btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
-.btn-yes{background:var(--c-btn-p);color:var(--c-btn-p-text)}
-.btn-edit{background:var(--c-btn-s);color:var(--c-btn-s-text)}
-.btn-cancel{background:transparent;color:var(--c-muted);font-weight:400}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-edit{background:#f0f0f0;color:#1a1a1a}
+.btn-edit:hover{background:#e0e0e0}
+.btn-cancel{background:transparent;color:#aaa;font-weight:400}
+.btn-cancel:hover{color:#666}
 </style>
 <div class="btns">
   <button class="btn btn-yes" id="btn-yes" onclick="approve()">✓ Looks good — create it</button>
@@ -620,7 +559,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
   <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
 </div>
 <script>
-function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:var(--c-muted);text-align:center;padding:4px 0">'+msg+'</p>';}
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function approve(){collapse('⏳ Creating…');sendPrompt('Looks good — create it');}
 function edit(){collapse('✓ Got it');sendPrompt('Change something');}
 function cancel(){collapse('✓ Cancelled');sendPrompt('Cancel');}
@@ -636,11 +575,10 @@ The user clicks **Done** when they have finished connecting — this sends a mes
 
 ```html
 <style>
-:root{--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
-@media(prefers-color-scheme:dark){:root{--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
-.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--c-btn-p);color:var(--c-btn-p-text);transition:background .15s}
+.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff;transition:background .15s}
+.btn:hover{background:#333}
 </style>
 <button class="btn" id="btn-done" onclick="doneIt()">✓ Done</button>
 <script>
@@ -652,15 +590,14 @@ function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.st
 
 ## Survey widget HTML
 
-Show this form via `show_widget` at the start of setup — on every model, in every environment.
-**Send it verbatim** — copy the whole block below unchanged; apply only the tool `card sel` pre-selections from step 2, and change nothing else. Do not regenerate, retype, or condense it — that is what makes the form look different run-to-run. Role is picked by clicking a pill (never typed except via the optional "Other role…" escape). After Submit, the user sends a string of answers to chat — process it and continue the flow.
+Show this form via `show_widget` at the start of setup in Cowork.
+After Submit, the user sends a string of answers to chat — process it and continue the flow.
 
 ```html
 <style>
     :root{--color-background-primary:#fff;--color-background-secondary:#f5f5f5;--color-background-tertiary:#f8f8f8;--color-text-primary:#1a1a1a;--color-text-secondary:#888;--color-border-secondary:#aaa;--color-border-tertiary:#e0e0e0}
-    @media(prefers-color-scheme:dark){:root{--color-background-primary:#2c2c2c;--color-background-secondary:#383838;--color-background-tertiary:#222;--color-text-primary:#f0f0f0;--color-text-secondary:#999;--color-border-secondary:#666;--color-border-tertiary:#3d3d3d}}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--color-text-primary)}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:var(--color-background-tertiary);color:var(--color-text-primary)}
     .wrap{max-width:560px;margin:0 auto;background:var(--color-background-primary);border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
     h2{font-size:18px;font-weight:700;margin-bottom:4px;color:var(--color-text-primary)}
     .step-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:20px}
@@ -724,12 +661,15 @@ Show this form via `show_widget` at the start of setup — on every model, in ev
       <div class="sec-title">Which tools do you use?</div>
       <div class="hint">Select all that apply — I'll pull live data from them</div>
       <div class="cards" id="tool-cards">
-        <div class="card" data-tool="Slack" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
-        <div class="card" data-tool="Gmail" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
-        <div class="card" data-tool="Calendar" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
-        <div class="card" data-tool="Granola" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
-        <div class="card" data-tool="Linear" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
-        <div class="card" data-tool="GoogleDrive" onclick="togTool(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
+        <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
+        <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
+        <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
+        <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
+        <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
+        <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
+        <div class="card" onclick="togTool(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
+        <div class="card" onclick="togTool(this,'Gamma')"><div class="chk">✓</div>Gamma</div>
+        <div class="card" onclick="togTool(this,'Figma')"><div class="chk">✓</div>Figma</div>
       </div>
       <div class="custom-in" style="margin-top:8px">
         <input type="text" id="other-tool" placeholder="Other connector (e.g. Plaud, Notion)…">
@@ -767,20 +707,22 @@ var TM={
   'Calendar':    {daily:['Workload — calendar analysis']},
   'Granola':     {daily:['Granola — meeting notes & summaries']},
   'Linear':      {daily:['Linear issues — new & updated']},
-  'GoogleDrive': {daily:['Google Drive — shared files updated']}
+  'GitHub':      {daily:['GitHub — PRs & review requests']},
+  'GoogleDrive': {daily:['Google Drive — shared files updated']},
+  'Gamma':       {daily:['Gamma — presentations updated']},
+  'Figma':       {daily:['Figma — design updates & comments']}
 };
 var AM=[];
 
 var ROLE_DEFAULTS={
   'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis','Linear issues — new & updated','Granola — meeting notes & summaries'],
-  'Designer':          ['Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis'],
-  'Engineer':          ['Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — calendar analysis'],
-  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Workload — calendar analysis'],
+  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis'],
+  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — calendar analysis'],
+  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated','Workload — calendar analysis'],
   'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries','Workload — calendar analysis'],
   'Support & Success': ['Important emails — unread inbox','Slack messages — work chat signals']
 };
 
-document.querySelectorAll('#tool-cards .card.sel').forEach(function(el){tools.add(el.dataset.tool)});
 function pickRole(el,v){
   document.querySelectorAll('#role-pills .pill').forEach(function(p){p.classList.remove('sel')});
   el.classList.add('sel'); role=v;
@@ -845,11 +787,10 @@ Show this immediately after a successful write. Replace `{VIEW_URL}` with the re
 
 ```html
 <style>
-:root{--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
-@media(prefers-color-scheme:dark){:root{--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
-.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:var(--c-btn-p-text);background:var(--c-btn-p);text-align:center;text-decoration:none;transition:background .15s}
+.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
+.btn:hover{background:#333}
 </style>
 <a class="btn" href="{VIEW_URL}" target="_blank">Open in xTiles →</a>
 ```
@@ -863,20 +804,20 @@ After the user clicks a button, the widget calls `sendPrompt()` and the response
 
 ```html
 <style>
-:root{--c-surface:#fff;--c-surface2:#f3f3f3;--c-text:#1a1a1a;--c-text2:#888;--c-text3:#444;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff;--c-btn-s:#f0f0f0;--c-btn-s-text:#555}
-@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-surface2:#383838;--c-text:#f0f0f0;--c-text2:#999;--c-text3:#ccc;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a;--c-btn-s:#383838;--c-btn-s-text:#bbb}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--c-text)}
-.wrap{max-width:480px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.12);text-align:center}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
 .icon{font-size:36px;margin-bottom:12px}
-h2{font-size:17px;font-weight:700;margin-bottom:6px;color:var(--c-text)}
-.sub{font-size:13px;color:var(--c-text2);margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:var(--c-surface2);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--c-text3);margin-bottom:24px}
-.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:var(--c-text);outline:none;cursor:pointer}
+h2{font-size:17px;font-weight:700;margin-bottom:6px}
+.sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.btn-yes{background:var(--c-btn-p);color:var(--c-btn-p-text)}
-.btn-no{background:var(--c-btn-s);color:var(--c-btn-s-text)}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-no{background:#f0f0f0;color:#555}
+.btn-no:hover{background:#e0e0e0}
 </style>
 
 <div class="wrap">
@@ -913,48 +854,9 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ---
 
-## Related workflows widget HTML
-
-Show this via `show_widget` in step 9, after step 8 is resolved (manual runs only). Single-select — clicking an option immediately submits its exact hand-off phrase via `sendPrompt()`. Never use `AskUserQuestion` here.
-
-```html
-<style>
-:root{--c-surface:#fff;--c-text:#1a1a1a;--c-text2:#888;--c-border:#e0e0e0;--c-border2:#aaa;--c-btn-p:#1a1a1a;--c-btn-p-text:#fff}
-@media(prefers-color-scheme:dark){:root{--c-surface:#2c2c2c;--c-text:#f0f0f0;--c-text2:#999;--c-border:#3d3d3d;--c-border2:#666;--c-btn-p:#f0f0f0;--c-btn-p-text:#1a1a1a}}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:transparent;color:var(--c-text)}
-.wrap{max-width:420px;margin:0 auto;background:var(--c-surface);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--c-text)}
-.opts{display:flex;flex-direction:column;gap:8px}
-.opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--c-border);font-size:13px;cursor:pointer;background:var(--c-surface);color:var(--c-text);user-select:none;transition:all .15s;text-align:left}
-.opt:hover{border-color:var(--c-border2)}
-.opt .ico{font-size:16px;flex-shrink:0}
-.opt .sub{display:block;font-size:11px;color:var(--c-text2);margin-top:2px}
-.opt.none{justify-content:center;color:var(--c-text2);font-weight:500}
-</style>
-<div class="wrap">
-  <h2>Want to set up anything else on xTiles?</h2>
-  <div class="opts">
-    <button class="opt" onclick="pick(this,'Set workflow of Evening Reflection (evening-reflection) on xTiles MCP')"><span class="ico">🌙</span><span>Evening Reflection<span class="sub">An end-of-day synthesis seeded for tomorrow</span></span></button>
-    <button class="opt" onclick="pick(this,'Set workflow of Today News (today-news) on xTiles MCP')"><span class="ico">📰</span><span>Today News<span class="sub">A daily news digest on topics you care about</span></span></button>
-    <button class="opt" onclick="pick(this,'Set workflow of Weekly Review (weekly-review) on xTiles MCP')"><span class="ico">📊</span><span>Weekly Review<span class="sub">A weekly summary of what moved forward</span></span></button>
-    <button class="opt none" onclick="pick(this,'Nothing else, thanks')">Nothing else, thanks</button>
-  </div>
-</div>
-<script>
-function pick(el,phrase){
-  var w=document.querySelector('.opts');
-  w.innerHTML='<p style="font-size:13px;color:var(--c-text2);text-align:center;padding:6px 0">✓ Got it</p>';
-  sendPrompt(phrase);
-}
-</script>
-```
-
----
-
 ## How to behave
 
-- Use the HTML survey widget for setup, and `show_widget` HTML widgets for approval and every follow-up clarification — never inline plain-text questions or `AskUserQuestion`
+- Use the survey widget for setup; ask inline for approval and any follow-up clarifications
 - **Never output the digest as plain text in chat** and ask the user to copy it manually — always write to xTiles directly, or walk through connecting xTiles first
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
@@ -965,5 +867,5 @@ function pick(el,phrase){
 - Real data from connectors always beats placeholders
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch
-- Always show the survey via the HTML widget (`show_widget`); never ask the survey questions inline as plain text or via `AskUserQuestion`
+- Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
  
