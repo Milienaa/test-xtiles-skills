@@ -217,10 +217,13 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
   After collecting, analyse all messages together and group semantically. For every item include a **direct permalink to the specific message** — extract `permalink` from the message object (or build `https://slack.com/archives/{channel_id}/p{ts_without_dot}`). Never link to the channel homepage — always to the individual message.
 
-  - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡.
-  - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`
-  - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink
-  - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳
+  **Slack renders as exactly three tiles** (see step 7): `### 🔴 Action Points`, `### ⚡ Mentions`, `### 💬 Topics`. Analyse the messages into the groups below, but only three tiles come out of them — Decisions and Open are folded into the Topics tile, they never get tiles of their own.
+
+  - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡. → **⚡ Mentions** tile.
+  - **Action Points** — every ⚡-flagged mention also becomes an item here: a short poke-style line (what's being asked, second person, same tone as email's 🔴 bucket) plus the message permalink. For each, derive one verb-first action item (e.g. "Відповісти Марії в #product"). → **🔴 Action Points** tile.
+  - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`. → **💬 Topics** tile.
+  - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink. Rendered as a `**✅ Decisions**` block inside the **💬 Topics** tile, not as its own tile.
+  - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳. Rendered as a `**❓ Open**` block inside the **💬 Topics** tile, not as its own tile.
 
 - **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. For each event extract: start/end time, title, participant names (first name + last name or company), and meeting link (Google Meet, Zoom, or other video URL from event data). Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
@@ -241,7 +244,7 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google"). Collect as a flat list — used in preview and tile.
+For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Відповісти Марії в #product") — these go into the `### 🔴 Action Points` tile's Задачі block (see step 7). Collect all as a flat list — used in preview and tiles.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -291,19 +294,23 @@ One-line summary.
 **[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
 One-line summary.
 
-### 💬 Slack
-**Channels:** #channel1 (N) · #channel2 (N)
+### 🔴 Action Points
+- [Poke-style one-liner of what's being asked] — [#channel](url)
 
-#### ⚡ Mentions
+**Задачі**
+- [ ] [verb-first task]
+
+### ⚡ Mentions
 - **@Name** in [#channel](url) — what they asked/said ⚡
 
-#### 💬 Topics
+### 💬 Topics
+**Channels:** #channel1 (N) · #channel2 (N)
 - **[Topic name]** — [one-sentence summary] — [#channel](url)
 
-#### ✅ Decisions
+**✅ Decisions**
 - [Decision] — [#channel](url)
 
-#### ❓ Open
+**❓ Open**
 - [Question] — [#channel](url) ⏳
 
 ### 📅 Calendar
@@ -414,14 +421,13 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between entries.
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
-- **Slack**: **ALL Slack channels go in a SINGLE `### 💬 Slack` tile** — never split channels into separate tiles. Structure the tile content using semantic `####` subheadings:
-  - First line (no subheading): channel activity summary — `**Channels:** #channel1 (N) · #channel2 (N)`
-  - `#### ⚡ Mentions` — messages where the user was @mentioned. One line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit subheading only if no mentions found.**
-  - `#### 💬 Topics` — one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`
-  - `#### ✅ Decisions` — one line per decision: `- Decision made — [#channel](message_permalink)`. Omit subheading if no decisions.
-  - `#### ❓ Open` — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`. Omit subheading if no open questions.
-  - **All Slack links must point to the specific message permalink, never to the channel homepage.**
-  - **If no messages from today across all channels** — still create the tile, skip the `**Channels:**` line and all subheadings, and write a single line: `No updates today.` Never omit the tile entirely — its absence looks like a connector failure.
+- **Slack**: split into **exactly three tiles** — `### 🔴 Action Points`, `### ⚡ Mentions`, `### 💬 Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
+  - `### 🔴 Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Задачі**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Відповісти Марії в #product"). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Mentions` below for full context.
+  - `### ⚡ Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
+  - `### 💬 Topics` — the discussion rollup. First line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. Then fold decisions and open questions into this same tile as labeled blocks (never separate tiles):
+    - a `**✅ Decisions**` block — one line per decision: `- Decision made — [#channel](message_permalink)`; omit the block if there are no decisions.
+    - a `**❓ Open**` block — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`; omit the block if there are none.
+    **Always create this Topics tile** — if no messages today, write a single line: `No updates today.` Its absence looks like a connector failure.
 - **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
   ```
   ### 📅 Calendar
@@ -465,7 +471,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 2. **Layout pass — mandatory stage after adding tiles. Runs on every write (scheduled runs included); never skipped, never deferred, never asked about.** Freshly written tiles land in a default stack — re-lay them out *now*, before the CTA and schedule widgets below:
    - Read `view_id` and `tile_ids` straight from the `xtiles_create_tiles_from_markdown_in_my_planner` response (`tile_ids` is ordered to match the `###` sections you just wrote). Keep `view_id` — step 3 reuses it, do not re-fetch it.
-   - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Slack or Emails) its own full-width row.
+   - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Topics or Emails) its own full-width row.
    - Apply the layout silently — no message, no confirmation. Only once it is applied, continue to step 3.
 
 3. Reuse the `view_id` from the write response (step 2) — **do not call `get_planner_content` to re-derive it.** Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
