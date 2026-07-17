@@ -19,7 +19,7 @@ description: >
 
   The self-tuning feedback cycle (the "Tune your digest", "Important keywords",
   and weekly-recap tiles, plus all the config fields they build up) lives in the
-  shared tune-your-digest sub-workflow — invoked via xtiles_get_workflow("tune-your-digest")
+  shared digest-tuning sub-workflow — invoked via xtiles_get_workflow("digest-tuning")
   in steps 4 and 7, never reimplemented here.
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
@@ -213,7 +213,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
-**4.0 Tune-digest — read & apply yesterday's feedback (invoke the sub-workflow).** Before fetching today's data, call `mcp__xtiles__xtiles_get_workflow` with id `tune-your-digest` and follow its **Stage A** exactly. Pass it: the current config (all fields from the scheduled-task prompt), yesterday's and today's dates plus today's ISO week (resolve via `xtiles_get_user_timezone`), and whether this is the first-ever digest. Stage A reads yesterday's page, applies the ticked feedback and keyword checkboxes to the config, and hands back the **patched config** and the **applied-changes list**. Carry both forward — the patched config drives today's fetch and pinned-topic tiles; the applied-changes list feeds the feedback tile in step 7. Never reimplement this logic here.
+**4.0 Digest-tuning — read & apply yesterday's feedback (invoke the sub-workflow).** Before fetching today's data, call `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its **Stage A** exactly. Pass it: the current config (all fields from the scheduled-task prompt), yesterday's and today's dates plus today's ISO week (resolve via `xtiles_get_user_timezone`), and whether this is the first-ever digest. **Determine `is_first_ever` = true when the config carries no tuning fields (only role/tools/daily_content, or empty) AND yesterday's planner page has no `### 🎛️ Tune your digest` tile** — i.e. this user has never had a tuned digest before. If either is present, it's not first-ever. Stage A reads yesterday's page, applies the ticked feedback and keyword checkboxes to the config, and hands back the **patched config** and the **applied-changes list**. Carry both forward — the patched config drives today's fetch and pinned-topic tiles; the applied-changes list feeds the feedback tile in step 7. Never reimplement this logic here.
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
@@ -348,7 +348,7 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- Include the tune-your-digest meta tiles in the preview too — compose them by following tune-your-digest Stage B, which defines which tiles appear and their order. Don't fabricate them here.
+- Include the digest-tuning meta tiles in the preview too — compose them by following digest-tuning Stage B, which defines which tiles appear and their order. Don't fabricate them here.
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -372,7 +372,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Write all sections in a single call.** Combine all selected connectors (Gmail, Slack, etc.) into one markdown and call the tool once — never split into separate calls per connector.
 
-**Tune-your-digest — compose the meta tiles (invoke the sub-workflow).** The meta tiles come from `tune-your-digest` Stage B: call `mcp__xtiles__xtiles_get_workflow` with id `tune-your-digest` and follow its Stage B exactly, passing the config (as patched in step 4.0), today's composed content tiles, the dates/ISO week, and the applied-changes list from Stage A. It returns the markdown for the meta tiles it decides to emit, plus config patches to persist. **Manual runs** already ran Stage B at preview time (step 5) — reuse that output here, don't re-run it. **Scheduled runs** (no preview) invoke Stage B here, right before the write. Either way, include the returned tiles in the same single write as the content tiles — never a separate call or a chat widget. Their order and placement are tune-your-digest's concern, not this skill's.
+**Digest-tuning — compose the meta tiles (invoke the sub-workflow).** The meta tiles come from `digest-tuning` Stage B: call `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its Stage B exactly, passing the config (as patched in step 4.0), today's composed content tiles, the dates/ISO week, and the applied-changes list from Stage A. It returns the markdown for the meta tiles it decides to emit, plus config patches to persist. **Manual runs** already ran Stage B at preview time (step 5) — reuse that output here, don't re-run it. **Scheduled runs** (no preview) invoke Stage B here, right before the write. Either way, include the returned tiles in the same single write as the content tiles — never a separate call or a chat widget. Their order and placement are digest-tuning's concern, not this skill's.
 
 **Do NOT create a date/header tile.** Never write `### [date]` or any title-only tile as the first item — start directly with content tiles.
 
@@ -503,7 +503,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. Once tune-your-digest starts producing config patches, append whichever of its fields (`pinned_topics`, `trial_topics`, `detail_sections`, `secondary_channels`, `digest_format`, `tone_style`, `signal_trail`, `question_history`, `highlighted_keywords`, `keyword_cooldown`, `tuning_log`, `last_recap`) are non-empty to this same string when re-creating the scheduled task — this is how those fields persist across runs. Use `;` to separate multiple entries within a single field (names may contain commas).
+    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. Once digest-tuning starts producing config patches, append whichever of its fields (`pinned_topics`, `trial_topics`, `detail_sections`, `secondary_channels`, `digest_format`, `tone_style`, `signal_trail`, `question_history`, `highlighted_keywords`, `keyword_cooldown`, `tuning_log`, `last_recap`) are non-empty to this same string when re-creating the scheduled task — this is how those fields persist across runs. Use `;` to separate multiple entries within a single field (names may contain commas).
   - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
@@ -885,5 +885,5 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
-- The "Tune your digest", "Important keywords", and weekly-recap tiles are owned by the shared **tune-your-digest** sub-workflow — invoke it (steps 4.0 and 7), never hand-roll those tiles, their order/placement, or their config logic here. They're written to xTiles as part of the digest's single write, never a chat widget.
+- The "Tune your digest", "Important keywords", and weekly-recap tiles are owned by the shared **digest-tuning** sub-workflow — invoke it (steps 4.0 and 7), never hand-roll those tiles, their order/placement, or their config logic here. They're written to xTiles as part of the digest's single write, never a chat widget.
  

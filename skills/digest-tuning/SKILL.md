@@ -1,12 +1,12 @@
 ---
-name: tune-your-digest
+name: digest-tuning
 description: >
   INTERNAL shared step — not a user-facing workflow. The self-tuning feedback
   cycle for planner digests: reads yesterday's feedback tiles, applies the user's
   answers to the digest config, then proposes today's questions and composes the
   three "meta" tiles (📈 weekly recap, 🔑 Important keywords, 🎛️ Tune your digest).
   Invoked only by a digest-writing workflow (daily-brief, and any future digest
-  workflow) via xtiles_get_workflow("tune-your-digest") — never matched to a user
+  workflow) via xtiles_get_workflow("digest-tuning") — never matched to a user
   request, never listed or offered to a user, never run standalone. The caller
   owns the actual tile write and config persistence; this workflow only reads,
   decides, and returns markdown + config patches.
@@ -14,7 +14,7 @@ user-invocable: false
 allowed-tools: mcp__xtiles__xtiles_get_planner_content
 ---
 
-# Tune Digest — Self-Tuning Feedback Cycle (shared step)
+# Digest Tuning — Self-Tuning Feedback Cycle (shared step)
 
 The shared self-tuning cycle reused by every workflow that writes a recurring
 digest to an xTiles planner page. It turns the digest into a feedback loop: the
@@ -40,14 +40,20 @@ yesterday's page, decides, and hands back markdown + config patches).
   (no prior page exists).
 - **Stage B only: today's composed content tiles** — the digest content the
   caller has already assembled (Emails, Slack, Calendar, pinned-topic tiles,
-  etc.), as markdown. Used for structural analysis and keyword detection. Never
-  treated as an answer source.
+  etc.), as markdown. Used for keyword detection and (on the first-ever digest)
+  structural analysis. Never treated as an answer source.
+- **Stage B only: yesterday's content tiles** — the markdown Stage A already read
+  from yesterday's page (see its outputs). B1's cross-day structural analysis runs
+  over these; the caller carries them from Stage A to Stage B rather than
+  re-fetching.
 
 ## Outputs the caller uses
 
 - **Stage A** → a **patched config** (the caller persists it in its
-  scheduled-task prompt when re-creating the schedule) and an **applied-changes
-  list** (surfaced as the applied-line on the feedback tile in Stage B).
+  scheduled-task prompt when re-creating the schedule), an **applied-changes
+  list** (surfaced as the applied-line on the feedback tile in Stage B), and
+  **yesterday's content tiles** (carried into Stage B's B1 structural analysis so
+  the page is never re-fetched).
 - **Stage B** → the **markdown for up to three meta tiles**, in this exact
   order, to append **after** all content tiles in the caller's single write:
   1. `### 📈 Digest tuning this week` — optional (weekly, only if tuned)
@@ -131,7 +137,7 @@ section already in `detail_sections` or one the user never selected.
 - `pinned_topics` has a soft cap of 6. At 6+, the single strongest **category-2 "retire one?"** question (targeting the quietest pinned topic by stored date) is forced to the top of Stage B's ranking and is exempt from cooldown — it keeps reappearing until the user retires something or the list drops below 6. Never auto-retire to enforce the cap; only propose. Only one such crowding question per digest.
 - `trial_topics` hold at most 2 pending — if 2 already await a tick, don't propose a third new topic until one resolves.
 
-**Stage A returns** the patched config and the applied-changes list.
+**Stage A returns** the patched config, the applied-changes list, and yesterday's content tiles (for Stage B's B1).
 
 ---
 
