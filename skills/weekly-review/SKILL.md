@@ -78,6 +78,8 @@ After receiving answers — detect which MCP tools are actually available:
 | Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files`          |
 | Linear       | `mcp__claude_ai_Linear__list_issues`                      |
 
+**For an "Other" app the user typed** (the free-text field in the widget) — treat it exactly like the known connectors: attempt detection via any available MCP tool for it; if not detected, say its name explicitly ("I'll connect Plaud for you"), walk the user through connecting it via `mcp__mcp-registry__suggest_connectors`, then resume with the full tool list. Never silently drop a custom app the user named — carry it through the fetch (step 3) and analysis.
+
 **If xTiles is not connected** — stop and walk the user through connecting it first (see **How to connect connectors**).
 
 **If a selected connector isn't connected** — walk through connecting it via `mcp__mcp-registry__suggest_connectors`. Wait for confirmation before continuing.
@@ -110,6 +112,7 @@ For each connector that was selected or detected — call it now, before analysi
 - **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items, decisions, and attendees
 - **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — documents created or edited this week
 - **Linear**: `mcp__claude_ai_Linear__list_issues` — issues closed, opened, and still in progress this week
+- **Custom ("Other") app** the user named: call whatever MCP tool it exposes for this week's activity and extract what's relevant to accomplishments/decisions/open items. If it has no working tool or the call fails, note it — never silently omit an app the user selected.
 
 If a connector call fails — note the failure, continue with remaining data. Do not fabricate data for failed connectors.
 
@@ -458,6 +461,7 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
       <div class="card" onclick="tog(this,'Linear')"><div class="chk">✓</div>Linear</div>
       <div class="card" onclick="tog(this,'GoogleDrive')"><div class="chk">✓</div>Google Drive</div>
     </div>
+    <input type="text" id="other-tool" placeholder="Other app (e.g. Plaud, Notion)…" style="width:100%;margin-top:9px;padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:var(--card);color:var(--text)">
   </div>
 
   <div class="btn-row">
@@ -471,6 +475,8 @@ function lock(){document.querySelectorAll('.btn').forEach(function(b){b.disabled
 function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?tools.add(v):tools.delete(v);}
 function submit(){
   lock();
+  var oth=document.getElementById('other-tool').value.trim();
+  if(oth)tools.add(oth);
   var t=Array.from(tools).join(', ')||'none';
   sendPrompt('Weekly review setup — tools: '+t+' · weekly_content: accomplishments, goal-progress, open-items, decisions');
 }

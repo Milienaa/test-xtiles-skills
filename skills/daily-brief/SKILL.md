@@ -49,6 +49,7 @@ allowed-tools: >
 2. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
 3. **Match the user's language** throughout the entire flow — match the language of the user's first message and adapt if they switch.
 4. **Every write is followed by the layout pass.** The moment tiles are created in step 7, re-lay them out into a justified grid via the shared `tile-layout` workflow — automatically, before the CTA, never skipped.
+5. **The only deliverable is tiles written to xTiles.** Never render the digest as an HTML artifact, a Cowork canvas, or plain text in chat — and never stop after producing one. An artifact is *never* a substitute for the xTiles write; if xTiles can't be written to, connect it first. The run is complete only when the tiles are in xTiles **and** the full post-write sequence has run: layout pass → CTA button → schedule widget → related-workflows question. Skipping any of these — or ending with an artifact instead — is a failed run, not a shortcut.
 
 ---
 
@@ -114,6 +115,10 @@ Options — include only those relevant to connected tools:
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
+
+**Never skip this clarification step.** Even on a fast-track or when the user was terse, run it — it's where newsletters and custom apps get scoped. If Gmail is connected, the Newsletters option must be offered explicitly (don't silently omit it); if the user shows interest, run the newsletter-discovery flow below.
+
+**For every custom ("Other") app the user named in step 2 — ask what they want from it, one question per app** (e.g. "From Plaud, what should show up each morning — meeting notes, action points, or both?"). Never assume the content, and never silently drop the app: the #1 setup failure is proceeding without ever asking about a custom app the user typed. Carry each custom app **and** its content choice through the fetch (step 4) and the write (step 7).
 
 **If Slack is selected and the user has not already named their channels:**
 
@@ -273,7 +278,7 @@ Here's what I've prepared:
 ---
 📅 DAILY — [actual date]
 
-### Emails
+### 📩 Emails
 🔴 Потребує дії (N)
 - [Poke-style description — 1–2 sentences, second person, action + consequence]
   → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
@@ -395,7 +400,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 **Content formatting inside each tile:**
 - **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
 - Separate each item with a blank line — never write items as a continuous block
-- **Emails**: structure the tile in three labeled blocks followed by action items:
+- **Emails**: the tile is titled **`### 📩 Emails`** — always keep the 📩 envelope in the title so it's clear the content comes from email. If email content is ever split across more than one tile (e.g. a separate "Needs action" tile), **every email-derived tile keeps the 📩 prefix** (`### 📩 Needs action`). Structure the tile in three labeled blocks followed by action items:
   ```
   🔴 **Потребує дії (N)**
 
@@ -476,7 +481,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 3. Append only sections whose headers don't exist yet
 4. If everything already exists — ask: replace all, append anyway, or cancel?
 
-**After each successful write — run these four steps in order, no exceptions:**
+**After each successful write — run these four steps in order, no exceptions (Cowork included — these are chat widgets/questions, never replaced by an artifact):**
 
 1. Write `✅ Daily created.`
 
@@ -519,8 +524,9 @@ Either way, continue to **step 9 (Related workflows)** — do not stop here.
 ### 9. Related workflows
 
 **After every manual run, once step 8 is resolved** (scheduled or declined) —
-offer related workflows. Skip this on scheduled runs, which end silently
-after step 7.
+offer related workflows. **This is a mandatory closing step of every manual run,
+not optional — the run is not complete without it.** Skip it only on scheduled
+runs, which end silently after step 7.
 
 Ask via `AskUserQuestion` (single select): "Want to set up anything else on
 xTiles?"
