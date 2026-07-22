@@ -218,7 +218,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
-**4.0 Digest-tuning — read & apply yesterday's feedback (invoke the sub-workflow).** Before fetching today's data, call `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its **Stage A** exactly. Pass it: the current config (all fields from the scheduled-task prompt), yesterday's and today's dates plus today's ISO week (resolve via `xtiles_get_user_timezone`), and whether this is the first-ever digest. **Determine `is_first_ever` = true when the config carries no tuning fields (only role/tools/daily_content, or empty) AND yesterday's planner page has no `### 🎛️ Tune your digest` tile** — i.e. this user has never had a tuned digest before. If either is present, it's not first-ever. Stage A reads yesterday's page, applies the ticked feedback and keyword checkboxes to the config, and hands back the **patched config** and the **applied-changes list**. Carry both forward — the patched config drives today's fetch and pinned-topic tiles; the applied-changes list feeds the feedback tile in step 7. Never reimplement this logic here.
+**4.0 Read & apply yesterday's feedback — hand off to the `digest-tuning` workflow.** Before fetching today's data, invoke `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its **Stage A**. Pass it the current config, yesterday's & today's dates + today's ISO week (from `xtiles_get_user_timezone`), and `is_first_ever` (true only when the config has no tuning fields AND yesterday's page has no `### 🎛️ Tune your digest` tile). It reads yesterday's page, applies the ticked feedback/keyword checkboxes, and returns the **patched config**, the **applied-changes list**, and **yesterday's content tiles** — carry all three to step 7. All tuning logic and config-field semantics live in `digest-tuning`; they are intentionally not duplicated here.
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
@@ -377,7 +377,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Write all sections in a single call.** Combine all selected connectors (Gmail, Slack, etc.) into one markdown and call the tool once — never split into separate calls per connector.
 
-**Digest-tuning — compose the meta tiles (invoke the sub-workflow).** The meta tiles come from `digest-tuning` Stage B: call `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its Stage B exactly, passing the config (as patched in step 4.0), today's composed content tiles, the dates/ISO week, and the applied-changes list from Stage A. It returns the markdown for the meta tiles it decides to emit, plus config patches to persist. **Manual runs** already ran Stage B at preview time (step 5) — reuse that output here, don't re-run it. **Scheduled runs** (no preview) invoke Stage B here, right before the write. Either way, include the returned tiles in the same single write as the content tiles — never a separate call or a chat widget. Their order and placement are digest-tuning's concern, not this skill's.
+**Compose the self-tuning meta tiles — hand off to the `digest-tuning` workflow.** Before the write, invoke `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its **Stage B**, passing the patched config, today's composed content tiles, yesterday's content tiles (from step 4.0), the dates/ISO week, and the applied-changes list. It returns the markdown for the meta tiles it emits (📈 recap → 🔑 keywords → 🎛️ Tune your digest) plus config patches to persist. **Append those tiles to this same single write** (manual runs compose them at preview time in step 5 and reuse here). The `### 🎛️ Tune your digest` tile must end up in the write — if the `digest-tuning` call didn't return it, treat that as a failed run and fix the invocation; never ship the digest without it.
 
 **Do NOT create a date/header tile.** Never write `### [date]` or any title-only tile as the first item — start directly with content tiles.
 
@@ -471,6 +471,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - All ⚠️ anomalies collected at the bottom, one per line
   - Blank line between every item (event, 🧠, ⚠️) for readability
   - Omit tile entirely if Calendar returned no events
+- **Meta tiles — 📈 Digest tuning this week · 🔑 Important keywords · 🎛️ Tune your digest** — their markdown, checkbox formats, and rules live in the `digest-tuning` workflow (see step 7's compose hand-off). Append exactly what it returns; do not redefine them here.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
