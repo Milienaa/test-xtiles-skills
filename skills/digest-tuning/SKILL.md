@@ -10,7 +10,6 @@ description: >
   request, never listed or offered to a user, never run standalone. The caller
   owns the actual tile write and config persistence; this workflow only reads,
   decides, and returns markdown + config patches.
-user-invocable: false
 allowed-tools: mcp__xtiles__xtiles_get_planner_content
 ---
 
