@@ -154,6 +154,7 @@ This step is REQUIRED and must run on every successful run — never skip it, ne
 ## RULES
 - Always ask before creating — the trigger alone is never enough.
 - One question at a time.
+- For every source, return a clickable link to the original ChatGPT chat. If a real URL is not available, fall back to the chat's name plus a search phrase the user can find it by. This applies across all three outputs — project (Sources), digest (Links back to source), and notes (source thread link). Never invent a thread URL.
 - Project = detailed (with real tasks and clear formatting); notes = self-sufficient knowledge cards (reusable takeaways, not an activity log), with the source link at the end.
 - Digest = today's working picture drawn from chat history alone; connectors are recommended in it, never read for it.
 - The digest goes on today's planner page, never as a separate project page.
