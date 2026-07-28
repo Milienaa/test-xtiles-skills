@@ -45,28 +45,32 @@ Show ONE plain-text message with the real, detected options and STOP for the use
 
 Give it a warm, contextual framing (not a dry menu): greet, say you looked through their recent threads, then offer to organize those multiple chats into projects, then offer today's morning digest, and separately offer to capture the notes you found. Name the actual notes you detected, not just a count.
 
+**Number EVERY main category — not just the projects.** Each of the three use cases (project proposals, morning digest, notes) is its OWN top-level number (1, 2, 3), so the user cannot miss the digest or the notes among plain prose. The individual project themes are nested UNDER category 1 as lettered sub-options (a, b, c …). Never leave the digest or notes as an unnumbered paragraph — if a category is offered at all, it gets a number. Numbering stays contiguous: if the digest is not offered (no real material), don't leave a gap — renumber so notes become 2.
+
 Structure (fill `<...>` with real content; translate to the user's language):
 
-    Hi! I went through the threads you've been working in lately. I can organize these chats into projects — which one should we set up first?
+    Hi! I went through the threads you've been working in lately. Here's what I can do — just tell me the number:
 
-    1) "<theme A>" — <N threads>
-    2) "<theme B>" — <N threads>
-    3) "<theme C>" — <N threads>
+    1. 📁 Turn these chats into a project — which theme should we set up first?
+       a) "<theme A>" — <N threads>
+       b) "<theme B>" — <N threads>
+       c) "<theme C>" — <N threads>
 
-    Or I can put together your morning digest for today — what you've been working on, what's worth continuing, what you decided, and three focuses for the day — and put it straight on today's planner page.
+    2. 💡 **Morning digest** — start your day clear: one glance shows what to continue and your three focuses, right on today's planner page.
 
-    Or I can capture <N> notes with the key takeaways from today's chats:
-    — <found note 1 — short summary>
-    — <found note 2 — short summary>
-    — <found note 3 — short summary>
+    3. 📝 Capture <N> notes with the key takeaways from today's chats:
+       — <found note 1 — short summary>
+       — <found note 2 — short summary>
+       — <found note 3 — short summary>
 
-    Tell me what we do next 🙂
+    Tell me what we do next (e.g. "1b" or "2")
 
+- Each main category is numbered (1/2/3); project themes are lettered sub-options under 1. If a category is missing (e.g. no digest material), renumber the rest so the list stays 1, 2 with no gap.
 - Include a matching existing xTiles project as one of the theme options when one fits.
 - If fewer than 3 strong themes exist, show only the real ones — never pad with generic entries.
 - List the real notes you found in STEP 1 (title/summary each), so the user sees what would be captured.
 - Offer the digest only when STEP 1 found real material for it. If it would be empty, leave the offer out rather than promising a digest you cannot fill.
-- If the user picks a project theme → STEP 3 PROJECT. If they pick the digest → STEP 3 DIGEST. If they pick notes → STEP 3 NOTES.
+- If the user picks a project theme (e.g. "1b") → STEP 3 PROJECT. If they pick the digest (2) → STEP 3 DIGEST. If they pick notes (3) → STEP 3 NOTES.
 
 ## STEP 3 — PROJECT (if chosen)
 - Confirm which theme (from the 2–3 offered) the user wants.
@@ -89,7 +93,7 @@ If the conversation history is not reachable in this environment, say so plainly
 **The six sections**, in this order, each becoming its own tile. Titles carry an emoji and are written in the user's language:
 
 1. **Morning context** — what they have been working on lately
-2. **Continue today** — unfinished work, open questions, logical next steps
+2. **Continue today** — unfinished work, open questions, logical next steps. This tile MUST carry a direct link back to the ChatGPT thread each item came from, so the user can jump straight back into the conversation and pick up where they left off. Put the link on its own line under the item it belongs to, in the shape `[Open the <topic> thread](https://chatgpt.com/c/...)` (see **Links back to source** below). Use only real thread URLs from the history — never invent one; where no URL exists, name the conversation so the user can find it.
 3. **New decisions and agreements** — what was actually decided, planned or fixed
 4. **Ideas and insights** — hypotheses, conclusions, connections between conversations
 5. **Three focuses of the day** — at most three priorities, each with a concrete next action
