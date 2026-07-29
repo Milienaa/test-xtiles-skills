@@ -47,7 +47,7 @@ allowed-tools: >
 
 1. **Survey first, write to xTiles last.** Nothing gets created until the user has seen the preview and said "yes".
 2. **Real data, not placeholders.** Pull from connectors before preview so the user sees live content.
-3. **Match the user's language** throughout the entire flow — match the language of the user's first message and adapt if they switch.
+3. **Match the user's language** throughout the entire flow — match the language of the user's first message and adapt if they switch. On a **scheduled run** there is no user message: use the language of the scheduled-task config prompt, and if that is ambiguous, the language of the fetched content (emails, Slack). Default to English when still unclear. **Every template, label, and example in this file is written in English as a placeholder** (`Needs action`, `FYI`, `Noise`, `Open email`, `Tasks`, `Decisions`, `Open`, …) — translate all of them into the detected language when composing the preview and the tiles. Never emit a label in a language the user has not used.
 4. **Every write is followed by the layout pass.** The moment tiles are created in step 7, re-lay them out into a justified grid via the shared `tile-layout` workflow — automatically, before the CTA, never skipped.
 5. **The only deliverable is tiles written to xTiles.** Never render the digest as an HTML artifact, a Cowork canvas, or plain text in chat — and never stop after producing one. An artifact is *never* a substitute for the xTiles write; if xTiles can't be written to, connect it first. The run is complete only when the tiles are in xTiles **and** the full post-write sequence has run: layout pass → CTA button → schedule widget → related-workflows question. Skipping any of these — or ending with an artifact instead — is a failed run, not a shortcut.
 
@@ -246,7 +246,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   **Slack renders as exactly three tiles** (see step 7): `### 🔴 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics`. Analyse the messages into the groups below, but only three tiles come out of them — Decisions and Open are folded into the Topics tile, they never get tiles of their own.
 
   - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡. → **⚡ Slack — Mentions** tile.
-  - **Action Points** — every ⚡-flagged mention also becomes an item here: a short poke-style line (what's being asked, second person, same tone as email's 🔴 bucket) plus the message permalink. For each, derive one verb-first action item (e.g. "Відповісти Марії в #product"). → **🔴 Slack — Action Points** tile.
+  - **Action Points** — every ⚡-flagged mention also becomes an item here: a short poke-style line (what's being asked, second person, same tone as email's 🔴 bucket) plus the message permalink. For each, derive one verb-first action item (e.g. "Reply to Maria in #product"). → **🔴 Slack — Action Points** tile.
   - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`. → **💬 Slack — Topics** tile.
   - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink. Rendered as a `**✅ Decisions**` block inside the **💬 Slack — Topics** tile, not as its own tile.
   - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳. Rendered as a `**❓ Open**` block inside the **💬 Slack — Topics** tile, not as its own tile.
@@ -259,18 +259,18 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 Classify emails into three buckets. **Newsletters are fetched separately — exclude them here entirely and do not count them in any bucket.**
 
-- 🔴 **Потребує дії** — emails where the user must take a concrete next step (reply, decide, act, log in)
-- 🟡 **До уваги** — FYI only: confirmed meetings, signed documents, payments, status updates — past/present tense, nothing to do
-- ⚪ **Шум** — notifications, automated alerts, service emails — do not describe individually; count only
+- 🔴 **Needs action** — emails where the user must take a concrete next step (reply, decide, act, log in)
+- 🟡 **FYI** — FYI only: confirmed meetings, signed documents, payments, status updates — past/present tense, nothing to do
+- ⚪ **Noise** — notifications, automated alerts, service emails — do not describe individually; count only
 
 **Tone for 🔴 and 🟡 — Poke-style, capitalized:**
-- Retell the email, do not copy the subject line. Subject → action → consequence in second person: not "Your account closed" but "Google закрив твій рекламний акаунт учора"
-- For 🔴: weave the next step into the sentence: "Залогінься і віднови — вікно на апеляцію обмежене"
-- Use people's names, not email addresses. Context in parentheses if needed: "Стефан (influencers.club)"
+- Retell the email, do not copy the subject line. Subject → action → consequence in second person: not "Your account closed" but "Google shut down your ad account yesterday"
+- For 🔴: weave the next step into the sentence: "Log in and restore it — the appeal window is limited"
+- Use people's names, not email addresses. Context in parentheses if needed: "Stefan (influencers.club)"
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Відновити рекламний акаунт Google") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Відповісти Марії в #product") — these go into the `### 🔴 Slack — Action Points` tile's Задачі block (see step 7). Collect all as a flat list — used in preview and tiles.
+For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 🔴 Slack — Action Points` tile's Tasks block (see step 7). Collect all as a flat list — used in preview and tiles.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -292,19 +292,19 @@ Here's what I've prepared:
 📅 DAILY — [actual date]
 
 ### 📩 Emails
-🔴 Потребує дії (N)
+🔴 Needs action (N)
 - [Poke-style description — 1–2 sentences, second person, action + consequence]
-  → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+  → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
 - [Next 🔴 email, same format]
-  → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+  → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-🟡 До уваги (N)
+🟡 FYI (N)
 - [One-line item — no link]
 - [One-line item]
 
-⚪ Шум
-- N сповіщень (sources) — нічого термінового
+⚪ Noise
+- N notifications (sources) — nothing urgent
 
 **Action items:**
 - [ ] [verb-first task from 🔴 email 1]
@@ -323,7 +323,7 @@ One-line summary.
 ### 🔴 Slack — Action Points
 - [Poke-style one-liner of what's being asked] — [#channel](url)
 
-**Задачі**
+**Tasks**
 - [ ] [verb-first task]
 
 ### ⚡ Slack — Mentions
@@ -357,7 +357,7 @@ One-line summary.
 ---
 ```
 
-Each 🔴 email uses the real `threadId` from `get_thread` for the [Відкрити лист] link. 🟡 items are one-liners with no link.
+Each 🔴 email uses the real `threadId` from `get_thread` for the [Open email] link. 🟡 items are one-liners with no link.
 Each newsletter is shown as its own named section in the preview — never mixed into the Emails section.
 Separate each item with a blank line for readability.
 
@@ -417,23 +417,23 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - **Email-as-primary-source → thematic breakdown.** When the user asked to split email by topic in step 3 (e.g. named projects, clients, or recurring subjects), do **not** produce one generic Emails tile — produce **one `### 📩 [Topic]` tile per topic** (e.g. `### 📩 Acme deal`, `### 📩 Hiring`), each keeping the 📩 prefix and each using the same three-block 🔴/🟡/⚪ structure below, scoped to that topic. Anything that doesn't match a named topic goes into a catch-all `### 📩 Emails` tile. This is the "one source, many question-tiles" case — a common and high-value setup when email is the user's main signal.
   - Otherwise, a single `### 📩 Emails` tile. Structure it in three labeled blocks followed by action items:
   ```
-  🔴 **Потребує дії (N)**
+  🔴 **Needs action (N)**
 
   - [Poke-style description — 1–2 sentences, second person, action + consequence]
-    → [Відкрити лист](https://mail.google.com/mail/u/0/#inbox/{threadId})
+    → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
   - [Next 🔴 item, same format]
-    → [Відкрити лист](url)
+    → [Open email](url)
 
-  🟡 **До уваги (N)**
+  🟡 **FYI (N)**
 
   - [One-line item — no link, never]
 
   - [One-line item]
 
-  ⚪ **Шум**
+  ⚪ **Noise**
 
-  - N сповіщень (sources) — нічого термінового
+  - N notifications (sources) — nothing urgent
 
   ---
 
@@ -453,7 +453,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
 - **Slack**: split into **exactly three tiles** — `### 🔴 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
-  - `### 🔴 Slack — Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Задачі**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Відповісти Марії в #product"). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
+  - `### 🔴 Slack — Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Tasks**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Reply to Maria in #product"). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
   - `### ⚡ Slack — Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
   - `### 💬 Slack — Topics` — the discussion rollup. First line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. Then fold decisions and open questions into this same tile as labeled blocks (never separate tiles):
     - a `**✅ Decisions**` block — one line per decision: `- Decision made — [#channel](message_permalink)`; omit the block if there are no decisions.
@@ -907,7 +907,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
 - Real data from connectors always beats placeholders
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
-- Match the user's language, adapt if they switch
+- Match the user's language, adapt if they switch. All bucket labels, block titles, link texts, and action items in this file are English placeholders — render them in the user's language, and never carry over a language from an example
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
 - The "Tune your digest", "Important keywords", and weekly-recap tiles are owned by the shared **digest-tuning** sub-workflow — invoke it (steps 4.0 and 7), never hand-roll those tiles, their order/placement, or their config logic here. They're written to xTiles as part of the digest's single write, never a chat widget.
  

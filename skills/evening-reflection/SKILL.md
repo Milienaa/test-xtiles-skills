@@ -51,7 +51,12 @@ tomorrow.
    (no connector needed) and from any connected tools before preview so the user
    sees live content. Never invent names, meetings, or messages.
 3. **Match the user's language** throughout the entire flow — match the language
-   of the user's first message and adapt if they switch.
+   of the user's first message and adapt if they switch. On a **scheduled run**
+   there is no user message: use the language of the scheduled-task config
+   prompt, and if that is ambiguous, the language of the fetched content.
+   Default to English when still unclear. **Every template, label, and example in
+   this file is written in English as a placeholder** — translate them into the
+   detected language, and never emit a label in a language the user has not used.
 4. **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant the reflection tile is added in step 7, re-lay-out only that new tile into a justified grid (step 7's layout pass, via the shared `tile-layout` workflow) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
 
 ---

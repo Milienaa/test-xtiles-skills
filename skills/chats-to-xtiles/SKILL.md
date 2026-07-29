@@ -16,7 +16,7 @@ Capture the user's work from their GPT threads into xTiles — as one structured
 
 ## Trigger recognition
 Treat any of these as a request to RUN this workflow:
-- the phrase "Turn chats into xTiles" (and its natural equivalent in the user's language, e.g. "Перетворити чати на xTiles" / "Зібрати чати в xTiles")
+- the phrase "Turn chats into xTiles" — or its natural equivalent in any language; match on meaning, not on exact wording, and never on a specific language's phrasing
 - an empty or vague opening, or an explicit ask to turn recent GPT chats into an xTiles project, a morning digest, or notes.
   The trigger's literal meaning IS the action — so the only correct response is to start STEP 1 → STEP 2. Do not answer with generated content, a fun fact, or an artifact instead of running the workflow. If you're unsure whether it's the trigger, assume it is and run the workflow.
 

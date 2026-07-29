@@ -39,7 +39,7 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 
 1. **Real data only.** Read actual content from the planner and connectors. Never invent accomplishments, decisions, or goal assessments.
 2. **Progress over activity.** The point is not a log of everything done, but whether the week moved things forward.
-3. **Match the user's language** throughout — match the language of the first message and adapt if they switch.
+3. **Match the user's language** throughout — match the language of the first message and adapt if they switch. On a **scheduled run** there is no user message: use the language of the scheduled-task config prompt, and if that is ambiguous, the language of the fetched content. Default to English when still unclear. **Every template, label, and example in this file is written in English as a placeholder** — translate them into the detected language, and never emit a label in a language the user has not used.
 4. **Every write to the planner is immediately followed by a layout pass — automatically, no exceptions.** The instant tiles are added in step 6, re-lay-out only those new tiles into a justified grid (step 6's layout pass, via the shared `tile-layout` workflow) *before* anything else — before the CTA button, before the schedule widget, before any message to the user. This never waits for the user to ask, is never skipped as "not needed this time," and is never left for a later run.
 
 ---
