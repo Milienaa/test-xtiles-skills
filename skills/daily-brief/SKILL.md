@@ -78,22 +78,30 @@ If the request is general — run the full flow.
 **Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
 - Gmail
-- Other 
+- Other
 
+**Present the full embedded tool catalog — do not rely on a live registry to know what can be offered.** The complete list of supported tools is baked into this skill below (**Supported tools — embedded catalog**). Always show the full menu regardless of what is detected. This is the whole point on a **free ChatGPT or Claude plan**, where the connector registry (`mcp__mcp-registry__suggest_connectors`) and dynamic detection aren't available at all: the embedded catalog is what still lets the user see every tool and pick sources — it is the **base for the first digest** when no other connectors exist.
 
-After receiving answers — detect which MCP tools are actually available:
+After receiving answers — detect which MCP tools are actually available, using the embedded catalog as the source of truth for what exists:
 
-| Connector | Identifying MCP tools                                                                                           |
-|-----------|-----------------------------------------------------------------------------------------------------------------|
-| Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                      |
-| Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread`|
-| xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`                                                  |
-| Calendar  | `mcp__claude_ai_Google_Calendar__list_events`                                                                   |
-| Granola   | `mcp__claude_ai_Granola__list_meetings`                                                                         |
-| Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files`                                                             |
-| Linear    | `mcp__claude_ai_Linear__list_issues`                                                                            |
+#### Supported tools — embedded catalog
 
-These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately.
+This table is the authoritative, static list of tools this skill supports. It is embedded here on purpose so the skill works even when no registry or detection is available (free ChatGPT / Claude). Treat every row as offerable at all times; use the "Identifying MCP tools" column only to check whether a tool is *currently connected*, never to decide whether it *exists*.
+
+| Connector | Identifying MCP tools | Contributes |
+|-----------|-----------------------|-------------|
+| Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel` | Channel signals, mentions, action points |
+| Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread` | Unread emails, newsletters, per-topic tiles |
+| xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` | The Daily page itself (required) |
+| Calendar  | `mcp__claude_ai_Google_Calendar__list_events` | Day shape, conflicts, focus windows |
+| Granola   | `mcp__claude_ai_Granola__list_meetings` | Meeting notes & summaries |
+| Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files` | Recently shared/updated files |
+| Linear    | `mcp__claude_ai_Linear__list_issues` | New & updated issues |
+| GitHub    | *GitHub MCP tools when connected* | PRs & review requests |
+| Gamma     | *Gamma MCP tools when connected* | Presentations updated |
+| Figma     | *Figma MCP tools when connected* | Design updates & comments |
+
+These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately. Keep this catalog in sync with the survey widget's tool cards — the widget renders one card per catalog row.
 
 **For "Other" connectors named by the user** — treat them identically to the known connectors above: attempt detection via available MCP tools; if not detected, walk through connecting via `mcp__mcp-registry__suggest_connectors`. **Before starting the connection flow, say the connector name explicitly** (e.g. "I'll now connect Plaud for you"). After the connection flow completes, explicitly resume: "Plaud connected. Continuing with [full list of tools]…". Carry the full list of selected tools — including every custom connector — through every subsequent step. Never drop a custom connector that the user named, even during multi-step connection flows.
 
@@ -110,11 +118,16 @@ Question: "What do you want to see on your Daily each morning?"
 Options — include only those relevant to connected tools:
 - Unread emails that need a reply *(only if Gmail connected)*
 - Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
+- Emails by topic — group your inbox into separate thematic tiles *(only if Gmail connected)*
+- Emails from key people — a VIP-sender tile *(only if Gmail connected)*
+- Follow-ups — threads awaiting your reply *(only if Gmail connected)*
 - Slack messages from key channels *(only if Slack connected)*
 - Workload — calendar analysis: day shape, conflicts, focus windows *(only if Calendar connected)*
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
+
+**Email is often the main source — always ask what the user actually wants from it.** Don't stop at a single yes/no on "unread emails". When Gmail is connected, explicitly ask what they want to pull out of their inbox and how it should be split — a frequent and high-value case is a user whose email is their primary signal, which is best broken down into **several thematic tiles by question/topic** (e.g. one tile per project, client, or recurring subject) rather than one generic Emails tile. If the user names topics/projects/senders, capture each one — they become the tile breakdown in step 7. If they don't, default to the single `### 📩 Emails` tile.
 
 **Never skip this clarification step.** Even on a fast-track or when the user was terse, run it — it's where newsletters and custom apps get scoped. If Gmail is connected, the Newsletters option must be offered explicitly (don't silently omit it); if the user shows interest, run the newsletter-discovery flow below.
 
@@ -400,7 +413,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 **Content formatting inside each tile:**
 - **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
 - Separate each item with a blank line — never write items as a continuous block
-- **Emails**: the tile is titled **`### 📩 Emails`** — always keep the 📩 envelope in the title so it's clear the content comes from email. If email content is ever split across more than one tile (e.g. a separate "Needs action" tile), **every email-derived tile keeps the 📩 prefix** (`### 📩 Needs action`). Structure the tile in three labeled blocks followed by action items:
+- **Emails**: the tile is titled **`### 📩 Emails`** — always keep the 📩 envelope in the title so it's clear the content comes from email. If email content is ever split across more than one tile (e.g. a separate "Needs action" tile), **every email-derived tile keeps the 📩 prefix** (`### 📩 Needs action`).
+  - **Email-as-primary-source → thematic breakdown.** When the user asked to split email by topic in step 3 (e.g. named projects, clients, or recurring subjects), do **not** produce one generic Emails tile — produce **one `### 📩 [Topic]` tile per topic** (e.g. `### 📩 Acme deal`, `### 📩 Hiring`), each keeping the 📩 prefix and each using the same three-block 🔴/🟡/⚪ structure below, scoped to that topic. Anything that doesn't match a named topic goes into a catch-all `### 📩 Emails` tile. This is the "one source, many question-tiles" case — a common and high-value setup when email is the user's main signal.
+  - Otherwise, a single `### 📩 Emails` tile. Structure it in three labeled blocks followed by action items:
   ```
   🔴 **Потребує дії (N)**
 
@@ -558,6 +573,8 @@ Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect 
 2. Show the **Done widget** (see **Done widget HTML** below) directly under the connector form.
 3. The user clicks the connect buttons in the UI — the auth flow runs natively. When finished, they click **"Done"**.
 4. Confirm: "Connected. Continuing…" and resume the flow from where it was interrupted.
+
+**Fallback when the registry is unavailable (free ChatGPT / Claude).** On free plans `mcp__mcp-registry__suggest_connectors` often isn't available, so there are no interactive connect buttons. Do not dead-end. Instead, present the **Supported tools — embedded catalog** (step 2) so the user still sees the full menu of what's possible, explain that connecting tools requires upgrading their plan / enabling connectors, and proceed with whatever *is* available so they still get a first digest. The embedded catalog — not the registry — is the source of truth for what the skill can offer.
 ---
 
 ## Approval widget HTML
@@ -727,7 +744,7 @@ var role=null, tools=new Set(), content=new Set();
 
 var TM={
   'Slack':       {daily:['Slack messages — work chat signals']},
-  'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries']},
+  'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries','Emails by topic — separate thematic tiles','Emails from key people — VIP senders','Follow-ups — threads awaiting your reply']},
   'Calendar':    {daily:['Workload — calendar analysis']},
   'Granola':     {daily:['Granola — meeting notes & summaries']},
   'Linear':      {daily:['Linear issues — new & updated']},
