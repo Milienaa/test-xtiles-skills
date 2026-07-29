@@ -16,7 +16,7 @@ Generate a fresh morning digest from live web sources based on the user's intere
 ## Core behavior
 
 - **Primary source: WebSearch + WebFetch.** Never use memory for current events.
-- Match the language of the user's request throughout.
+- Match the language of the user's request throughout. On a **scheduled run** there is no user request: use the language of the scheduled-task config prompt (`topics:`), defaulting to English when unclear. Every template, label, and example in this file is an English placeholder — translate them into the detected language, and never emit a label in a language the user has not used.
 - Default scope: global, last 24 hours.
 - **News** — verified against reputable primary sources (Reuters, AP, Bloomberg, FT, TechCrunch). Never aggregators or PR.
 - **Rumors & Leaks** (optional) — unverified tips from X/Twitter, Reddit, insider blogs. Always labeled as unverified.
