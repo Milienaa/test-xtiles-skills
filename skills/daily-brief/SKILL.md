@@ -315,11 +315,9 @@ Here's what I've prepared:
 
 ### 📩 Emails
 🔴 Needs action (N)
-- [Poke-style description — 1–2 sentences, second person, action + consequence]
-  → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
+- [Poke-style description — 1–2 sentences, second person, action + consequence] → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-- [Next 🔴 email, same format]
-  → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
+- [Next 🔴 email, same format] → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
 🟡 FYI (N)
 - [One-line item — no link]
@@ -338,11 +336,9 @@ Here's what I've prepared:
 
 ### 📧 Newsletters
 
-**[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})**
-One-line summary.
+**[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})** — one-line summary.
 
-**[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
-One-line summary.
+**[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})** — one-line summary.
 
 ### 🤖 Claude — From our chats
 - [What you left open yesterday + what it needs today — 1 sentence, second person]
@@ -471,7 +467,17 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - Task titles stay verb-first and in the user's language, same as before.
 
 **Content formatting inside each tile:**
-- **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
+- **All links must be inline hyperlinks — never link-only lines.** Always `[text](url)`, never a bare URL, and always **on the same line as surrounding text**. This is a rendering rule, not a style preference: xTiles turns a line that contains *only* a link into a big block-link card, and turns a link sitting inside a line of text into an ordinary hyperlink. Users want the hyperlink.
+
+  ```
+  Reply to Stefan before the window closes → [Open email](url)     ← hyperlink ✅
+
+  [Open email](url)                                                ← block-link card ❌
+  ```
+
+  So: never break a link onto its own line, never start a line with a link, and never leave a link as the only content of a paragraph. Attach it to the end of the sentence it belongs to (`… → [Open email](url)`, `— [#channel](permalink)`, `· [Google Meet](url)`). If a link has nothing to attach to, that's a sign the item is missing its description — write the description, don't ship a naked link.
+
+  > Note: `xtiles://guide/markdown/blocks` says to put each link on its own line after a blank line. That produces the block-link card described above. This skill deliberately does the opposite — do not "fix" it back when consulting the guide.
 - Separate each item with a blank line — never write items as a continuous block
 - **Emails**: the tile is titled **`### 📩 Emails`** — always keep the 📩 envelope in the title so it's clear the content comes from email. If email content is ever split across more than one tile (e.g. a separate "Needs action" tile), **every email-derived tile keeps the 📩 prefix** (`### 📩 Needs action`).
   - **Email-as-primary-source → thematic breakdown.** When the user asked to split email by topic in step 3 (e.g. named projects, clients, or recurring subjects), do **not** produce one generic Emails tile — produce **one `### 📩 [Topic]` tile per topic** (e.g. `### 📩 Acme deal`, `### 📩 Hiring`), each keeping the 📩 prefix and each using the same three-block 🔴/🟡/⚪ structure below, scoped to that topic. Anything that doesn't match a named topic goes into a catch-all `### 📩 Emails` tile. This is the "one source, many question-tiles" case — a common and high-value setup when email is the user's main signal.
@@ -479,11 +485,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   ```
   🔴 **Needs action (N)**
 
-  - [Poke-style description — 1–2 sentences, second person, action + consequence]
-    → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
+  - [Poke-style description — 1–2 sentences, second person, action + consequence] → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
 
-  - [Next 🔴 item, same format]
-    → [Open email](url)
+  - [Next 🔴 item, same format] → [Open email](url)
 
   🟡 **FYI (N)**
 
@@ -505,13 +509,12 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   ```
   Omit `Action items` section entirely if no 🔴 emails. Newsletters are in the separate `### 📧 Newsletters` tile — never include them here.
 - **Newsletters**: ALL newsletters go in a **single `### 📧 Newsletters` tile** — never create a separate tile per newsletter. Structure:
-  - Each newsletter as a bold hyperlink title followed by a one-line summary on the next line:
+  - Each newsletter is **one line**: a bold hyperlink title, then an em dash, then the one-line summary — all on the same line, so the title renders as a hyperlink and not as a block-link card:
     ```
-    **[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})**
-    One-line summary.
+    **[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})** — one-line summary.
     ```
   - Blank line between entries.
-  - The link IS the title — no separate "Open" button or link at the bottom of each entry.
+  - The link IS the title — no separate "Open" button or link at the bottom of each entry, and never the title alone on its own line.
   - Omit the entire tile only if there are no unread newsletters at all.
 - **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Below them a `**Tasks**` block with one `<task>` per item (see **Action items are real tasks** above). **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure. Never link to a chat session; these items carry no URL.
 - **Slack**: split into **exactly three tiles** — `### 📌 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
@@ -553,7 +556,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Summary line is bold, always first; the 🎯 focus recommendation goes directly under it and is **never omitted** — a Workload tile without it is just a schedule
   - **Group headings** are bold lines with a leading emoji, derived from the day per step 4 (⭐ Important · 🤝 Client & external · 🔁 Recurring syncs · 🧑‍🤝‍🧑 1:1s · 🧠 Focus blocks are suggestions, not a fixed set). Events sit under their group in chronological order. **With fewer than 4 events, drop the group headings** and list events flat
   - Each event on its own bold line: `**HH:MM–HH:MM · Title**` — append ` — Participants · [Link label](url)` if participants or meeting link exist
-  - 📋 agenda goes on the next paragraph directly under its event — one sentence, from Granola / meeting notes / Gmail / the event description. Omit the line when no source yielded anything; never paraphrase the meeting title back as an agenda. Use Markdown hyperlinks when citing a source: `[Note title](url)`, `[Thread subject](gmail-url)`
+  - 📋 agenda goes on the next paragraph directly under its event — one sentence, from Granola / meeting notes / Gmail / the event description. Omit the line when no source yielded anything; never paraphrase the meeting title back as an agenda. When citing a source, weave the hyperlink into the agenda sentence itself — `Continues the pricing thread from [Monday's note](url)` — never append it as a separate line
   - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — and here `dueDate` is almost always wrong to set: the meeting is today, and the task already lives on today's page
   - All ⚠️ anomalies collected at the bottom, one per line
   - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
