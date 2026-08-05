@@ -36,6 +36,8 @@ allowed-tools: >
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__claude_ai_Linear__list_issues,
+  mcp__session_info__list_sessions,
+  mcp__session_info__read_transcript,
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
@@ -78,7 +80,9 @@ If the request is general — run the full flow.
 **Connected tools** (multi select, show all regardless of what's actually detected):
 - Slack
 - Gmail
-- Other
+- Other — a free-text field where the user names any connector that isn't on the cards
+
+**The "add your own connector" field is mandatory and must never disappear.** When you regenerate the survey HTML to apply pre-selections, keep the `➕ Don't see your tool? Add your own connector` block (`#other-tool` input + `previewCustom()` + `readCustom()`) exactly as written — pre-selection only ever adds ` sel` to card classes, it never removes markup. The catalog is finite and the user's stack is not; this field is the only way someone can bring in a tool we don't ship a card for, and losing it is a setup failure, not a cosmetic one. Same in Claude Code (no widget): after listing the tool cards inline, always ask explicitly — "Any other tool you want me to pull from? Name it and I'll connect it."
 
 **Present the full embedded tool catalog — do not rely on a live registry to know what can be offered.** The complete list of supported tools is baked into this skill below (**Supported tools — embedded catalog**). Always show the full menu regardless of what is detected. This is the whole point on a **free ChatGPT or Claude plan**, where the connector registry (`mcp__mcp-registry__suggest_connectors`) and dynamic detection aren't available at all: the embedded catalog is what still lets the user see every tool and pick sources — it is the **base for the first digest** when no other connectors exist.
 
@@ -100,6 +104,7 @@ This table is the authoritative, static list of tools this skill supports. It is
 | GitHub    | *GitHub MCP tools when connected* | PRs & review requests |
 | Gamma     | *Gamma MCP tools when connected* | Presentations updated |
 | Figma     | *Figma MCP tools when connected* | Design updates & comments |
+| **Your own connector** | *any MCP tools exposed by the tool the user names* | Whatever the user asks for in step 3 — always offerable, never a closed list |
 
 These connectors are external and optional — they are not shipped with this plugin. The user must connect them separately. Keep this catalog in sync with the survey widget's tool cards — the widget renders one card per catalog row.
 
@@ -131,7 +136,7 @@ Do NOT suggest tasks — they're already in xTiles by default.
 
 **Never skip this clarification step.** Even on a fast-track or when the user was terse, run it — it's where newsletters and custom apps get scoped. If Gmail is connected, the Newsletters option must be offered explicitly (don't silently omit it); if the user shows interest, run the newsletter-discovery flow below.
 
-**For every custom ("Other") app the user named in step 2 — ask what they want from it, one question per app** (e.g. "From Plaud, what should show up each morning — meeting notes, action points, or both?"). Never assume the content, and never silently drop the app: the #1 setup failure is proceeding without ever asking about a custom app the user typed. Carry each custom app **and** its content choice through the fetch (step 4) and the write (step 7).
+**For every custom ("Other") app the user named in step 2 — ask what they want from it, one question per app.** They arrive in the survey response as `daily_content: … · {Name} — custom source` — that marker means "the user wants this tool, content still unknown", so it is a prompt to ask, never a finished answer to write into a tile. **One question per app** (e.g. "From Plaud, what should show up each morning — meeting notes, action points, or both?"). Never assume the content, and never silently drop the app: the #1 setup failure is proceeding without ever asking about a custom app the user typed. Carry each custom app **and** its content choice through the fetch (step 4) and the write (step 7).
 
 **If Slack is selected and the user has not already named their channels:**
 
@@ -658,6 +663,13 @@ After Submit, the user sends a string of answers to chat — process it and cont
     .custom-in{margin-top:9px}
     .custom-in input{width:100%;padding:7px 11px;border:1.5px solid var(--color-border-tertiary);border-radius:8px;font-size:13px;outline:none;background:var(--color-background-primary);color:var(--color-text-primary)}
     .custom-in input:focus{border-color:var(--color-border-secondary)}
+    .custom-wrap{margin-top:12px;padding:12px;border:1.5px dashed var(--color-border-tertiary);border-radius:10px;background:var(--color-background-tertiary)}
+    .custom-wrap:focus-within{border-color:var(--color-text-primary)}
+    .custom-label{font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:2px}
+    .custom-wrap input{width:100%;padding:7px 11px;border:1.5px solid var(--color-border-tertiary);border-radius:8px;font-size:13px;outline:none;background:var(--color-background-primary);color:var(--color-text-primary)}
+    .custom-wrap input:focus{border-color:var(--color-border-secondary)}
+    .custom-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .custom-chips span{padding:4px 10px;border-radius:20px;background:var(--color-text-primary);color:var(--color-background-primary);font-size:12px}
     .checks{display:flex;flex-direction:column;gap:5px;margin-top:6px}
     .ci{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
     .ci:hover{border-color:var(--color-border-secondary)}
@@ -712,8 +724,11 @@ After Submit, the user sends a string of answers to chat — process it and cont
         <div class="card" onclick="togTool(this,'Gamma')"><div class="chk">✓</div>Gamma</div>
         <div class="card" onclick="togTool(this,'Figma')"><div class="chk">✓</div>Figma</div>
       </div>
-      <div class="custom-in" style="margin-top:8px">
-        <input type="text" id="other-tool" placeholder="Other connector (e.g. Plaud, Notion)…">
+      <div class="custom-wrap">
+        <div class="custom-label">➕ Don't see your tool? Add your own connector</div>
+        <div class="hint" style="margin-bottom:6px">Type any tool you have connected — separate several with commas</div>
+        <input type="text" id="other-tool" placeholder="e.g. Plaud, Notion, Notion Calendar…" oninput="previewCustom()">
+        <div class="custom-chips" id="custom-chips"></div>
       </div>
     </div>
 
@@ -779,13 +794,34 @@ function chkNext(){
   var ok=role&&(role!=='__other__'||document.getElementById('role-other-in').value.trim());
   document.getElementById('next-btn').disabled=!ok;
 }
+// Custom connectors typed by the user. Read on every step change so they survive Back/Next
+// and so each one gets its own line in the step-2 content list — never silently dropped.
+var custom=[];
+function readCustom(){
+  custom.forEach(function(c){tools.delete(c);});
+  AM.forEach(function(i){content.delete(i);});
+  var raw=document.getElementById('other-tool').value;
+  custom=raw.split(',').map(function(s){return s.trim()}).filter(function(s){return s.length});
+  AM=custom.map(function(c){return c+' — custom source'});
+  custom.forEach(function(c){tools.add(c);});
+}
+function previewCustom(){
+  var raw=document.getElementById('other-tool').value;
+  var list=raw.split(',').map(function(s){return s.trim()}).filter(function(s){return s.length});
+  document.getElementById('custom-chips').innerHTML=list.map(function(c){
+    return '<span>'+c.replace(/</g,'&lt;')+'</span>';
+  }).join('');
+}
 function go2(){
+  readCustom();
   if(!content.size){
     var r=role==='__other__'?null:role;
     (ROLE_DEFAULTS[r]||[]).forEach(function(v){content.add(v);});
   }
   // Always pre-select content for every tool the user explicitly picked
   tools.forEach(function(t){if(TM[t]&&TM[t].daily)TM[t].daily.forEach(function(v){content.add(v);});});
+  // Custom connectors are pre-selected too — the user named them, so they're wanted by default
+  AM.forEach(function(v){content.add(v);});
   renderContent();
   document.getElementById('s1').style.display='none';
   document.getElementById('s2').style.display='block';
@@ -807,8 +843,6 @@ function togCI(el,v){el.classList.toggle('sel');el.classList.contains('sel')?con
 function submit(){
   document.querySelectorAll('.btn').forEach(function(b){b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';});
   var r=role==='__other__'?document.getElementById('role-other-in').value.trim():role;
-  var oth=document.getElementById('other-tool').value.trim();
-  if(oth)tools.add(oth);
   var tArr=Array.from(tools);
   var valid=[];
   tArr.forEach(function(t){if(TM[t]&&TM[t].daily)TM[t].daily.forEach(function(i){if(valid.indexOf(i)<0)valid.push(i)});});
