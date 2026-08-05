@@ -101,7 +101,7 @@ This table is the authoritative, static list of tools this skill supports. It is
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel` | Channel signals, mentions, action points |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread` | Unread emails, newsletters, per-topic tiles |
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` | The Daily page itself (required) |
-| Calendar  | `mcp__claude_ai_Google_Calendar__list_events` | Day shape, conflicts, focus windows |
+| Calendar  | `mcp__claude_ai_Google_Calendar__list_events` | Workload: agendas, what to prepare, focus windows, conflicts |
 | Granola   | `mcp__claude_ai_Granola__list_meetings` | Meeting notes & summaries |
 | Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files` | Recently shared/updated files |
 | Linear    | `mcp__claude_ai_Linear__list_issues` | New & updated issues |
@@ -132,7 +132,7 @@ Options — include only those relevant to connected tools:
 - Emails from key people — a VIP-sender tile *(only if Gmail connected)*
 - Follow-ups — threads awaiting your reply *(only if Gmail connected)*
 - Slack messages from key channels *(only if Slack connected)*
-- Workload — calendar analysis: day shape, conflicts, focus windows *(only if Calendar connected)*
+- Workload — what each meeting is about, what to prepare for it, and where your focus time actually is *(only if Calendar connected)*
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
@@ -269,10 +269,14 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink. Rendered as a `**✅ Decisions**` block inside the **💬 Slack — Topics** tile, not as its own tile.
   - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳. Rendered as a `**❓ Open**` block inside the **💬 Slack — Topics** tile, not as its own tile.
 
-- **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. For each event extract: start/end time, title, participant names (first name + last name or company), and meeting link (Google Meet, Zoom, or other video URL from event data). Compute:
+- **Calendar → the `### 📅 Workload` tile**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. For each event extract: start/end time, title, participant names (first name + last name or company), the event description, and the meeting link (Google Meet, Zoom, or other video URL from event data).
+
+  **This tile must earn its place — it is not a second copy of the calendar.** The user can already see their schedule; what they cannot see is *what each meeting is about*, *what they have to prepare*, and *where the day's real work fits*. An event row with no agenda and no prep is the weakest thing in the tile — the analysis below is the point, the timetable is just its scaffolding. Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
-  - **Per-event row**: time range · title — participants list · [meeting link label](url) if present
-  - **🧠 context** (only if Granola or Gmail connected): for each meeting, find the last Granola note involving the same participants and/or the most recent open Gmail thread with the organiser — write one sentence summarising what the meeting is about or what was discussed last time. Only include if relevant context is found; skip silently otherwise.
+  - **🎯 Focus recommendation — one sentence, always present.** Read the day as a whole and say what to do with it: which window to protect for deep work and for what, or which meeting decides the day. Base it on the real shape — longest free window, where the heavy prep sits, what's stacked. One concrete sentence, second person ("Your only real block is 09:00–11:30 — spend it on the pricing spec before the client call eats the afternoon"). Never generic advice ("plan your day carefully").
+  - **📋 Agenda — one sentence per meeting.** For every event, find what it's actually about, in this source order: (1) a Granola or other meeting-notes entry with the same participants or title, (2) the most recent Gmail thread with the organiser or attendees on that subject, (3) the event's own description. Write one sentence — what will be decided or discussed, or where the last conversation left off. **Never invent an agenda**: if none of the three sources yields anything, omit the line for that event rather than paraphrasing the title back.
+  - **Prep task — one per meeting that needs it.** From the agenda and its sources, derive the single most useful thing to prepare beforehand ("Pull the Q3 retention numbers before the Acme review"). One per meeting at most, and only where preparation is genuinely implied — a recurring standup usually needs none. Write it as a `<task>` (see step 7); these count as action items like any other, so include them in the flat action-item list.
+  - **Grouping by purpose**: cluster the events into 2–4 groups derived from the actual day, not a fixed taxonomy — e.g. ⭐ Important · 🤝 Client & external · 🔁 Recurring syncs · 🧑‍🤝‍🧑 1:1s · 🧠 Focus blocks. Derive each group's name from what's actually in the day and the user's role. **Skip grouping entirely when there are fewer than 4 events** — splitting three meetings into groups is noise, not structure.
   - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
 
 Classify emails into three buckets. **Newsletters are fetched separately — exclude them here entirely and do not count them in any bucket.**
@@ -288,7 +292,7 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 📌 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block. Collect all as a flat list — used in preview and tiles. While deriving each one, also capture whether the source stated a **real deadline** and whether it carries **genuine urgency** — those become the `dueDate` and `priority` attributes when the item is written as a `<task>` in step 7. If the source states neither, record neither; do not infer.
+For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 📌 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block, and every meeting that needs preparation yields one (e.g. "Pull the Q3 retention numbers before the Acme review") — that one sits inline under its meeting in the `### 📅 Workload` tile. Collect all as a flat list — used in preview and tiles. While deriving each one, also capture whether the source stated a **real deadline** and whether it carries **genuine urgency** — those become the `dueDate` and `priority` attributes when the item is written as a `<task>` in step 7. If the source states neither, record neither; do not infer.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -369,18 +373,26 @@ One-line summary.
 **❓ Open**
 - [Question] — [#channel](url) ⏳
 
-### 📅 Calendar
+### 📅 Workload
 **N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
+
+🎯 [Focus recommendation — one concrete sentence about this specific day]
+
+**⭐ [Group name]**
 
 **HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
 
-🧠 [one sentence: meeting point / what will be discussed]
+📋 [Agenda — one sentence: what will be decided, or where the last conversation left off]
 
-**HH:MM–HH:MM · Meeting name**
+<task>[What to prepare before this meeting]</task>
+
+**🤝 [Second group name]**
 
 **HH:MM–HH:MM · Meeting name** — Participant from Company · [Google Meet](url)
 
-🧠 [meeting point]
+📋 [Agenda]
+
+**HH:MM–HH:MM · Meeting name**
 
 ⚠️ [anomaly — e.g. two external calls back-to-back in the evening, 30 min gap between them]
 
@@ -439,9 +451,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   `GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR`
   **CRITICAL: never use semantic color names (RED, BLUE, GREY, ORANGE, YELLOW, GREEN, etc.) — they will not render. Only the exact names from the list above.**
 - Each section gets a different color — do not repeat the same color twice in a row
-- **The title emoji names the tile; it never doubles as a status marker.** 🔴 🟡 ⚪ ⚡ ⏳ ✅ ❓ are *item-level* markers — they belong on individual lines inside a tile (`🔴 **Needs action (3)**`, `— [#channel](url) ⚡`), never in a `###` heading. A heading takes a subject emoji that says what the tile *is*: 📩 Emails · 📧 Newsletters · 📌 Slack — Action Points · ⚡ Slack — Mentions · 💬 Slack — Topics · 📅 Calendar · 🤖 Claude — From our chats. (⚡ in `### ⚡ Slack — Mentions` is the exception that proves the rule — there it names the subject, mentions, not a status.)
+- **The title emoji names the tile; it never doubles as a status marker.** 🔴 🟡 ⚪ ⚡ ⏳ ✅ ❓ are *item-level* markers — they belong on individual lines inside a tile (`🔴 **Needs action (3)**`, `— [#channel](url) ⚡`), never in a `###` heading. A heading takes a subject emoji that says what the tile *is*: 📩 Emails · 📧 Newsletters · 📌 Slack — Action Points · ⚡ Slack — Mentions · 💬 Slack — Topics · 📅 Workload · 🤖 Claude — From our chats. (⚡ in `### ⚡ Slack — Mentions` is the exception that proves the rule — there it names the subject, mentions, not a status.)
 
-**Action items are real tasks, not checkboxes.** Every action item the digest derives — from a 🔴 email, from a ⚡ Slack mention, from an unfinished chat thread — is written with the `<task>` tag so it becomes a first-class xTiles task with its own due date and priority, not a checkbox that only lives inside the tile's text:
+**Action items are real tasks, not checkboxes.** Every action item the digest derives — from a 🔴 email, from a ⚡ Slack mention, from an unfinished chat thread, from a meeting that needs preparation — is written with the `<task>` tag so it becomes a first-class xTiles task with its own due date and priority, not a checkbox that only lives inside the tile's text:
 
 ```
 **Action items**
@@ -509,32 +521,42 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
     - a `**✅ Decisions**` block — one line per decision: `- Decision made — [#channel](message_permalink)`; omit the block if there are no decisions.
     - a `**❓ Open**` block — one line per unanswered question: `- Question — [#channel](message_permalink) ⏳`; omit the block if there are none.
     **Always create this Topics tile** — if no messages today, write a single line: `No updates today.` Its absence looks like a connector failure.
-- **Calendar**: tile titled `### 📅 Calendar`. Use this exact structure:
+- **Calendar**: tile titled `### 📅 Workload` — **never `### 📅 Calendar`.** The name is the promise: this is an analysis of the day, not a reprint of the schedule. Use this exact structure:
   ```
-  ### 📅 Calendar
+  ### 📅 Workload
   @colorSize: LIGHTER
   @color: [pick randomly from the color list]
 
   **N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
 
+  🎯 [Focus recommendation — one sentence]
+
+  **⭐ [Group name]**
+
   **HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
 
-  🧠 [one sentence: meeting point / what will be discussed]
+  📋 [Agenda — one sentence]
 
-  **HH:MM–HH:MM · Meeting name**
+  <task>[What to prepare before this meeting]</task>
+
+  **🤝 [Second group name]**
 
   **HH:MM–HH:MM · Meeting name** — Participant from Company · [Zoom](url)
 
-  🧠 [meeting point]
+  📋 [Agenda]
+
+  **HH:MM–HH:MM · Meeting name**
 
   ⚠️ [anomaly]
   ```
   Rules:
-  - Summary line is bold, always first
+  - Summary line is bold, always first; the 🎯 focus recommendation goes directly under it and is **never omitted** — a Workload tile without it is just a schedule
+  - **Group headings** are bold lines with a leading emoji, derived from the day per step 4 (⭐ Important · 🤝 Client & external · 🔁 Recurring syncs · 🧑‍🤝‍🧑 1:1s · 🧠 Focus blocks are suggestions, not a fixed set). Events sit under their group in chronological order. **With fewer than 4 events, drop the group headings** and list events flat
   - Each event on its own bold line: `**HH:MM–HH:MM · Title**` — append ` — Participants · [Link label](url)` if participants or meeting link exist
-  - 🧠 goes on the next paragraph directly under its event — only if Granola or Gmail context was found; omit otherwise. Use Markdown hyperlinks for Granola note and Gmail thread: `[Note title](url)` + `[Thread subject](gmail-url)`
+  - 📋 agenda goes on the next paragraph directly under its event — one sentence, from Granola / meeting notes / Gmail / the event description. Omit the line when no source yielded anything; never paraphrase the meeting title back as an agenda. Use Markdown hyperlinks when citing a source: `[Note title](url)`, `[Thread subject](gmail-url)`
+  - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — and here `dueDate` is almost always wrong to set: the meeting is today, and the task already lives on today's page
   - All ⚠️ anomalies collected at the bottom, one per line
-  - Blank line between every item (event, 🧠, ⚠️) for readability
+  - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
   - Omit tile entirely if Calendar returned no events
 - **Meta tiles — 📈 Digest tuning this week · 🔑 Important keywords · 🎛️ Tune your digest** — their markdown, checkbox formats, and rules live in the `digest-tuning` workflow (see step 7's compose hand-off). Append exactly what it returns; do not redefine them here.
 - This ensures the tile is scannable, not a wall of text
@@ -553,7 +575,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 2. **Layout pass — mandatory stage after adding tiles. Runs on every write (scheduled runs included); never skipped, never deferred, never asked about.** Freshly written tiles land in a default stack — re-lay them out *now*, before the CTA and schedule widgets below:
    - Read `view_id` and `tile_ids` straight from the `xtiles_create_tiles_from_markdown_in_my_planner` response (`tile_ids` is ordered to match the `###` sections you just wrote). Keep `view_id` — step 3 reuses it, do not re-fetch it.
-   - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Slack — Topics or Emails) its own full-width row.
+   - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Slack — Topics, 📩 Emails, or 📅 Workload) its own full-width row.
    - Apply the layout silently — no message, no confirmation. Only once it is applied, continue to step 3.
 
 3. Reuse the `view_id` from the write response (step 2) — **do not call `get_planner_content` to re-derive it.** Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
@@ -811,7 +833,7 @@ var TM={
   'Claude':      {daily:['From our chats — unfinished threads & open questions']},
   'Slack':       {daily:['Slack messages — work chat signals']},
   'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries','Emails by topic — separate thematic tiles','Emails from key people — VIP senders','Follow-ups — threads awaiting your reply']},
-  'Calendar':    {daily:['Workload — calendar analysis']},
+  'Calendar':    {daily:['Workload — agendas, prep & focus time']},
   'Granola':     {daily:['Granola — meeting notes & summaries']},
   'Linear':      {daily:['Linear issues — new & updated']},
   'GitHub':      {daily:['GitHub — PRs & review requests']},
@@ -822,11 +844,11 @@ var TM={
 var AM=[];
 
 var ROLE_DEFAULTS={
-  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis','Linear issues — new & updated','Granola — meeting notes & summaries'],
-  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox','Workload — calendar analysis'],
-  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — calendar analysis'],
-  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated','Workload — calendar analysis'],
-  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries','Workload — calendar analysis'],
+  'Product Manager':   ['Slack messages — work chat signals','Important emails — unread inbox','Workload — agendas, prep & focus time','Linear issues — new & updated','Granola — meeting notes & summaries'],
+  'Designer':          ['Figma — design updates & comments','Slack messages — work chat signals','Important emails — unread inbox','Workload — agendas, prep & focus time'],
+  'Engineer':          ['GitHub — PRs & review requests','Slack messages — work chat signals','Important emails — unread inbox','Linear issues — new & updated','Workload — agendas, prep & focus time'],
+  'Growth & Marketing':['Important emails — unread inbox','Newsletters — curated summaries','Slack messages — work chat signals','Gamma — presentations updated','Workload — agendas, prep & focus time'],
+  'Founder / CEO':     ['Slack messages — work chat signals','Important emails — unread inbox','Newsletters — curated summaries','Granola — meeting notes & summaries','Workload — agendas, prep & focus time'],
   'Support & Success': ['Important emails — unread inbox','Slack messages — work chat signals']
 };
 
