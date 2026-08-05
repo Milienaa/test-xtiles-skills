@@ -261,7 +261,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
   After collecting, analyse all messages together and group semantically. For every item include a **direct permalink to the specific message** — extract `permalink` from the message object (or build `https://slack.com/archives/{channel_id}/p{ts_without_dot}`). Never link to the channel homepage — always to the individual message.
 
-  **Slack renders as exactly three tiles** (see step 7): `### 🔴 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics`. Analyse the messages into the groups below, but only three tiles come out of them — Decisions and Open are folded into the Topics tile, they never get tiles of their own.
+  **Slack renders as exactly three tiles** (see step 7): `### 📌 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics`. Analyse the messages into the groups below, but only three tiles come out of them — Decisions and Open are folded into the Topics tile, they never get tiles of their own.
 
   - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡. → **⚡ Slack — Mentions** tile.
   - **Action Points** — every ⚡-flagged mention also becomes an item here: a short poke-style line (what's being asked, second person, same tone as email's 🔴 bucket) plus the message permalink. For each, derive one verb-first action item (e.g. "Reply to Maria in #product"). → **🔴 Slack — Action Points** tile.
@@ -288,7 +288,7 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 🔴 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block. Collect all as a flat list — used in preview and tiles.
+For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 📌 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block. Collect all as a flat list — used in preview and tiles. While deriving each one, also capture whether the source stated a **real deadline** and whether it carries **genuine urgency** — those become the `dueDate` and `priority` attributes when the item is written as a `<task>` in step 7. If the source states neither, record neither; do not infer.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -325,8 +325,10 @@ Here's what I've prepared:
 - N notifications (sources) — nothing urgent
 
 **Action items:**
-- [ ] [verb-first task from 🔴 email 1]
-- [ ] [verb-first task from 🔴 email 2]
+
+<task>[verb-first task from 🔴 email 1]</task>
+
+<task dueDate="YYYY-MM-DD">[verb-first task from 🔴 email 2 — attribute only if the email named a real deadline]</task>
 
 *(omit Action items entirely if no 🔴 emails)*
 
@@ -344,13 +346,15 @@ One-line summary.
 - [Next unfinished thread, same format]
 
 **Tasks**
-- [ ] [verb-first task]
 
-### 🔴 Slack — Action Points
+<task>[verb-first task]</task>
+
+### 📌 Slack — Action Points
 - [Poke-style one-liner of what's being asked] — [#channel](url)
 
 **Tasks**
-- [ ] [verb-first task]
+
+<task>[verb-first task]</task>
 
 ### ⚡ Slack — Mentions
 - **@Name** in [#channel](url) — what they asked/said ⚡
@@ -435,6 +439,24 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   `GHOST, CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR`
   **CRITICAL: never use semantic color names (RED, BLUE, GREY, ORANGE, YELLOW, GREEN, etc.) — they will not render. Only the exact names from the list above.**
 - Each section gets a different color — do not repeat the same color twice in a row
+- **The title emoji names the tile; it never doubles as a status marker.** 🔴 🟡 ⚪ ⚡ ⏳ ✅ ❓ are *item-level* markers — they belong on individual lines inside a tile (`🔴 **Needs action (3)**`, `— [#channel](url) ⚡`), never in a `###` heading. A heading takes a subject emoji that says what the tile *is*: 📩 Emails · 📧 Newsletters · 📌 Slack — Action Points · ⚡ Slack — Mentions · 💬 Slack — Topics · 📅 Calendar · 🤖 Claude — From our chats. (⚡ in `### ⚡ Slack — Mentions` is the exception that proves the rule — there it names the subject, mentions, not a status.)
+
+**Action items are real tasks, not checkboxes.** Every action item the digest derives — from a 🔴 email, from a ⚡ Slack mention, from an unfinished chat thread — is written with the `<task>` tag so it becomes a first-class xTiles task with its own due date and priority, not a checkbox that only lives inside the tile's text:
+
+```
+**Action items**
+
+<task>Restore the Google ad account</task>
+
+<task priority="high" dueDate="2026-08-10">Sign the contract</task>
+```
+
+- **Never `- [ ]` for action items.** Plain `- [ ]` checkboxes stay reserved for checklists that are not tasks — e.g. the feedback checkboxes the `digest-tuning` workflow owns. Never convert those into `<task>`: ticking them is a signal to this skill, not work the user has to do.
+- **One `<task>` per line, blank line between each.** A `<task>` must never be nested inside a list item (`- <task>…</task>` does not parse) and never carries a link.
+- **`dueDate="YYYY-MM-DD"` — only when the source states a real deadline** ("by Friday", "before the 10th", "appeal window closes Tuesday"). Resolve relative wording against the user's timezone from `xtiles_get_user_timezone`. Never derive it from when the email was sent or the message posted, and never estimate one — the task already sits on today's page.
+- **`priority` — only when the source itself signals it.** `high` for a hard deadline inside 24 h, a blocker, an explicitly urgent ask, or something with a real cost of missing it (suspended account, expiring window); `medium` when it matters but nothing forces it today; omit otherwise. Do not stamp `high` on everything just because it came from the 🔴 bucket — if every task is high, the field carries no information. As a sanity cap: at most a third of a morning's tasks should be `high`.
+- **Never `completed="true"`** — a morning brief describes work still to do.
+- Task titles stay verb-first and in the user's language, same as before.
 
 **Content formatting inside each tile:**
 - **All links must be Markdown hyperlinks** — always `[text](url)`, never a bare URL. If you include a link, it must have a label.
@@ -465,8 +487,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
   **Action items**
 
-  - [ ] [Verb-first task from 🔴 email 1]
-  - [ ] [Verb-first task from 🔴 email 2]
+  <task>[Verb-first task from 🔴 email 1]</task>
+
+  <task priority="high" dueDate="2026-08-10">[Verb-first task from 🔴 email 2 — attributes only when the email actually stated them]</task>
   ```
   Omit `Action items` section entirely if no 🔴 emails. Newsletters are in the separate `### 📧 Newsletters` tile — never include them here.
 - **Newsletters**: ALL newsletters go in a **single `### 📧 Newsletters` tile** — never create a separate tile per newsletter. Structure:
@@ -478,9 +501,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between entries.
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
-- **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Below them a `**Tasks**` block with one verb-first checkbox per item: `- [ ] [verb-first task]`. **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure. Never link to a chat session; these items carry no URL.
-- **Slack**: split into **exactly three tiles** — `### 🔴 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
-  - `### 🔴 Slack — Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Tasks**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Reply to Maria in #product"). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
+- **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Below them a `**Tasks**` block with one `<task>` per item (see **Action items are real tasks** above). **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure. Never link to a chat session; these items carry no URL.
+- **Slack**: split into **exactly three tiles** — `### 📌 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
+  - `### 📌 Slack — Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Tasks**` block with one `<task>` per item (e.g. `<task>Reply to Maria in #product</task>`) — see **Action items are real tasks** above. **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
   - `### ⚡ Slack — Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
   - `### 💬 Slack — Topics` — the discussion rollup. First line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. Then fold decisions and open questions into this same tile as labeled blocks (never separate tiles):
     - a `**✅ Decisions**` block — one line per decision: `- Decision made — [#channel](message_permalink)`; omit the block if there are no decisions.
