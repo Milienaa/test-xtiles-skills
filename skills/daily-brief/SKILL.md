@@ -73,14 +73,17 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. Generate the widget with those pre-selections applied, then call `show_widget`.
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. **The Claude card is exempt from this check — it has no auth to test and ships pre-selected unconditionally.** Generate the widget with those pre-selections applied, then call `show_widget`.
 
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
 **Connected tools** (multi select, show all regardless of what's actually detected):
+- Claude — this chat itself, **pre-selected by default**
 - Slack
 - Gmail
 - Other — a free-text field where the user names any connector that isn't on the cards
+
+**Claude is a source, not just the thing reading the sources — and it is on by default.** The user's own chats already hold real signal: what they asked for yesterday, what they said they'd do, what was decided, what was left half-finished. Pre-select the Claude card in the widget (`class="card sel"`) and keep `Claude` in the initial `tools` set, so it is selected even if the user never clicks it. The user can deselect it like any other source. It needs **no connector and no auth** — which makes it the one source that always works: on a free plan with nothing connected, a Claude-only digest is still a real digest, not an empty page.
 
 **The "add your own connector" field is mandatory and must never disappear.** When you regenerate the survey HTML to apply pre-selections, keep the `➕ Don't see your tool? Add your own connector` block (`#other-tool` input + `previewCustom()` + `readCustom()`) exactly as written — pre-selection only ever adds ` sel` to card classes, it never removes markup. The catalog is finite and the user's stack is not; this field is the only way someone can bring in a tool we don't ship a card for, and losing it is a setup failure, not a cosmetic one. Same in Claude Code (no widget): after listing the tool cards inline, always ask explicitly — "Any other tool you want me to pull from? Name it and I'll connect it."
 
@@ -94,6 +97,7 @@ This table is the authoritative, static list of tools this skill supports. It is
 
 | Connector | Identifying MCP tools | Contributes |
 |-----------|-----------------------|-------------|
+| **Claude (this chat)** | `mcp__session_info__list_sessions`, `mcp__session_info__read_transcript` | **Default-on, no connector needed** — from yesterday's chats: unfinished threads, open questions & decisions |
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel` | Channel signals, mentions, action points |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread` | Unread emails, newsletters, per-topic tiles |
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` | The Daily page itself (required) |
@@ -121,6 +125,7 @@ These connectors are external and optional — they are not shipped with this pl
 Question: "What do you want to see on your Daily each morning?"
 
 Options — include only those relevant to connected tools:
+- From our chats — what you left unfinished or unanswered yesterday *(always offered — no connector required)*
 - Unread emails that need a reply *(only if Gmail connected)*
 - Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
 - Emails by topic — group your inbox into separate thematic tiles *(only if Gmail connected)*
@@ -240,6 +245,14 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
+- **Claude chats (yesterday)** — **runs by default, no connector needed**: call `mcp__session_info__list_sessions` for sessions since the previous digest (fall back to the last 24 h), then `mcp__session_info__read_transcript` on the ones that look substantive. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
+  - **Unfinished threads** — work started and not finished ("we drafted half the launch email"), or a next step the user named but hasn't done yet ("I'll send this to Stefan tomorrow").
+  - **Unanswered questions** — something the user asked or was asked in chat that never got resolved.
+  - **Decisions worth acting on** — a conclusion reached in chat that implies a concrete step today.
+  - Each item is one line, Poke-style and second person, same tone as the 🔴 email bucket: what was left open + what it needs now. Derive one verb-first action item per unfinished thread.
+  - **Exclude the digest's own sessions** — any session whose content is this skill running (setup, survey, digest writes) is machinery, not signal. Never let the brief report on itself.
+  - Ignore purely exploratory or abandoned threads, and anything already closed by an xTiles task.
+  - **If the `mcp__session_info__*` tools are unavailable in this environment** — drop this source for the run: no tile, and on a scheduled run no message. On a manual run, note it once in the preview ("Couldn't read chat history in this environment"). Never fabricate chat content.
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: two parallel reads:
@@ -275,7 +288,7 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 🔴 Slack — Action Points` tile's Tasks block (see step 7). Collect all as a flat list — used in preview and tiles.
+For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 🔴 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block. Collect all as a flat list — used in preview and tiles.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -324,6 +337,14 @@ One-line summary.
 
 **[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})**
 One-line summary.
+
+### 🤖 Claude — From our chats
+- [What you left open yesterday + what it needs today — 1 sentence, second person]
+
+- [Next unfinished thread, same format]
+
+**Tasks**
+- [ ] [verb-first task]
 
 ### 🔴 Slack — Action Points
 - [Poke-style one-liner of what's being asked] — [#channel](url)
@@ -457,6 +478,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between entries.
   - The link IS the title — no separate "Open" button or link at the bottom of each entry.
   - Omit the entire tile only if there are no unread newsletters at all.
+- **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Below them a `**Tasks**` block with one verb-first checkbox per item: `- [ ] [verb-first task]`. **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure. Never link to a chat session; these items carry no URL.
 - **Slack**: split into **exactly three tiles** — `### 🔴 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
   - `### 🔴 Slack — Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Tasks**` block with one verb-first checkbox per item: `- [ ] [verb-first task]` (e.g. "Reply to Maria in #product"). **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
   - `### ⚡ Slack — Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
@@ -658,6 +680,8 @@ After Submit, the user sends a string of answers to chat — process it and cont
     .card{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
     .card:hover{border-color:var(--color-border-secondary)}
     .card.sel{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+    .tag{font-size:10px;font-weight:600;padding:2px 6px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.03em}
+    .card.sel .tag{background:rgba(255,255,255,.22);color:var(--color-background-primary)}
     .chk{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
     .card.sel .chk{background:var(--color-background-primary);border-color:var(--color-background-primary);color:var(--color-text-primary)}
     .custom-in{margin-top:9px}
@@ -714,6 +738,7 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="sec-title">Which tools do you use?</div>
       <div class="hint">Select all that apply — I'll pull live data from them</div>
       <div class="cards" id="tool-cards">
+        <div class="card sel" onclick="togTool(this,'Claude')"><div class="chk">✓</div>Claude <span class="tag">no setup</span></div>
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
         <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
@@ -755,9 +780,12 @@ After Submit, the user sends a string of answers to chat — process it and cont
 </div>
 
 <script>
-var role=null, tools=new Set(), content=new Set();
+// Claude is pre-selected: it's a source too, needs no connector, and works on any plan.
+// Its card ships with class="card sel", so the initial set must match.
+var role=null, tools=new Set(['Claude']), content=new Set();
 
 var TM={
+  'Claude':      {daily:['From our chats — unfinished threads & open questions']},
   'Slack':       {daily:['Slack messages — work chat signals']},
   'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries','Emails by topic — separate thematic tiles','Emails from key people — VIP senders','Follow-ups — threads awaiting your reply']},
   'Calendar':    {daily:['Workload — calendar analysis']},
