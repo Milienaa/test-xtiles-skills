@@ -1,38 +1,28 @@
 ---
-name: gpt-daily-brief
+name: daily-brief-with-gpt
 description: >
-  Set up, run, or automate an xTiles Daily planner brief in ChatGPT Work — a
-  Daily page built from live signals in the user's connected tools (Slack,
-  Gmail, Calendar and others). Every user decision is collected through inline
-  `ask_user_input` interactive forms; data is always real; the approved brief is
-  written only to the user's personal Daily planner, never to a new project or
-  standalone page, and the run ends with an openable link.
+  ChatGPT Work version of the xTiles Daily Brief — use this variant in ChatGPT;
+  in Claude use `daily-brief` instead.
 
-  Setup triggers: "set up my daily", "create my Daily Brief",
-  "set workflow of Daily Brief", "personalize my planner".
-  Digest triggers: "morning brief", "run my digest", "what do I need to know
-  today". Also runs automatically from a scheduled task.
-  Explicit: "run gpt-daily-brief",
-  "Set workflow of Daily Brief (gpt-daily-brief) on xTiles MCP".
+  Set up or run a Daily planner page that works as a live morning brief from the
+  user's connected work tools — Slack, Gmail, Calendar and others — written to
+  their personal Daily planner. Use when the user wants a morning digest of what
+  happened in the last 24 hours, wants to choose which sources feed it, or wants
+  it produced automatically every morning.
 
-  Only the Daily period is supported.
-allowed-tools: >
-  mcp__xtiles__xtiles_get_planner_content,
-  mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
-  mcp__xtiles__xtiles_get_user_timezone,
-  mcp__xtiles__xtiles_get_current_user,
-  mcp__xtiles__xtiles_get_page_layout,
-  mcp__xtiles__xtiles_set_page_layout,
-  mcp__xtiles__xtiles_get_workflow,
-  mcp__claude_ai_Slack__slack_search_channels,
-  mcp__claude_ai_Slack__slack_search_public_and_private,
-  mcp__claude_ai_Slack__slack_read_channel,
-  mcp__claude_ai_Gmail__search_threads,
-  mcp__claude_ai_Gmail__get_thread,
-  mcp__claude_ai_Google_Calendar__list_events,
-  mcp__claude_ai_Granola__list_meetings,
-  mcp__claude_ai_Google_Drive__list_recent_files,
-  mcp__claude_ai_Linear__list_issues
+  Detect the surface, not the request: inline `ask_user_input` / `genui` forms
+  mean ChatGPT Work — this variant. `show_widget` or `AskUserQuestion` mean
+  Claude / Cowork — use `daily-brief` instead.
+
+  Environment triggers: "Daily Brief for GPT", "Daily Brief in ChatGPT",
+  "the GPT version".
+
+  Triggers: "morning brief", "run my digest", "what do I need to know today",
+  "set up my daily", "create my Daily Brief", "run daily-brief-with-gpt".
+
+  Only the Daily period is supported. For the end-of-day version use
+  `evening-reflection-with-gpt`; for personal rather than work signals use
+  `life-brief-with-gpt`.
 ---
 
 # xTiles Daily Brief — GPT
@@ -59,6 +49,13 @@ a morning brief. **Period is always Daily** — never ask which period.
 Match the language of the user's latest message — translate every question,
 option, label and confirmation. Every label in this file (`Needs action`, `FYI`,
 `Noise`, `Open email`, `Tasks`…) is an English placeholder, not literal output.
+
+---
+
+**Tool names** in this file are capability names, not host-specific ones
+(`xtiles_…`, `slack_…`, `search_threads`, `list_events`). Call whatever the current
+surface exposes for that capability. If a required xTiles capability is genuinely
+missing, say so plainly and stop — never substitute a different write path.
 
 ---
 
@@ -437,17 +434,29 @@ chosen time and timezone afterwards.
 
 ## Stage 9 — Related workflows
 
+Offer the other four workflows, each with a one-line description of what it
+does — never a bare list of names:
+
 ```
 genui{"ask_user_input":{"questions":[
-  {"question":"Want to set up anything else on xTiles?","options":["Evening Reflection","Today News","Weekly Review","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
+  {"question":"Want to set up anything else on xTiles?","options":["🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
 ]}}
 ```
 
-Hand off with exactly one matching phrase:
-`Set workflow of Evening Reflection (evening-reflection) on xTiles MCP` ·
-`Set workflow of Today News (today-news) on xTiles MCP` ·
-`Set workflow of Weekly Review (weekly-review) on xTiles MCP`.
-`Nothing else` → acknowledge and stop.
+Treat the selection as a direct invocation: **in the same turn**, call
+`xtiles_get_workflow` with the matching id and continue from its first
+applicable stage:
+
+| Option | Workflow id |
+| --- | --- |
+| Evening Reflection | `evening-reflection-with-gpt` |
+| Today News | `today-news-with-gpt` |
+| Weekly Review | `weekly-review-with-gpt` |
+| Life Brief | `life-brief-with-gpt` |
+
+Never print a handoff command, a `workflow_id`, or `Use $...` as user-facing
+text, and never make the user repeat the choice. `Nothing else` → acknowledge
+and stop.
 
 ---
 

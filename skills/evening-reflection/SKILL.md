@@ -10,6 +10,14 @@ description: >
 
   Run triggers: "reflect on my day", "characterize my day", "evening review",
   "wrap up my day", "what did I get done today". Also runs on schedule.
+
+  Environment: this is the Claude / Cowork variant — it renders `show_widget`
+  and `AskUserQuestion`. In ChatGPT Work, where every form is an inline
+  `ask_user_input` / `genui` surface and `show_widget` does not exist, use
+  `evening-reflection-with-gpt` instead.
+
+  Environment triggers: "Evening Reflection in Claude", "the Claude version",
+  "Claude Evening Reflection".
 allowed-tools: >
   mcp__xtiles__xtiles_get_current_user,
   mcp__xtiles__xtiles_get_user_timezone,

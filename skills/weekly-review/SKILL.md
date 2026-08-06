@@ -7,6 +7,14 @@ description: >
   Setup triggers: "set up weekly review", "run every Friday", "weekly summary".
   Run triggers: "run my weekly review", "what did I do this week",
   "weekly recap", "show me my week".
+
+  Environment: this is the Claude / Cowork variant — it renders `show_widget`
+  and `AskUserQuestion`. In ChatGPT Work, where every form is an inline
+  `ask_user_input` / `genui` surface and `show_widget` does not exist, use
+  `weekly-review-with-gpt` instead.
+
+  Environment triggers: "Weekly Review in Claude", "the Claude version",
+  "Claude Weekly Review".
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
