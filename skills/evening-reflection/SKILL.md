@@ -35,8 +35,8 @@ allowed-tools: >
   mcp__claude_ai_Slack__slack_read_thread,
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__get_thread,
-  mcp__session_info__list_sessions,
-  mcp__session_info__read_transcript,
+  recent_chats,
+  conversation_search,
   mcp__mcp-registry__suggest_connectors,
   AskUserQuestion,
   anthropic-skills:schedule,
@@ -55,9 +55,11 @@ tomorrow.
 1. **Survey first, write to xTiles last.** On setup and on the first manual run,
    nothing is created until the user has seen a preview and approved it. Only
    scheduled runs (with an approved config) act autonomously.
-2. **Real data, not placeholders.** Always pull from Claude's own chat history
-   (no connector needed) and from any connected tools before preview so the user
-   sees live content. Never invent names, meetings, or messages.
+2. **Real data, not placeholders.** Always pull from the user's own past Claude
+   chats via `recent_chats` (no connector needed) and from any connected tools
+   before preview so the user sees live content. Never invent names, meetings, or
+   messages — and never reconstruct the day from this session's context instead
+   of reading it.
 3. **Match the user's language** throughout the entire flow — match the language
    of the user's first message and adapt if they switch. On a **scheduled run**
    there is no user message: use the language of the scheduled-task config
@@ -112,6 +114,7 @@ status.
 
 | Connector | Identifying MCP tools                                                                                            |
 |-----------|-----------------------------------------------------------------------------------------------------------------|
+| **Claude (past chats)** | `recent_chats`, `conversation_search` — **not a connector**: present by default, nothing to connect, and never offered in a connect flow |
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`, `mcp__xtiles__xtiles_list_tasks`               |
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                       |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__get_thread`                                       |
@@ -206,12 +209,30 @@ Then pull from selected connectors:
 - **Calendar / meeting notes** *(if connected)*: today's events; separate
   meetings-with-others (attendees > 1) from solo work blocks.
 - **Claude chat history (today)** — **always run, no connector needed**: call
-  `mcp__session_info__list_sessions` to get today's sessions, then
-  `mcp__session_info__read_transcript` on the relevant ones. Extract concrete
+  `recent_chats` with `after` = today 00:00 and `before` = now, both ISO-8601 in
+  the user's timezone from `xtiles_get_user_timezone` (never UTC — an evening run
+  in a +2 zone would otherwise pull the wrong day), `sort_order: "desc"`, ~10
+  chats. Page back with `before` set to the oldest chat you got while the results
+  still fall inside today; stop at the first one that doesn't. Extract concrete
   *outcomes* — what was actually built, solved, decided, or shipped (e.g.
   "wrote the launch email", "fixed the auth bug", "researched competitors").
   Ignore abandoned or purely exploratory threads. These outcomes feed both the
   reflection and the auto-log.
+  - Use `conversation_search` only to close a specific gap — a thread that
+    clearly continues earlier work, or a task from the xTiles list you suspect
+    was finished in a chat and want to confirm before auto-logging it. One query
+    per gap, `max_results: 5`, and keep only hits from today. Never sweep the
+    archive.
+  - **Exclude this workflow's own chats** — the reflection run itself, the
+    morning `daily-brief` run, and any setup/survey conversation are machinery,
+    not outcomes. "Ran my evening reflection" is never an achievement.
+  - Keep each outcome's conversation URL as returned by the tool — it is what
+    lets the reflection link back to where the work happened. Never build a chat
+    URL by hand.
+  - **If `recent_chats` is unavailable or errors** — treat it exactly like a
+    failed connector below: drop the source, say so explicitly, and build the
+    reflection from xTiles tasks and the remaining connectors. Never fall back to
+    this session's own context, and never invent a day.
 
 Use only real data from connectors. If a connector call fails (error, timeout,
 401) — record the failure and surface it explicitly later as "Could not fetch
@@ -232,7 +253,7 @@ history — against the existing xTiles task list, and decide per activity:
   `mcp__xtiles__xtiles_create_tasks` and immediately mark it complete.
 - **Skip** — if a completed task for it already exists.
 
-Match generously on meaning, not exact wording (e.g. a Claude session "wrote the
+Match generously on meaning, not exact wording (e.g. a Claude chat "wrote the
 launch email" closes an open task "Draft launch email").
 
 **What counts as an activity** (derive categories from the data and the user's
@@ -361,7 +382,10 @@ between the title and the annotations):
 **Content formatting inside the tile:**
 - Separate each item with a blank line — never a continuous block.
 - Slack/email entries that have a URL are Markdown hyperlinks with the priority
-  emoji BEFORE the `[`, never inside the brackets.
+  emoji BEFORE the `[`, never inside the brackets. An outcome that came from a
+  chat follows the same rule, linked to the conversation URL `recent_chats`
+  returned — the chat title is the link text. If the tool returned no URL, write
+  the title as plain text; never fabricate a `claude.ai` link.
 - Tomorrow's actions as task blocks (`- [ ] Task name`), one empty line between
   each — never a numbered list.
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.

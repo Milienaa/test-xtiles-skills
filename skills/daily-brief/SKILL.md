@@ -44,8 +44,8 @@ allowed-tools: >
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
   mcp__claude_ai_Linear__list_issues,
-  mcp__session_info__list_sessions,
-  mcp__session_info__read_transcript,
+  recent_chats,
+  conversation_search,
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks
@@ -86,12 +86,12 @@ If the request is general — run the full flow.
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
 **Connected tools** (multi select, show all regardless of what's actually detected):
-- Claude — this chat itself, **pre-selected by default**
+- Claude — your own past chats, read with `recent_chats`, **pre-selected by default**
 - Slack
 - Gmail
 - Other — a free-text field where the user names any connector that isn't on the cards
 
-**Claude is a source, not just the thing reading the sources — and it is on by default.** The user's own chats already hold real signal: what they asked for yesterday, what they said they'd do, what was decided, what was left half-finished. Pre-select the Claude card in the widget (`class="card sel"`) and keep `Claude` in the initial `tools` set, so it is selected even if the user never clicks it. The user can deselect it like any other source. It needs **no connector and no auth** — which makes it the one source that always works: on a free plan with nothing connected, a Claude-only digest is still a real digest, not an empty page.
+**Claude is a source, not just the thing reading the sources — and it is on by default.** The user's own past chats already hold real signal: what they asked for yesterday, what they said they'd do, what was decided, what was left half-finished. It is *their chat history* that is the source — read through `recent_chats` — not the conversation this run happens to be in; never mine the current session's context as a stand-in. Pre-select the Claude card in the widget (`class="card sel"`) and keep `Claude` in the initial `tools` set, so it is selected even if the user never clicks it. The user can deselect it like any other source. It needs **no connector and no auth** — which makes it the one source that always works: on a free plan with nothing connected, a Claude-only digest is still a real digest, not an empty page.
 
 **The "add your own connector" field is mandatory and must never disappear.** When you regenerate the survey HTML to apply pre-selections, keep the `➕ Don't see your tool? Add your own connector` block (`#other-tool` input + `previewCustom()` + `readCustom()`) exactly as written — pre-selection only ever adds ` sel` to card classes, it never removes markup. The catalog is finite and the user's stack is not; this field is the only way someone can bring in a tool we don't ship a card for, and losing it is a setup failure, not a cosmetic one. Same in Claude Code (no widget): after listing the tool cards inline, always ask explicitly — "Any other tool you want me to pull from? Name it and I'll connect it."
 
@@ -105,7 +105,7 @@ This table is the authoritative, static list of tools this skill supports. It is
 
 | Connector | Identifying MCP tools | Contributes |
 |-----------|-----------------------|-------------|
-| **Claude (this chat)** | `mcp__session_info__list_sessions`, `mcp__session_info__read_transcript` | **Default-on, no connector needed** — from yesterday's chats: unfinished threads, open questions & decisions |
+| **Claude (past chats)** | `recent_chats`, `conversation_search` | **Default-on, no connector needed** — from yesterday's chats: unfinished threads, open questions & decisions |
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel` | Channel signals, mentions, action points |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread` | Unread emails, newsletters, per-topic tiles |
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` | The Daily page itself (required) |
@@ -253,14 +253,17 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Claude chats (yesterday)** — **runs by default, no connector needed**: call `mcp__session_info__list_sessions` for sessions since the previous digest (fall back to the last 24 h), then `mcp__session_info__read_transcript` on the ones that look substantive. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
+- **Claude chats (yesterday)** — **runs by default, no connector needed**: read the user's own past conversations with `recent_chats`. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
+  - **The window.** Call `recent_chats` with `after` set to the previous digest's timestamp (fall back to 24 h ago), `before` set to now, and `sort_order: "desc"`. Both are ISO-8601 in the user's timezone from `xtiles_get_user_timezone` — never in UTC, or a late-evening chat lands on the wrong day. Ask for ~10 chats; if every returned chat sits at the edge of the window, page further back with `before` set to the oldest one you got. Stop as soon as a chat falls outside the window — this is a morning brief, not an archive sweep.
+  - **Then go deeper only where it pays.** `recent_chats` returns the conversations themselves — read what comes back and stop there for most of them. Reach for `conversation_search` in exactly two cases: a thread ends mid-task and clearly continues an earlier one (search its topic to find where the commitment was actually made), or the user's config carries **important keywords** from `digest-tuning` (run one search per keyword, `max_results: 5`, and keep only hits inside the window). Never search speculatively — one query per real gap.
   - **Unfinished threads** — work started and not finished ("we drafted half the launch email"), or a next step the user named but hasn't done yet ("I'll send this to Stefan tomorrow").
   - **Unanswered questions** — something the user asked or was asked in chat that never got resolved.
   - **Decisions worth acting on** — a conclusion reached in chat that implies a concrete step today.
   - Each item is one line, Poke-style and second person, same tone as the 🔴 email bucket: what was left open + what it needs now. Derive one verb-first action item per unfinished thread.
-  - **Exclude the digest's own sessions** — any session whose content is this skill running (setup, survey, digest writes) is machinery, not signal. Never let the brief report on itself.
+  - **Link back to the chat.** Every item carries the conversation URL returned by the tool, on the item's own title — so the user can reopen the thread and pick up where they left off. Use only URLs that actually came back from `recent_chats` / `conversation_search`; never assemble a chat link by hand. Where a chat has no URL, name it by its title instead.
+  - **Exclude the digest's own chats** — any conversation whose content is this skill running (setup, survey, digest writes) is machinery, not signal. They are usually the most recent chats in the window and the easiest to mistake for work. Never let the brief report on itself. Same for `evening-reflection` runs — yesterday's reflection is already on yesterday's page.
   - Ignore purely exploratory or abandoned threads, and anything already closed by an xTiles task.
-  - **If the `mcp__session_info__*` tools are unavailable in this environment** — drop this source for the run: no tile, and on a scheduled run no message. On a manual run, note it once in the preview ("Couldn't read chat history in this environment"). Never fabricate chat content.
+  - **If `recent_chats` is unavailable in this environment, errors, or returns nothing in the window** — drop this source for the run: no tile, and on a scheduled run no message. On a manual run, note it once in the preview ("Couldn't read chat history in this environment"). Never fabricate chat content, and never substitute this session's own context for it.
 - **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
 - **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
 - **Slack**: two parallel reads:
@@ -349,9 +352,9 @@ Here's what I've prepared:
 **[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})** — one-line summary.
 
 ### 🤖 Claude — From our chats
-- [What you left open yesterday + what it needs today — 1 sentence, second person]
+- [What you left open yesterday + what it needs today — 1 sentence, second person] — [chat title](conversation URL from recent_chats)
 
-- [Next unfinished thread, same format]
+- [Next unfinished thread, same format] — [chat title](conversation URL from recent_chats)
 
 **Tasks**
 
@@ -524,7 +527,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Blank line between entries.
   - The link IS the title — no separate "Open" button or link at the bottom of each entry, and never the title alone on its own line.
   - Omit the entire tile only if there are no unread newsletters at all.
-- **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Below them a `**Tasks**` block with one `<task>` per item (see **Action items are real tasks** above). **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure. Never link to a chat session; these items carry no URL.
+- **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Each line ends with the chat link in the shape `— [<chat title>](<conversation URL from the tool>)`, so the user can jump back into the thread; use only URLs returned by `recent_chats` / `conversation_search`, and where one is missing write the chat title in plain bold instead of a broken link. Below them a `**Tasks**` block with one `<task>` per item (see **Action items are real tasks** above). **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure.
 - **Slack**: split into **exactly three tiles** — `### 📌 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
   - `### 📌 Slack — Action Points` — the actionable subset: one line per ⚡-flagged mention: `- [Poke-style one-liner of what's being asked] — [#channel](message_permalink)`. Below that, a `**Tasks**` block with one `<task>` per item (e.g. `<task>Reply to Maria in #product</task>`) — see **Action items are real tasks** above. **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
   - `### ⚡ Slack — Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed. **Omit tile entirely if no mentions.**
