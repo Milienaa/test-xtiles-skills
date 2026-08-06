@@ -1,18 +1,27 @@
 ---
 name: today-news-with-gpt
 description: >
-  Build, run, or automate a live topic-based news digest in ChatGPT Work and
-  save it to the user's personal xTiles Daily planner — one `Today's News` tile
-  and, only when asked, one separate `Rumors & Leaks` tile. Every user decision
-  is collected through inline `ask_user_input` interactive forms; every story
-  comes from a live search with a working source link; nothing is written
-  without approval on a manual run.
+  ChatGPT Work version of xTiles Today News — use this variant in ChatGPT; in
+  Claude use `today-news` instead.
 
-  Triggers: "today's news", "morning news", "latest on <topic>", "news digest",
-  "monitor this company", "set up Today News", "run today-news-with-gpt",
-  "Set workflow of Today News (today-news-with-gpt) on xTiles MCP".
+  Generate a fresh topic-based news digest from the live web and save it to
+  today's personal xTiles Daily page, plus an optional separate tile for
+  clearly-labelled rumors and leaks. Use when the user asks for news, wants
+  updates on a subject, or wants to track a company, market or technology every
+  morning.
 
-  Only the Daily period is supported.
+  Detect the surface, not the request: inline `ask_user_input` / `genui` forms
+  mean ChatGPT Work — this variant. `show_widget` or `AskUserQuestion` mean
+  Claude / Cowork — use `today-news` instead.
+
+  Environment triggers: "Today News for GPT", "Today News in ChatGPT",
+  "the GPT version".
+
+  Triggers: "morning news", "today's news", "what's happening in AI today",
+  "latest on <topic>", "set up daily news", "run today-news-with-gpt".
+
+  Stories always come from a live search, never from memory. For a digest of the
+  user's own work signals use `daily-brief-with-gpt`.
 ---
 
 # xTiles Today News — GPT
@@ -315,18 +324,29 @@ and the layout requirement. **Never create a duplicate automation.**
 
 ## Stage 8 — Related
 
+Offer the other four workflows, each with a one-line description of what it
+does — never a bare list of names:
+
 ```
 genui{"ask_user_input":{"questions":[
-  {"question":"Want to set up anything else on xTiles?","options":["Daily Brief","Evening Reflection","Weekly Review","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
+  {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📊 Weekly Review — what actually moved forward this week","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
 ]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call
 `xtiles_get_workflow` with the matching id and continue from its first
-applicable stage — `daily-brief-with-gpt`, `evening-reflection-with-gpt`,
-`weekly-review-with-gpt`. Never print a handoff command, a `workflow_id`, or
-`Use $...` as user-facing text, and never make the user repeat the choice.
-`Nothing else` → acknowledge and stop.
+applicable stage:
+
+| Option | Workflow id |
+| --- | --- |
+| Daily Brief | `daily-brief-with-gpt` |
+| Evening Reflection | `evening-reflection-with-gpt` |
+| Weekly Review | `weekly-review-with-gpt` |
+| Life Brief | `life-brief-with-gpt` |
+
+Never print a handoff command, a `workflow_id`, or `Use $...` as user-facing
+text, and never make the user repeat the choice. `Nothing else` → acknowledge
+and stop.
 
 ---
 

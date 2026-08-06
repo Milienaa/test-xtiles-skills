@@ -21,6 +21,14 @@ description: >
   and weekly-recap tiles, plus all the config fields they build up) lives in the
   shared digest-tuning sub-workflow — invoked via xtiles_get_workflow("digest-tuning")
   in steps 4 and 7, never reimplemented here.
+
+  Environment: this is the Claude / Cowork variant — it renders `show_widget`
+  and `AskUserQuestion`. In ChatGPT Work, where every form is an inline
+  `ask_user_input` / `genui` surface and `show_widget` does not exist, use
+  `daily-brief-with-gpt` instead.
+
+  Environment triggers: "Daily Brief in Claude", "the Claude version",
+  "Claude Daily Brief".
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,

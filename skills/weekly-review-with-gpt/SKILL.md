@@ -1,17 +1,28 @@
 ---
 name: weekly-review-with-gpt
 description: >
-  Build, run, or automate an xTiles Weekly Review in ChatGPT Work — turn
-  Monday-through-today activity from the personal Daily and Weekly planner
-  pages plus explicitly selected work sources into three tiles on the personal
-  Weekly page: `Week recap`, `Activities`, `Next week`. Every user decision is
-  collected through inline `ask_user_input` interactive forms; data is always
-  real; nothing is written or shared without approval on a manual run.
+  ChatGPT Work version of the xTiles Weekly Review — use this variant in
+  ChatGPT; in Claude use `weekly-review` instead.
 
-  Triggers: "weekly review", "what moved forward this week", "review my goals",
-  "weekly recap to xTiles", "share my weekly update to Slack",
-  "set up a Friday review", "run weekly-review-with-gpt",
-  "Set workflow of Weekly Review (weekly-review-with-gpt) on xTiles MCP".
+  Review the current week — Monday through now — from the personal Daily and
+  Weekly planner pages plus selected work sources, assess progress against any
+  Goals or Milestones on the Weekly page, and write three tiles (Week recap,
+  Activities, Next week) to the personal Weekly planner. Can also share an
+  approved summary to a Slack channel. Use when the user wants to see what
+  moved forward this week or set up a recurring Friday review.
+
+  Detect the surface, not the request: inline `ask_user_input` / `genui` forms
+  mean ChatGPT Work — this variant. `show_widget` or `AskUserQuestion` mean
+  Claude / Cowork — use `weekly-review` instead.
+
+  Environment triggers: "Weekly Review for GPT", "Weekly Review in ChatGPT",
+  "the GPT version".
+
+  Triggers: "weekly review", "what did I do this week", "weekly recap",
+  "review my goals", "run it every Friday", "run weekly-review-with-gpt".
+
+  Writes to the Weekly period. For a single day use `daily-brief-with-gpt` or
+  `evening-reflection-with-gpt`.
 ---
 
 # xTiles Weekly Review — GPT
@@ -363,18 +374,29 @@ Call the Slack send tool only after `Send`.
 
 ## Stage 10 — Related
 
+Offer the other four workflows, each with a one-line description of what it
+does — never a bare list of names:
+
 ```
 genui{"ask_user_input":{"questions":[
-  {"question":"Want to set up anything else on xTiles?","options":["Daily Brief","Evening Reflection","Today News","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
+  {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
 ]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call
 `xtiles_get_workflow` with the matching id and continue from its first
-applicable stage — `daily-brief-with-gpt`, `evening-reflection-with-gpt`,
-`today-news-with-gpt`. Never print a handoff command, a `workflow_id`, or
-`Use $...` as user-facing text, and never make the user repeat the choice.
-`Nothing else` → acknowledge and stop.
+applicable stage:
+
+| Option | Workflow id |
+| --- | --- |
+| Daily Brief | `daily-brief-with-gpt` |
+| Evening Reflection | `evening-reflection-with-gpt` |
+| Today News | `today-news-with-gpt` |
+| Life Brief | `life-brief-with-gpt` |
+
+Never print a handoff command, a `workflow_id`, or `Use $...` as user-facing
+text, and never make the user repeat the choice. `Nothing else` → acknowledge
+and stop.
 
 ---
 

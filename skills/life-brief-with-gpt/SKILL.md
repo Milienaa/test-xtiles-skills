@@ -1,20 +1,28 @@
 ---
 name: life-brief-with-gpt
 description: >
-  Produce a personal Daily Life Brief, Weekly Reset, or both in ChatGPT Work —
-  a chief-of-staff synthesis of what is actually live in the user's life, built
-  from recent conversations, operational data (calendar, tasks, mail,
-  bookings), stable long-term facts, and fresh web information only when
-  freshness is genuinely required — then publish the approved result to the
-  user's xTiles planner. Every decision (mode, missing context, whether and
-  where to publish, whether to make it recurring) is collected through inline
-  `ask_user_input` interactive forms. Nothing is invented and nothing is
-  published without confirmation.
+  ChatGPT Work workflow — the personal counterpart to the work-tool briefs.
+
+  Produce a personal Daily Life Brief, a Weekly Reset, or both: a
+  chief-of-staff synthesis of what is actually live in the user's life — active
+  plans, unfinished intentions, promises, dated commitments, open loops — then
+  publish the approved result to their xTiles planner. Use when the user wants
+  personal rather than work-tool priorities: what matters today, what they left
+  hanging, what is coming over the next seven days.
+
+  Detect the surface, not the request: inline `ask_user_input` / `genui` forms
+  mean ChatGPT Work — this variant. `show_widget` or `AskUserQuestion` mean
+  Claude / Cowork — this workflow has no Claude twin, so say so plainly
+  rather than falling back to a different workflow.
+
+  Environment triggers: "Life Brief for GPT", "Life Brief in ChatGPT",
+  "the GPT version".
 
   Triggers: "life brief", "daily personal briefing", "weekly life reset",
-  "open-loop review", "what's on my plate", "personal priorities in xTiles",
-  "run life-brief-with-gpt",
-  "Set workflow of Life Brief (life-brief-with-gpt) on xTiles MCP".
+  "open-loop review", "what's on my plate", "run life-brief-with-gpt".
+
+  Covers personal life across conversations, calendar and commitments. For a
+  digest built from connected work tools use `daily-brief-with-gpt`.
 ---
 
 # Personal Life Brief — GPT
@@ -38,8 +46,9 @@ about unfinished things.
 4. **Never publish silently on a manual run.** Read the target page first, then
    publish only what the user confirmed — and never an empty tile, page, or
    task.
-5. **Every publish ends with a link, and then the recurrence offer.** A manual
-   run is not finished until both have been shown.
+5. **Every publish ends with a link, then the recurrence offer, then the
+   related-workflow offer.** A manual run is not finished until all three have
+   been shown.
 
 Match the language of the user's latest message — translate every question,
 option, label and heading. Headings in this file are English placeholders.
@@ -86,7 +95,7 @@ genui{"ask_user_input":{"questions":[ … ]}}
 
 The chain: **Mode → context gap (only if genuinely needed) → gather → brief →
 Publish → destination (if needed) → write + layout + verify → CTA →
-Recurrence**.
+Recurrence → Related**.
 
 ---
 
@@ -371,6 +380,34 @@ workflow in the chosen mode, end with `Run mode: DAILY` (or `WEEKLY`) for the
 run's date, and instruct a silent run: skip all forms, produce the brief,
 publish it to the planner. **Never create a duplicate automation.** Confirm the
 scheduled time and timezone in one line; if declined, acknowledge briefly.
+
+---
+
+## Stage 8 — Related
+
+Offer the other four workflows, each with a one-line description of what it
+does — never a bare list of names:
+
+```
+genui{"ask_user_input":{"questions":[
+  {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
+]}}
+```
+
+Treat the selection as a direct invocation: **in the same turn**, call
+`xtiles_get_workflow` with the matching id and continue from its first
+applicable stage:
+
+| Option | Workflow id |
+| --- | --- |
+| Daily Brief | `daily-brief-with-gpt` |
+| Evening Reflection | `evening-reflection-with-gpt` |
+| Today News | `today-news-with-gpt` |
+| Weekly Review | `weekly-review-with-gpt` |
+
+Never print a handoff command, a `workflow_id`, or `Use $...` as user-facing
+text, and never make the user repeat the choice. `Nothing else` → acknowledge
+and stop.
 
 ---
 
