@@ -17,11 +17,6 @@ description: >
   For manual runs: look for config in today's Planner; if there's none, start
   from the survey flow below.
 
-  The self-tuning feedback cycle (the "Tune your digest", "Important keywords",
-  and weekly-recap tiles, plus all the config fields they build up) lives in the
-  shared digest-tuning sub-workflow — invoked via xtiles_get_workflow("digest-tuning")
-  in steps 4 and 7, never reimplemented here.
-
   Environment: this is the Claude / Cowork variant — it renders `show_widget`
   and `AskUserQuestion`. In ChatGPT Work, where every form is an inline
   `ask_user_input` / `genui` surface and `show_widget` does not exist, use
@@ -249,13 +244,11 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
-**4.0 Read & apply yesterday's feedback — hand off to the `digest-tuning` workflow.** Before fetching today's data, invoke `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its **Stage A**. Pass it the current config, yesterday's & today's dates + today's ISO week (from `xtiles_get_user_timezone`), and `is_first_ever` (true only when the config has no tuning fields AND yesterday's page has no `### 🎛️ Tune your digest` tile). It reads yesterday's page, applies the ticked feedback/keyword checkboxes, and returns the **patched config**, the **applied-changes list**, and **yesterday's content tiles** — carry all three to step 7. All tuning logic and config-field semantics live in `digest-tuning`; they are intentionally not duplicated here.
-
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
 - **Claude chats (yesterday)** — **runs by default, no connector needed**: read the user's own past conversations with `recent_chats`. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
   - **The window.** Call `recent_chats` with `after` set to the previous digest's timestamp (fall back to 24 h ago), `before` set to now, and `sort_order: "desc"`. Both are ISO-8601 in the user's timezone from `xtiles_get_user_timezone` — never in UTC, or a late-evening chat lands on the wrong day. Ask for ~10 chats; if every returned chat sits at the edge of the window, page further back with `before` set to the oldest one you got. Stop as soon as a chat falls outside the window — this is a morning brief, not an archive sweep.
-  - **Then go deeper only where it pays.** `recent_chats` returns the conversations themselves — read what comes back and stop there for most of them. Reach for `conversation_search` in exactly two cases: a thread ends mid-task and clearly continues an earlier one (search its topic to find where the commitment was actually made), or the user's config carries **important keywords** from `digest-tuning` (run one search per keyword, `max_results: 5`, and keep only hits inside the window). Never search speculatively — one query per real gap.
+  - **Then go deeper only where it pays.** `recent_chats` returns the conversations themselves — read what comes back and stop there for most of them. Reach for `conversation_search` in exactly one case: a thread ends mid-task and clearly continues an earlier one — search its topic to find where the commitment was actually made, `max_results: 5`, keeping only hits inside the window. Never search speculatively — one query per real gap.
   - **Unfinished threads** — work started and not finished ("we drafted half the launch email"), or a next step the user named but hasn't done yet ("I'll send this to Stefan tomorrow").
   - **Unanswered questions** — something the user asked or was asked in chat that never got resolved.
   - **Decisions worth acting on** — a conclusion reached in chat that implies a concrete step today.
@@ -415,7 +408,6 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- Include the digest-tuning meta tiles in the preview too — compose them by following digest-tuning Stage B, which defines which tiles appear and their order. Don't fabricate them here.
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -439,7 +431,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Write all sections in a single call.** Combine all selected connectors (Gmail, Slack, etc.) into one markdown and call the tool once — never split into separate calls per connector.
 
-**Compose the self-tuning meta tiles — hand off to the `digest-tuning` workflow.** Before the write, invoke `mcp__xtiles__xtiles_get_workflow` with id `digest-tuning` and follow its **Stage B**, passing the patched config, today's composed content tiles, yesterday's content tiles (from step 4.0), the dates/ISO week, and the applied-changes list. It returns the markdown for the meta tiles it emits (📈 recap → 🔑 keywords → 🎛️ Tune your digest) plus config patches to persist. **Append those tiles to this same single write** (manual runs compose them at preview time in step 5 and reuse here). The `### 🎛️ Tune your digest` tile must end up in the write — if the `digest-tuning` call didn't return it, treat that as a failed run and fix the invocation; never ship the digest without it.
+**Write content tiles only.** The digest is exactly what the user approved in the preview — no meta, feedback, or self-tuning tiles are composed or appended.
 
 **Do NOT create a date/header tile.** Never write `### [date]` or any title-only tile as the first item — start directly with content tiles.
 
@@ -470,7 +462,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 <task priority="high" dueDate="2026-08-10">Sign the contract</task>
 ```
 
-- **Never `- [ ]` for action items.** Plain `- [ ]` checkboxes stay reserved for checklists that are not tasks — e.g. the feedback checkboxes the `digest-tuning` workflow owns. Never convert those into `<task>`: ticking them is a signal to this skill, not work the user has to do.
+- **Never `- [ ]` for action items.** Plain `- [ ]` checkboxes stay reserved for checklists that are not tasks — if such a checklist ever appears on the page, never convert it into `<task>`.
 - **One `<task>` per line, blank line between each.** A `<task>` must never be nested inside a list item (`- <task>…</task>` does not parse) and never carries a link.
 - **`dueDate="YYYY-MM-DD"` — only when the source states a real deadline** ("by Friday", "before the 10th", "appeal window closes Tuesday"). Resolve relative wording against the user's timezone from `xtiles_get_user_timezone`. Never derive it from when the email was sent or the message posted, and never estimate one — the task already sits on today's page.
 - **`priority` — only when the source itself signals it.** `high` for a hard deadline inside 24 h, a blocker, an explicitly urgent ask, or something with a real cost of missing it (suspended account, expiring window); `medium` when it matters but nothing forces it today; omit otherwise. Do not stamp `high` on everything just because it came from the 🔴 bucket — if every task is high, the field carries no information. As a sanity cap: at most a third of a morning's tasks should be `high`.
@@ -572,7 +564,6 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - All ⚠️ anomalies collected at the bottom, one per line
   - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
   - Omit tile entirely if Calendar returned no events
-- **Meta tiles — 📈 Digest tuning this week · 🔑 Important keywords · 🎛️ Tune your digest** — their markdown, checkbox formats, and rules live in the `digest-tuning` workflow (see step 7's compose hand-off). Append exactly what it returns; do not redefine them here.
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
@@ -610,7 +601,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
     ```
     Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. Once digest-tuning starts producing config patches, append whichever of its fields (`pinned_topics`, `trial_topics`, `detail_sections`, `secondary_channels`, `digest_format`, `tone_style`, `signal_trail`, `question_history`, `highlighted_keywords`, `keyword_cooldown`, `tuning_log`, `last_recap`) are non-empty to this same string when re-creating the scheduled task — this is how those fields persist across runs. Use `;` to separate multiple entries within a single field (names may contain commas).
+    Replace `{role}`, `{tools}`, `{content}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response. Do not leave placeholders. Use `;` to separate multiple entries within a single field (names may contain commas).
   - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
@@ -1030,5 +1021,5 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch. All bucket labels, block titles, link texts, and action items in this file are English placeholders — render them in the user's language, and never carry over a language from an example
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
-- The "Tune your digest", "Important keywords", and weekly-recap tiles are owned by the shared **digest-tuning** sub-workflow — invoke it (steps 4.0 and 7), never hand-roll those tiles, their order/placement, or their config logic here. They're written to xTiles as part of the digest's single write, never a chat widget.
+- **No self-tuning cycle.** The digest writes content tiles only — never a "Tune your digest", "Important keywords", or weekly-recap tile, and never a feedback checkbox. Do not invoke the `digest-tuning` workflow and do not hand-roll its tiles here.
  

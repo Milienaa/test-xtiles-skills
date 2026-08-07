@@ -5,7 +5,8 @@ description: >
   Claude use `today-news` instead.
 
   Generate a fresh topic-based news digest from the live web and save it to
-  today's personal xTiles Daily page, plus an optional separate tile for
+  today's personal xTiles Daily page — one tile for a small digest, a tile per
+  topic once there is enough content — plus an optional separate tile for
   clearly-labelled rumors and leaks. Use when the user asks for news, wants
   updates on a subject, or wants to track a company, market or technology every
   morning.
@@ -27,8 +28,10 @@ description: >
 # xTiles Today News — GPT
 
 Build a fresh, source-linked digest from the **live web** and add it to today's
-personal Daily page. One `### 📰 Today's News` tile, plus one
-`### 🕵️ Rumors & Leaks` tile only when the user explicitly enabled rumors.
+personal Daily page. A small digest is one `### 📰 Today's News` tile; once
+there is enough content it becomes **one tile per topic** (see the split rule in
+Stage 4). Rumors, when explicitly enabled, are always exactly one
+`### 🕵️ Rumors & Leaks` tile — never split, never mixed into a news tile.
 
 ## Five principles
 
@@ -48,7 +51,9 @@ personal Daily page. One `### 📰 Today's News` tile, plus one
    re-read the Daily to confirm the tiles exist, and end with an openable link.
 
 Match the language of the user's latest message — translate every question,
-option, summary and label. **Keep the two H3 tile titles stable in English.**
+option, summary and label. **Keep the fixed H3 tile titles stable in English** —
+`📰 Today's News` and `🕵️ Rumors & Leaks`. A per-topic tile title carries the
+user's own topic wording **verbatim**, in whatever language they typed it.
 
 ---
 
@@ -171,7 +176,8 @@ when plausible. **Never mix rumors into the News tile.**
 
 ### Cross-day deduplication
 
-Read yesterday's Daily and collect the URLs already in `Today's News` and
+Read yesterday's Daily and collect the URLs from every news tile there — the
+single `Today's News` tile or any per-topic `📰` tiles — plus
 `Rumors & Leaks`. Drop an identical URL from today's result, and drop the same
 event under a different URL unless there is a substantive new development — when
 it is an update, **state what changed**.
@@ -183,7 +189,25 @@ error into "No news."**
 
 ## Stage 4 — Build the digest
 
-All verified reporting goes into **one** tile:
+### One tile or one per topic — decide before previewing
+
+Count the topics that actually produced at least one qualifying story, and the
+total number of stories.
+
+- **Single tile.** Two or fewer topics with stories, **or** four or fewer
+  stories in total → everything goes into one `### 📰 Today's News` tile, topics
+  as bold subheaders inside it.
+- **Split by topic.** Three or more topics with stories **and** five or more
+  stories in total → **one tile per topic**, titled `### 📰 [Topic]` with the
+  user's own topic wording. Never split a single topic across two tiles, and
+  never give a topic with one story its own tile — fold a lone story into the
+  nearest related topic tile, or keep the digest in single-tile mode.
+- Topics with **no story** or a **failed search** never get their own tile.
+  They are reported as one short line at the end of the last news tile, so the
+  user still sees what was covered.
+- Never split to look fuller. A quiet news day stays one tile.
+
+**Single-tile shape:**
 
 ```markdown
 ### 📰 Today's News
@@ -197,15 +221,39 @@ All verified reporting goes into **one** tile:
 [Two- or three-sentence factual summary]
 ```
 
-- Group stories by topic; two or three high-signal stories per topic.
+**Split shape — one tile per topic, in the order the topics were configured:**
+
+```markdown
+### 📰 [Topic]
+@colorSize: LIGHTER
+@color: CUMULUS
+
+**[Headline — Source](URL)** ✅
+
+[Two- or three-sentence factual summary]
+
+### 📰 [Next topic]
+@colorSize: LIGHTER
+@color: SELAGO
+
+**[Headline — Source](URL)** ✅
+
+[Two- or three-sentence factual summary]
+
+⚠️ No meaningful news found for [quiet topic]; could not fetch [failed topic] — web search error.
+```
+
+- Two or three high-signal stories per topic, in both shapes.
 - Omit the verification badges under `Standard source check` — normal source
   quality still applies.
 - A topic with no qualifying story after a **successful** search:
   `No meaningful news found in the last 24 hours.`
 - A topic whose search **failed**:
   `Could not fetch current news for this topic — web search error.`
+  The two are never conflated, in either shape.
 
-When rumors are enabled, add **exactly one** more tile:
+When rumors are enabled, add **exactly one** more tile — regardless of how many
+news tiles there are:
 
 ```markdown
 ### 🕵️ Rumors & Leaks
@@ -225,9 +273,10 @@ Formatting rules: colour annotations sit immediately under the heading with no
 blank line; `@colorSize` is always `LIGHTER` and `@color` comes from `GHOST,
 CUMULUS, GOSSIP, COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE,
 PATTENS_BLUE, SAIL, ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER,
-WHITE_LINEN, POLAR` — never a semantic name. Labelled Markdown links only,
-never a bare URL. Blank line between every item. **No date-only or title-only
-tile.**
+WHITE_LINEN, POLAR` — never a semantic name, and never the same colour on two
+adjacent tiles. Labelled Markdown links only, never a bare URL. Blank line
+between every item. **No date-only or title-only tile, and never an empty
+tile** — a topic tile exists only because it has stories in it.
 
 ---
 
@@ -238,6 +287,7 @@ approval form state:
 
 - the exact search window (and that it was widened to 48 h, if it was);
 - the verification mode and whether rumors are included;
+- how many tiles will be written and what they are titled;
 - the connected xTiles account name and email;
 - the destination — today's personal Daily planner.
 
@@ -250,8 +300,11 @@ genui{"ask_user_input":{"questions":[
 `Change something` → collect the correction in a form, revise **only** that
 part, re-show the full preview, ask again. `Cancel` → stop without writing.
 
-**Existing digest.** Before writing, read today's Daily and compare the intended
-H3 titles. If they are all already there:
+**Existing digest.** Before writing, read today's Daily and look for any `📰`
+news tile — `Today's News` or a per-topic one — and the `🕵️ Rumors & Leaks`
+tile. Match on the tiles that are there, not on the shape you happen to be
+writing today: a digest written as one tile yesterday and split today is still
+the same digest. If today's news is already on the page:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -259,29 +312,33 @@ genui{"ask_user_input":{"questions":[
 ]}}
 ```
 
-Replace only through a safe exact content-update capability; otherwise offer
-Append or Cancel. On a scheduled run, do nothing when all intended tiles already
-exist.
+Replace only through a safe exact content-update capability, and replace the
+**whole digest** — every existing news tile plus the rumors tile — so no tile
+from the previous shape is left orphaned on the page. Otherwise offer Append or
+Cancel. On a scheduled run, do nothing when the digest is already there.
 
 ---
 
 ## Stage 6 — Write, layout, verify
 
 1. Call `xtiles_create_tiles_from_markdown_in_my_planner` with `period: "day"`,
-   `date`: today's local ISO date, `markdown`: News plus optional Rumors in
-   **one** payload. Inspect the schema first — it must accept `date`, `period`,
-   `markdown` without a project or view ID. If it demands one, do not call it
-   and do not fall back to project creation.
+   `date`: today's local ISO date, `markdown`: every approved tile — the single
+   news tile or all per-topic tiles, plus optional Rumors — in **one** payload,
+   in the previewed order. One call regardless of tile count; never one call per
+   tile. Inspect the schema first — it must accept `date`, `period`, `markdown`
+   without a project or view ID. If it demands one, do not call it and do not
+   fall back to project creation.
 2. **Layout pass — immediate, silent, never asked about.** Take `view_id` and
    the ordered `tile_ids` from the write response (never re-derive them), call
    `xtiles_get_workflow` with id `tile-layout` and follow it, passing those
    tiles as the added tiles and the markdown just written as their content.
-   Hints: a heavy `Today's News` gets its own full-width row; if both tiles are
-   light, one equal-width row of two; otherwise `Rumors & Leaks` also takes a
-   full-width row. Preserve content order.
-3. **Verify** — re-read today's Daily and confirm every intended title. Retry
-   the write **once** only if the write reported success but none of the titles
-   appear.
+   Hints: a heavy tile gets its own full-width row; lighter per-topic tiles go
+   two per row; a single `Today's News` tile is normally full-width, and if it
+   and `Rumors & Leaks` are both light they can share one equal-width row.
+   Preserve content order.
+3. **Verify** — re-read today's Daily and confirm every intended title, all of
+   them, not just the first. Retry the write **once** only if the write reported
+   success but none of the titles appear.
 
 ---
 
@@ -318,7 +375,8 @@ with `timing_mode: exact_schedule`, a VEVENT `DTSTART` and the matching RRULE.
 Its prompt must invoke this workflow and embed a complete `today-news config:`
 JSON block — topics, language, verification mode, rumors flag, personal-Daily
 target, the silent-run instruction, the 24-hour window, cross-day deduplication,
-and the layout requirement. **Never create a duplicate automation.**
+the single-tile / per-topic split rule, and the layout requirement. **Never
+create a duplicate automation.**
 
 ---
 
