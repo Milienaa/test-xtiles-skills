@@ -6,9 +6,10 @@ description: >
 
   Close out the day: synthesize what actually happened from today's planner,
   tasks and connected sources, optionally log completed work as xTiles tasks,
-  and write one "Day Characteristic" tile to today's personal Daily planner.
-  Use when the user wants to reflect on the day, record what got done, or set up
-  a recurring evening review.
+  and write a "Day Characteristic" reflection to today's personal Daily planner —
+  one tile on a quiet day, several when the day has enough content. Use when the
+  user wants to reflect on the day, record what got done, or set up a recurring
+  evening review.
 
   Detect the surface, not the request: inline `ask_user_input` / `genui` forms
   mean ChatGPT Work — this variant. `show_widget` or `AskUserQuestion` mean
@@ -29,10 +30,11 @@ description: >
 # xTiles Evening Reflection — GPT
 
 Synthesize what actually happened today, reconcile completed work with xTiles
-tasks when the user allows it, and add **one** `Day Characteristic` tile to
-today's personal Daily planner. **Period is always Daily** — if asked for a
-weekly or monthly reflection, say plainly that only Daily is supported rather
-than silently downscaling.
+tasks when the user allows it, and add the `Day Characteristic` reflection to
+today's personal Daily planner — **one tile on a quiet day, several tiles once
+there is enough content** (see the split rule in Stage 7). **Period is always
+Daily** — if asked for a weekly or monthly reflection, say plainly that only
+Daily is supported rather than silently downscaling.
 
 ## Five principles
 
@@ -263,7 +265,27 @@ from pure operations. Surface promises and follow-ups. Apply the chosen tone
 honestly — **do not inflate a quiet day**. Keep optional sections only when they
 carry real value.
 
-Preview this exact structure, filled with real content:
+### Compact or split — decide before previewing
+
+Count the real bullet items across `Results`, `Opportunities` and `Tomorrow`.
+
+- **Compact — one tile.** Fewer than six items in total **and** no single
+  section with four or more. A quiet day stays one tile; never inflate content
+  to reach the split.
+- **Split — one tile per section.** Six or more items in total, **or** any
+  single section with four or more. `Day Characteristic` keeps the summary
+  sentences and becomes its own tile; each remaining section becomes a sibling
+  tile.
+- A section with fewer than two items **never** becomes its own tile — it stays
+  a bold subheader inside `Day Characteristic` even in split mode. A section
+  with nothing real is omitted entirely, in both modes.
+
+Whichever mode applies, `✨ Day Characteristic — DD.MM.YYYY` is always present,
+always first, and always carries the date — it is the anchor for deduplication
+and replacement. Every split tile repeats the same `— DD.MM.YYYY` suffix so the
+whole reflection can be found and replaced as one set.
+
+### Compact structure
 
 ```markdown
 ### ✨ Day Characteristic — DD.MM.YYYY
@@ -293,19 +315,55 @@ Preview this exact structure, filled with real content:
 ⚠️ [Unavailable sources — only when a source actually failed]
 ```
 
+### Split structure
+
+```markdown
+### ✨ Day Characteristic — DD.MM.YYYY
+@colorSize: LIGHTER
+@color: SAIL
+
+**[One or two sharp sentences describing the day]**
+
+⚠️ [Unavailable sources — only when a source actually failed]
+
+### 🎯 Results — DD.MM.YYYY
+@colorSize: LIGHTER
+@color: BERMUDA
+
+- [Concrete outcome with a labelled source link when available]
+
+### 🌟 Opportunities — DD.MM.YYYY
+@colorSize: LIGHTER
+@color: MILK_PUNCH
+
+- [Only genuinely useful opportunities]
+
+### → Tomorrow — DD.MM.YYYY
+@colorSize: LIGHTER
+@color: PATTENS_BLUE
+
+- [ ] [Specific action with a person or object; maximum three]
+```
+
 Rules for this markdown:
 
-- **One H3 tile only.** `Results`, `Opportunities` and `Tomorrow` are bold
-  subheaders inside it, never separate tiles.
-- Colour annotations sit immediately under the heading, no blank line.
+- Section identity is fixed: the same icon and the same label always map to the
+  same section, whether it is a bold subheader (compact) or an H3 tile (split).
+  Never invent a new section, never split one section across two tiles.
+- The `⚠️` unavailable-sources line always sits in the `Day Characteristic`
+  tile, never in a section tile.
+- Colour annotations sit immediately under each heading, no blank line.
   `@colorSize` is always `LIGHTER`; `@color` comes from `GHOST, CUMULUS, GOSSIP,
   COLDTURKEY, BLUE_CHALK, MILK_PUNCH, HAWKES_BLUE, PATTENS_BLUE, SAIL,
   ATHENS_GRAY, BERMUDA, PERFUME, SELAGO, RICE_FLOWER, WHITE_LINEN, POLAR` —
-  never a semantic name (RED, BLUE, GREY…).
+  never a semantic name (RED, BLUE, GREY…), and never the same colour on two
+  adjacent tiles.
 - Labelled inline hyperlinks only — never a bare URL and never a line containing
   only a link.
 - Blank line between every item.
 - Omit `Opportunities` entirely when there is nothing real to put in it.
+- **Never write an empty tile.** A heading with no content under it is a bug,
+  not a placeholder.
 
 Directly above the approval form show: today's local date, the connected xTiles
 account name and email, and the destination — today's personal Daily planner.
@@ -321,8 +379,10 @@ re-show the full preview, ask again. `Cancel` → stop without writing the tile;
 task mutations already approved stay applied, since they were approved
 explicitly.
 
-**Existing reflection.** Before writing, compare the exact dated H3 title with
-today's planner content. If it is already there:
+**Existing reflection.** Before writing, look for the dated
+`✨ Day Characteristic — DD.MM.YYYY` title in today's planner content. If it is
+already there, the whole reflection — that tile **and** any sibling section
+tiles carrying the same date — counts as existing:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -330,9 +390,10 @@ genui{"ask_user_input":{"questions":[
 ]}}
 ```
 
-Replace only through a safe exact content-update capability; if none exists,
-offer Append or Cancel. On a scheduled run, an existing exact tile means do
-nothing.
+Replace only through a safe exact content-update capability, and replace the
+**whole set** — never leave yesterday's section tiles orphaned beside a new
+`Day Characteristic`. If no such capability exists, offer Append or Cancel. On a
+scheduled run, an existing dated `Day Characteristic` means do nothing.
 
 ---
 
@@ -341,19 +402,24 @@ nothing.
 After `Write to Daily` (or immediately on a scheduled run):
 
 1. Call `xtiles_create_tiles_from_markdown_in_my_planner` with `period: "day"`,
-   `date`: today's local ISO date, `markdown`: the single reflection H3 section.
-   The schema must accept `date`, `period`, `markdown` without a project or view
-   ID — if it demands one, do not call it and do not fall back to project
-   creation; report that the personal Daily write is unavailable.
+   `date`: today's local ISO date, `markdown`: the approved reflection — the
+   single H3 section in compact mode, or **all** H3 sections in one payload in
+   split mode, in the previewed order. One call either way; never one call per
+   tile. The schema must accept `date`, `period`, `markdown` without a project
+   or view ID — if it demands one, do not call it and do not fall back to
+   project creation; report that the personal Daily write is unavailable.
 2. **Layout pass — immediate, silent, never asked about.** Take `view_id` and
-   the single `tile_id` from the write response (never re-derive them), call
-   `xtiles_get_workflow` with id `tile-layout` and follow it, passing that one
-   tile as the added tile and the markdown just written as its content. Hint:
-   **the reflection gets its own full-width row**, placed in the first free band
-   without moving or overlapping any existing tile.
-3. **Verify.** Re-read today's Daily and confirm the exact dated title is
-   present. Retry the write **once** only if the write reported success but the
-   title is absent.
+   the ordered `tile_ids` from the write response (never re-derive them), call
+   `xtiles_get_workflow` with id `tile-layout` and follow it, passing those
+   tiles as the added tiles and the markdown just written as their content.
+   Hints: `✨ Day Characteristic` always takes its own full-width row, first;
+   in split mode the section tiles go two per row underneath it, in content
+   order, and a heavy section tile takes a full-width row of its own. Place
+   everything in the first free band without moving or overlapping any existing
+   tile.
+3. **Verify.** Re-read today's Daily and confirm every intended dated title is
+   present — in split mode, all of them, not just the first. Retry the write
+   **once** only if the write reported success but the titles are absent.
 
 ---
 
@@ -389,8 +455,8 @@ Resolve the next occurrence in the user's timezone and create the automation
 with an exact schedule. Its prompt must invoke this workflow and embed a
 complete `evening-reflection config:` JSON block — role, sources, content, tone,
 autolog, Slack scope and channels, language, personal-Daily target, the
-silent-run instruction, deduplication, and the layout requirement. **Never
-create a duplicate automation.**
+silent-run instruction, deduplication, the compact/split tile rule, and the
+layout requirement. **Never create a duplicate automation.**
 
 ---
 
