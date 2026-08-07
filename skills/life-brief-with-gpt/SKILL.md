@@ -10,10 +10,10 @@ description: >
   personal rather than work-tool priorities: what matters today, what they left
   hanging, what is coming over the next seven days.
 
-  Detect the surface, not the request: inline `ask_user_input` / `genui` forms
-  mean ChatGPT Work — this variant. `show_widget` or `AskUserQuestion` mean
-  Claude / Cowork — this workflow has no Claude twin, so say so plainly
-  rather than falling back to a different workflow.
+  Runs as a plain text conversation: every question is asked in ordinary chat
+  prose, never through an interactive form, widget or picker. This workflow has
+  no Claude twin — if asked for a Claude version, say so plainly rather than
+  falling back to a different workflow.
 
   Environment triggers: "Life Brief for GPT", "Life Brief in ChatGPT",
   "the GPT version".
@@ -34,9 +34,10 @@ about unfinished things.
 
 ## Five principles
 
-1. **Ask in forms, always.** Mode, missing context, publish choice,
-   destination, recurrence — every one goes through an inline `ask_user_input`
-   form. Never a prose question, never a numbered list.
+1. **Ask in plain text, always.** Mode, missing context, publish choice,
+   destination, recurrence — every one is an ordinary chat question written in
+   plain prose. **Never** an interactive form, widget, picker, button, card or
+   any other rendered surface.
 2. **Usefulness over completeness.** A short brief with three real items beats
    a full one with twelve. A section that has nothing real to say is deleted
    outright — heading and icon included.
@@ -62,35 +63,32 @@ missing, say so plainly and stop — never substitute a different write path.
 
 ---
 
-## Form protocol
+## Chat protocol
 
-Emit the directive **directly in your assistant message**:
+Every question is written as text in your assistant message:
 
-```
-genui{"ask_user_input":{"questions":[ … ]}}
-```
-
-- Emit it yourself. Do not check or discuss chat modes, do not call
-  `functions.request_user_input`, and do not mention form availability, plans,
-  or implementation limitations.
-- Never substitute another surface: no `show_widget`, `sendPrompt`,
-  `visualize`, HTML fragments, widgets, scripts, `AskUserQuestion`, or Claude
-  scheduling tools.
-- Every question carries `question`, `options`, `type`
-  (`single_select` | `multi_select`) and a short specific
-  `free_text_placeholder`. **Nothing pre-selected.**
-- **Max 3 questions per form** — with exactly one exception: the context-gap
-  form in Stage 2, which batches up to five short questions into a single form
-  rather than asking them one at a time.
-- **Every option carries its own one-line "what it is / what it's good for"
-  description** — never a bare list of names the user has to decode. This is
-  the house rule for any choice offered anywhere in this workflow.
-- **One short, warm sentence before the form, then the form, then end the
-  turn.** No text after the directive.
-- The next user message is the answer — including the rendered `> Question` /
-  answer format. Parse it and continue.
-- Empty answer (`Не вибрано`, `Не выбрано`, `Not selected`, blank) → one line
-  saying what is needed, then re-emit **the same** form.
+- **No interactive surfaces of any kind.** Never emit `genui`,
+  `ask_user_input`, `show_widget`, `sendPrompt`, `visualize`, HTML fragments,
+  widgets, scripts, `AskUserQuestion`, or Claude scheduling tools. Do not call
+  `functions.request_user_input`. Do not discuss chat modes, form availability,
+  or implementation limitations — just ask the question.
+- **One question per turn**, in one short sentence — with exactly one
+  exception: the context-gap question in Stage 2, which batches up to five
+  short questions into a single message rather than asking them one at a time.
+- Where the answer is a choice, list the options as short dash bullets under
+  the question. **Every option carries its own one-line "what it is / what it's
+  good for" description** — never a bare list of names the user has to decode.
+  This is the house rule for any choice offered anywhere in this workflow.
+- Always add a final line inviting a free answer — the user may reply with
+  something not on the list, or in their own words, and that answer counts.
+- **Nothing pre-selected, nothing assumed.** Do not act on a choice the user
+  has not made.
+- **One short, warm sentence before the question, then the question, then end
+  the turn.** No extra commentary after it, no preview of the next step.
+- The next user message is the answer. Parse it generously: an option number, a
+  fragment of the label, an icon, or a free-form sentence all count.
+- Unclear, empty or off-topic answer → one line saying what is needed, then ask
+  **the same** question again in the same plain form.
 - Free text is kept **verbatim**; the accumulated context carries across turns.
 
 The chain: **Mode → context gap (only if genuinely needed) → gather → brief →
@@ -103,7 +101,7 @@ Recurrence → Related**.
 
 - **Scheduled run** — the prompt says this is an automated or scheduled Life
   Brief run, or ends with `Run mode: DAILY` / `WEEKLY` plus a date. **Silent by
-  contract**: skip every form, the publish confirmation, the CTA and the
+  contract**: skip every question, the publish confirmation, the CTA and the
   recurrence offer. Produce the brief in the named mode and write it to the
   planner exactly as a confirmed manual run would.
 - **Named mode** — the user already said "daily life brief" or "weekly reset".
@@ -114,10 +112,16 @@ Recurrence → Related**.
 
 ## Stage 1 — Mode
 
+Ask in plain text, for example:
+
 ```
-genui{"ask_user_input":{"questions":[
-  {"question":"Which brief do you want?","options":["☀️ Daily — today's picture and what to act on now (~2 min)","🗓️ Weekly — the past week plus the next seven days (~5 min)","🧭 Both — today first, then the wider context"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+Which brief do you want?
+
+- ☀️ Daily — today's picture and what to act on now (~2 min)
+- 🗓️ Weekly — the past week plus the next seven days (~5 min)
+- 🧭 Both — today first, then the wider context
+
+Or just tell me what you need in your own words.
 ```
 
 Each option keeps its icon **and** its one-line description of what it produces
@@ -127,12 +131,15 @@ and when it is the right choice.
 
 ## Stage 2 — Context gap
 
-Only when you genuinely lack context to write anything useful. **One form, up
-to five short questions**, never one line at a time, and never about something
-you already know. Draw only from: current life situation; work or studies;
-important people and responsibilities; current priorities; interests to follow.
-Give each question a specific `free_text_placeholder`, and add option chips only
-where a few clear choices genuinely exist.
+Only when you genuinely lack context to write anything useful. **One message,
+up to five short questions** as a numbered list, never one line at a time, and
+never about something you already know. Draw only from: current life situation;
+work or studies; important people and responsibilities; current priorities;
+interests to follow.
+
+Say up front that they can answer only what is relevant and skip the rest.
+Keep each question to one line, and add a couple of example answers in
+parentheses only where that genuinely helps.
 
 ---
 
@@ -245,6 +252,8 @@ Omit any section with no meaningful content. Do not pad.
 
 ### Output rules
 
+- Plain chat text and Markdown only — headings, bullets, bold, inline links. No
+  rendered cards, widgets or interactive elements anywhere in the brief.
 - Keep facts, reminders and interpretations visually distinct; interpretations
   are always hedged.
 - No repetition across sections to fill space.
@@ -279,21 +288,30 @@ with it.
 
 ## Stage 5 — Publish
 
-Close the brief with **one** publish offer as a form — never a prose sentence,
-and never a section of the brief:
+Close the brief with **one** publish question in plain text — never as a section
+of the brief itself:
 
 ```
-genui{"ask_user_input":{"questions":[
-  {"question":"Publish this to xTiles?","options":["Publish the full brief — every section as tiles on the planner page","Publish only the actionable parts — What matters today, Home and admin, and What I can do for you now, as checkable tasks","Don't publish now — keep it in chat"],"type":"single_select","free_text_placeholder":"Publish something else"}
-]}}
+Publish this to xTiles?
+
+- Full brief — every section as tiles on the planner page
+- Only the actionable parts — What matters today, Home and admin, and What I
+  can do for you now, as checkable tasks
+- Don't publish now — keep it in chat
+
+Or tell me what else you'd like published.
 ```
 
-If the destination is not obvious, ask it in one more form:
+If the destination is not obvious, ask it in one more plain-text question:
 
 ```
-genui{"ask_user_input":{"questions":[
-  {"question":"Where should it go?","options":["Today's planner page — alongside the rest of today","This week's planner page — the weekly view","A dedicated Life Brief page — all briefs collected in one place"],"type":"single_select","free_text_placeholder":"Another destination"}
-]}}
+Where should it go?
+
+- Today's planner page — alongside the rest of today
+- This week's planner page — the weekly view
+- A dedicated Life Brief page — all briefs collected in one place
+
+Or name another destination.
 ```
 
 Before writing, **read the target through the connector** so you know whether it
@@ -355,29 +373,28 @@ output the brief in clean Markdown the user can paste in themselves.
 
 ## Stage 7 — Make it recurring
 
-After a successful publish, **always** offer this — a manual run never ends
-without it:
+After a successful publish, **always** offer this in plain text — a manual run
+never ends without it:
 
 ```
-genui{"ask_user_input":{"questions":[
-  {"question":"Set up a recurring brief?","options":["Yes — every weekday morning (Daily), so today's picture is ready before you start","Yes — once a week (Weekly), a reset with the past week and the next seven days","No, not now — I'll ask when I want one"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+Set up a recurring brief?
+
+- Every weekday morning (Daily) — today's picture ready before you start
+- Once a week (Weekly) — a reset with the past week and the next seven days
+- Not now — I'll ask when I want one
+
+Or name another cadence.
 ```
 
-On yes, confirm cadence and local time in one more form:
-
-```
-genui{"ask_user_input":{"questions":[
-  {"question":"What time should it run?","options":["08:00","09:00","19:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
-```
+On yes, ask the time in one more plain-text question — suggest `08:00`, `09:00`
+or `19:00` as examples and say any other local time is fine.
 
 Resolve the timezone with `xtiles_get_user_timezone`, then create the automation
 with `timing_mode: exact_schedule`, a VEVENT `DTSTART` in local time, and the
 matching `RRULE` — `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR` for a weekday Daily,
 `FREQ=WEEKLY;BYDAY=<chosen day>` for a Weekly. Its prompt must invoke this
 workflow in the chosen mode, end with `Run mode: DAILY` (or `WEEKLY`) for the
-run's date, and instruct a silent run: skip all forms, produce the brief,
+run's date, and instruct a silent run: skip all questions, produce the brief,
 publish it to the planner. **Never create a duplicate automation.** Confirm the
 scheduled time and timezone in one line; if declined, acknowledge briefly.
 
@@ -385,16 +402,22 @@ scheduled time and timezone in one line; if declined, acknowledge briefly.
 
 ## Stage 8 — Related
 
-Offer the other four workflows, each with a one-line description of what it
-does — never a bare list of names:
+Offer the other four workflows in plain text, each with a one-line description
+of what it does — never a bare list of names:
 
 ```
-genui{"ask_user_input":{"questions":[
-  {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+Want to set up anything else on xTiles?
+
+- ☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar
+- 🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow
+- 📰 Today News — a daily topic-based news digest from the live web
+- 📊 Weekly Review — what actually moved forward this week
+- Nothing else
+
+Or tell me what else you have in mind.
 ```
 
-Treat the selection as a direct invocation: **in the same turn**, call
+Treat the answer as a direct invocation: **in the same turn**, call
 `xtiles_get_workflow` with the matching id and continue from its first
 applicable stage:
 
@@ -414,6 +437,6 @@ and stop.
 ## Closing rule
 
 After a successful publish, **every** terminal response repeats the same
-labelled link as its final line — after `No, not now`, after any later
+labelled link as its final line — after `Not now`, after any later
 correction. Scheduled runs end silently after the write, layout and
 verification.
