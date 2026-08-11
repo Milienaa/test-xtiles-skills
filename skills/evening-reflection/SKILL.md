@@ -119,7 +119,7 @@ status.
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                       |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__get_thread`                                       |
 | Calendar  | the available calendar/events MCP tool, if any                                                                   |
-| Linear    | `mcp__claude_ai_Linear__list_issues`                                                                             |
+| PM / issue tracker | **any connected PM tool** — Linear (`mcp__claude_ai_Linear__list_issues`), Jira, Asana, monday, ClickUp, GitHub Issues. Detect by the connector's issue/task read tools; treat all of them the same way (read-only). |
 
 Build the **detected set** from this. Connecting is only ever raised in two cases:
 
@@ -152,6 +152,7 @@ connected tools:
 - Emails you sent / that needed action *(only if Gmail connected)*
 - Meetings & calls (from calendar/notes) *(if calendar/Granola connected)*
 - Tasks you completed today *(xTiles — on by default)*
+- Issues you moved or were assigned in your PM tool — Linear, Jira, Asana, monday… *(only if a PM tool is connected)*
 - Other (describe in next message)
 
 **3.2 Tone.** Single select:
@@ -208,6 +209,12 @@ Then pull from selected connectors:
   for sender/subject/threadId.
 - **Calendar / meeting notes** *(if connected)*: today's events; separate
   meetings-with-others (attendees > 1) from solo work blocks.
+- **PM / issue tracker** *(any connected — Linear, Jira, Asana, monday, ClickUp,
+  GitHub Issues)*: pull, **read-only**, two sets — (a) issues **completed today**
+  (status moved to Done/Closed today, assigned to or worked by the user) and (b)
+  issues **newly created or newly assigned to the user today** that are still
+  open. Keep each issue's title, status and permalink. This is a one-way pull —
+  never write a status or a task back to the PM tool.
 - **Claude chat history (today)** — **always run, no connector needed**: call
   `recent_chats` with `after` = today 00:00 and `before` = now, both ISO-8601 in
   the user's timezone from `xtiles_get_user_timezone` (never UTC — an evening run
@@ -256,6 +263,19 @@ history — against the existing xTiles task list, and decide per activity:
 Match generously on meaning, not exact wording (e.g. a Claude chat "wrote the
 launch email" closes an open task "Draft launch email").
 
+**Sync from connected PM tools (one-way pull — never write back).** Fold the
+PM/issue-tracker data into this same reconciliation:
+
+- **Completed issue → completed task.** An issue that moved to Done/Closed today
+  is a completed activity: close the matching open xTiles task, or create it and
+  immediately close it if none exists. Match on meaning, never duplicate.
+- **New issue → open task.** An issue newly created or newly assigned to the
+  user today that is still open becomes a new **open** xTiles task — created but
+  **not** marked complete — deduped against existing tasks. This is the one
+  exception to "create + close": new work is logged open so it carries into
+  tomorrow. In the autolog preview, show these as `🆕 [emoji] open task:
+  [title]`, distinct from the completed ones.
+
 **What counts as an activity** (derive categories from the data and the user's
 role — do not force a fixed founder/PM template):
 - 📞 Meetings & calls
@@ -279,8 +299,9 @@ role — do not force a fixed founder/PM template):
 To create: `mcp__xtiles__xtiles_create_tasks` with `assignee_email` (from
 `get_current_user`), `due_date`: today (yyyy-MM-dd), `title`: short specific name
 with an emoji category prefix. Then mark each completed:
-`mcp__xtiles__xtiles_update_task` with `completed: true`. Avoid duplicates — never
-recreate a task that already exists for today.
+`mcp__xtiles__xtiles_update_task` with `completed: true` — **except a new open
+task synced from a PM tool, which stays open (never `completed: true`)**. Avoid
+duplicates — never recreate a task that already exists for today.
 
 ---
 

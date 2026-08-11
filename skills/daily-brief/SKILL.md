@@ -35,6 +35,8 @@ allowed-tools: >
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
+  mcp__claude_ai_Gmail__create_draft,
+  mcp__claude_ai_Gmail__unlabel_thread,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
@@ -408,6 +410,7 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
+- In one line, tell the user that after they approve you'll prepare Gmail draft replies for the 🔴 Needs action emails and mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers those actions (see step 7·A)
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -587,6 +590,38 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
+
+---
+
+### 7·A. Gmail follow-through — draft replies & mark-as-read
+
+Two Gmail actions run **after** the digest is written, silently, as part of the
+same run. They are auxiliary inbox hygiene — **not** the deliverable: they never
+replace the xTiles write and never interrupt or reorder the four-step post-write
+sequence above (layout → CTA → schedule → related).
+
+- **Draft replies for important emails.** For every 🔴 **Needs action** email,
+  create a Gmail **draft reply on that thread** with
+  `mcp__claude_ai_Gmail__create_draft` — pass the thread's `threadId`, reply to
+  the sender, keep the `Re:` subject. Write a short, on-point reply in the
+  user's language that they could send after a quick check — **never send it,
+  only leave the draft**. Surface it inline on that email's line in the
+  `### 📩 Emails` tile: `… → [Open email](url) · [Draft reply](draft_url)`.
+  Never draft for 🟡 FYI or ⚪ Noise.
+- **Mark noise and newsletters as read.** Once the digest has captured them,
+  mark every ⚪ **Noise** email and every **newsletter** thread as read by
+  removing the `UNREAD` label with `mcp__claude_ai_Gmail__unlabel_thread`.
+  **Never touch 🔴 or 🟡 threads** — those stay unread so the user still acts on
+  them.
+
+**Disclosure and consent.** On a **manual run**, both actions are named in the
+preview (step 5) and run only after `Looks good — create it`. On a **scheduled
+run**, they run silently with the rest of the digest.
+
+**Read-only fallback.** If a Gmail write tool is missing or errors, skip that
+action, still finish the digest, and note it once on a manual run ("Couldn't
+prepare drafts / mark read in this environment"). Never block or fail the run
+over it.
 
 ---
 
