@@ -119,7 +119,7 @@ One sentence, then:
 ```
 genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
-  {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Granola","Linear","GitHub","Google Drive","Figma","Gamma"],"type":"multi_select","free_text_placeholder":"Add another source"}
+  {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Granola","Linear","GitHub","Google Drive","Figma","Gamma","LinkedIn"],"type":"multi_select","free_text_placeholder":"Add another source"}
 ]}}
 ```
 
@@ -157,6 +157,7 @@ genui{"ask_user_input":{"questions":[
 | Google Drive | Recently shared or updated files | `recent_files` |
 | Figma | Design updates and comments | `design_updates_and_comments` |
 | Gamma | Presentation updates | `presentation_updates` |
+| LinkedIn | Messages and mentions; Post engagement | `messages_and_mentions`, `post_engagement` |
 | Other source | Recent updates from the named source | `recent_updates` |
 
 - Require at least one content option. If none come back, re-emit with one-tap
@@ -258,6 +259,11 @@ meeting link. Find each meeting's agenda in this order — (1) a Granola/meeting
 note with matching title or participants, (2) the most recent Gmail thread with
 the organiser or attendees, (3) the event description. **If none yields
 anything, omit the agenda line** — never paraphrase the title back.
+
+**LinkedIn**: with its read-only tool, pull messages, mentions and notifications
+from the last 24 h, plus notable engagement on the user's recent posts. Keep the
+sender's name and a link to each message or notification; anything that needs a
+reply becomes an action item.
 
 **Other selected sources**: summarize only actual records their read-only tool
 returns.
@@ -392,6 +398,11 @@ third of a morning's tasks should be `high`. Never `completed="true"`.
     no groups**, list flat.
   - ⚠️ anomalies collected at the bottom, one per line.
   - Omit the tile if there are no events.
+- **`### 💼 LinkedIn`** — messages, mentions and notifications that need
+  attention, plus notable engagement on the user's recent posts. One line per
+  item — `- **Name** — what they said/asked` with an inline link to the message
+  or notification — then a `**Tasks**` block with one `<task>` per item that
+  needs a reply. Omit the tile when the connector returned nothing.
 - **Optional sources** get one tile each, only when their tool returned data.
 
 ---
