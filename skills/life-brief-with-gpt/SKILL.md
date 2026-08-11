@@ -369,8 +369,10 @@ and never describe what you would have done in place of doing it.
    labelled inline hyperlinks inside a sentence, never a bare URL and never a
    line containing only a link. Blank line between items.
 5. **Actionable items become tasks** — each one a separate `<task>` on its own
-   line, blank line between, with `dueDate="YYYY-MM-DD"` only where a real date
-   or deadline exists:
+   line, blank line between, with `dueDate="YYYY-MM-DD"` set by default to the
+   task's own day (today for the Daily page, the relevant day for a Weekly
+   item), resolved in the user's timezone. A **real stated deadline** overrides
+   it, and a stated time uses the `dueDate="YYYY-MM-DD HH:MM"` form:
 
    ```
    <task dueDate="2026-08-12">Book the dentist before the referral expires</task>

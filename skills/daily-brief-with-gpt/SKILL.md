@@ -271,7 +271,9 @@ returns.
 **Derive action items.** Every 🔴 email, every ⚡ mention, and every meeting that
 genuinely needs preparation yields one verb-first action item. While deriving,
 capture whether the source stated a **real deadline** and whether it carries
-**genuine urgency** — those, and only those, become `dueDate` and `priority`.
+**genuine urgency**. A stated deadline overrides the default date and genuine
+urgency sets `priority`; absent either, the task still takes the page's day as
+its `dueDate` and gets no `priority`.
 
 ---
 
@@ -355,15 +357,17 @@ same colour twice in a row.
 ```
 **Action items**
 
-<task>Restore the Google ad account</task>
+<task dueDate="2026-08-11">Restore the Google ad account</task>
 
 <task priority="high" dueDate="2026-08-10">Sign the Acme contract</task>
 ```
 
 One `<task>` per line, blank line between, never nested in a list item.
-`dueDate` only when the source stated a real deadline (resolved against the
-user's timezone), `priority` only when the source itself signals it — at most a
-third of a morning's tasks should be `high`. Never `completed="true"`.
+`dueDate` is always set — defaulting to the page's day (today for a Daily page),
+resolved against the user's timezone — and a **later real deadline** from the
+source overrides it (use the `dueDate="YYYY-MM-DD HH:MM"` form when a time is
+stated). `priority` only when the source itself signals it — at most a third of
+a morning's tasks should be `high`. Never `completed="true"`.
 
 ### Tiles
 
