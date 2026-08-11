@@ -35,6 +35,8 @@ allowed-tools: >
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
+  mcp__claude_ai_Gmail__create_draft,
+  mcp__claude_ai_Gmail__unlabel_thread,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
   mcp__claude_ai_Google_Drive__list_recent_files,
@@ -296,7 +298,7 @@ Classify emails into three buckets. **Newsletters are fetched separately — exc
 - Telegraphic, conversational. First letter capitalized, no bureaucratic language.
 - 🟡 items are one-liners — no link needed.
 
-For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 📌 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block, and every meeting that needs preparation yields one (e.g. "Pull the Q3 retention numbers before the Acme review") — that one sits inline under its meeting in the `### 📅 Workload` tile. Collect all as a flat list — used in preview and tiles. While deriving each one, also capture whether the source stated a **real deadline** and whether it carries **genuine urgency** — those become the `dueDate` and `priority` attributes when the item is written as a `<task>` in step 7. If the source states neither, record neither; do not infer.
+For every 🔴 email, derive one verb-first action item (e.g. "Restore the Google ad account") — these go into the Emails tile's Action items block. Likewise, every Slack ⚡-flagged mention yields a verb-first action item (e.g. "Reply to Maria in #product") — these go into the `### 📌 Slack — Action Points` tile's Tasks block (see step 7). Likewise, every unfinished thread from the chats yields a verb-first action item (e.g. "Finish the launch email draft") — these go into the `### 🤖 Claude — From our chats` tile's Tasks block, and every meeting that needs preparation yields one (e.g. "Pull the Q3 retention numbers before the Acme review") — that one sits inline under its meeting in the `### 📅 Workload` tile. Collect all as a flat list — used in preview and tiles. While deriving each one, also capture whether the source stated a **real deadline** and whether it carries **genuine urgency**. A stated deadline overrides the default date, and genuine urgency sets `priority`, when the item is written as a `<task>` in step 7. If the source states neither, the task still takes the page's day as its `dueDate` (see step 7) and gets no `priority` — do not infer urgency.
 
 Use only real data from connectors. Do not invent names, events, or messages.
 All names and message content must come directly from API responses — never from examples in this skill file.
@@ -332,9 +334,9 @@ Here's what I've prepared:
 
 **Action items:**
 
-<task>[verb-first task from 🔴 email 1]</task>
+<task dueDate="YYYY-MM-DD">[verb-first task from 🔴 email 1 — dueDate defaults to today]</task>
 
-<task dueDate="YYYY-MM-DD">[verb-first task from 🔴 email 2 — attribute only if the email named a real deadline]</task>
+<task priority="high" dueDate="YYYY-MM-DD">[verb-first task from 🔴 email 2 — use the email's real deadline if it named one]</task>
 
 *(omit Action items entirely if no 🔴 emails)*
 
@@ -351,14 +353,14 @@ Here's what I've prepared:
 
 **Tasks**
 
-<task>[verb-first task]</task>
+<task dueDate="YYYY-MM-DD">[verb-first task — dueDate defaults to today]</task>
 
 ### 📌 Slack — Action Points
 - [Poke-style one-liner of what's being asked] — [#channel](url)
 
 **Tasks**
 
-<task>[verb-first task]</task>
+<task dueDate="YYYY-MM-DD">[verb-first task — dueDate defaults to today]</task>
 
 ### ⚡ Slack — Mentions
 - **@Name** in [#channel](url) — what they asked/said ⚡
@@ -384,7 +386,7 @@ Here's what I've prepared:
 
 📋 [Agenda — one sentence: what will be decided, or where the last conversation left off]
 
-<task>[What to prepare before this meeting]</task>
+<task dueDate="YYYY-MM-DD">[What to prepare before this meeting — dueDate is today's date]</task>
 
 **🤝 [Second group name]**
 
@@ -408,6 +410,7 @@ Separate each item with a blank line for readability.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
+- In one line, tell the user that after they approve you'll prepare Gmail draft replies for the 🔴 Needs action emails and mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers those actions (see step 7·A)
 - After the preview, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -457,14 +460,14 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 ```
 **Action items**
 
-<task>Restore the Google ad account</task>
+<task dueDate="2026-08-11">Restore the Google ad account</task>
 
 <task priority="high" dueDate="2026-08-10">Sign the contract</task>
 ```
 
 - **Never `- [ ]` for action items.** Plain `- [ ]` checkboxes stay reserved for checklists that are not tasks — if such a checklist ever appears on the page, never convert it into `<task>`.
 - **One `<task>` per line, blank line between each.** A `<task>` must never be nested inside a list item (`- <task>…</task>` does not parse) and never carries a link.
-- **`dueDate="YYYY-MM-DD"` — only when the source states a real deadline** ("by Friday", "before the 10th", "appeal window closes Tuesday"). Resolve relative wording against the user's timezone from `xtiles_get_user_timezone`. Never derive it from when the email was sent or the message posted, and never estimate one — the task already sits on today's page.
+- **`dueDate="YYYY-MM-DD"` — always set it, defaulting to the task's own day** (today's date for a Daily page), resolved against the user's timezone from `xtiles_get_user_timezone`. If the source states a **later real deadline** ("by Friday", "before the 10th", "appeal window closes Tuesday"), use that date instead; when the source also gives a specific time, use the `dueDate="YYYY-MM-DD HH:MM"` form. Never derive the date from when the email was sent or the message was posted.
 - **`priority` — only when the source itself signals it.** `high` for a hard deadline inside 24 h, a blocker, an explicitly urgent ask, or something with a real cost of missing it (suspended account, expiring window); `medium` when it matters but nothing forces it today; omit otherwise. Do not stamp `high` on everything just because it came from the 🔴 bucket — if every task is high, the field carries no information. As a sanity cap: at most a third of a morning's tasks should be `high`.
 - **Never `completed="true"`** — a morning brief describes work still to do.
 - Task titles stay verb-first and in the user's language, same as before.
@@ -506,9 +509,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
   **Action items**
 
-  <task>[Verb-first task from 🔴 email 1]</task>
+  <task dueDate="2026-08-11">[Verb-first task from 🔴 email 1 — dueDate defaults to today]</task>
 
-  <task priority="high" dueDate="2026-08-10">[Verb-first task from 🔴 email 2 — attributes only when the email actually stated them]</task>
+  <task priority="high" dueDate="2026-08-10">[Verb-first task from 🔴 email 2 — priority only when the email signalled it; a stated deadline overrides today's date]</task>
   ```
   Omit `Action items` section entirely if no 🔴 emails. Newsletters are in the separate `### 📧 Newsletters` tile — never include them here.
 - **Newsletters**: ALL newsletters go in a **single `### 📧 Newsletters` tile** — never create a separate tile per newsletter. Structure:
@@ -543,7 +546,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
   📋 [Agenda — one sentence]
 
-  <task>[What to prepare before this meeting]</task>
+  <task dueDate="YYYY-MM-DD">[What to prepare before this meeting — dueDate is today's date]</task>
 
   **🤝 [Second group name]**
 
@@ -560,7 +563,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - **Group headings** are bold lines with a leading emoji, derived from the day per step 4 (⭐ Important · 🤝 Client & external · 🔁 Recurring syncs · 🧑‍🤝‍🧑 1:1s · 🧠 Focus blocks are suggestions, not a fixed set). Events sit under their group in chronological order. **With fewer than 4 events, drop the group headings** and list events flat
   - Each event on its own bold line: `**HH:MM–HH:MM · Title**` — append ` — Participants · [Link label](url)` if participants or meeting link exist
   - 📋 agenda goes on the next paragraph directly under its event — one sentence, from Granola / meeting notes / Gmail / the event description. Omit the line when no source yielded anything; never paraphrase the meeting title back as an agenda. When citing a source, weave the hyperlink into the agenda sentence itself — `Continues the pricing thread from [Monday's note](url)` — never append it as a separate line
-  - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — and here `dueDate` is almost always wrong to set: the meeting is today, and the task already lives on today's page
+  - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — the prep is for today's meeting, so its `dueDate` is today (the page's day) unless the source states an earlier real deadline
   - All ⚠️ anomalies collected at the bottom, one per line
   - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
   - Omit tile entirely if Calendar returned no events
@@ -587,6 +590,38 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
+
+---
+
+### 7·A. Gmail follow-through — draft replies & mark-as-read
+
+Two Gmail actions run **after** the digest is written, silently, as part of the
+same run. They are auxiliary inbox hygiene — **not** the deliverable: they never
+replace the xTiles write and never interrupt or reorder the four-step post-write
+sequence above (layout → CTA → schedule → related).
+
+- **Draft replies for important emails.** For every 🔴 **Needs action** email,
+  create a Gmail **draft reply on that thread** with
+  `mcp__claude_ai_Gmail__create_draft` — pass the thread's `threadId`, reply to
+  the sender, keep the `Re:` subject. Write a short, on-point reply in the
+  user's language that they could send after a quick check — **never send it,
+  only leave the draft**. Surface it inline on that email's line in the
+  `### 📩 Emails` tile: `… → [Open email](url) · [Draft reply](draft_url)`.
+  Never draft for 🟡 FYI or ⚪ Noise.
+- **Mark noise and newsletters as read.** Once the digest has captured them,
+  mark every ⚪ **Noise** email and every **newsletter** thread as read by
+  removing the `UNREAD` label with `mcp__claude_ai_Gmail__unlabel_thread`.
+  **Never touch 🔴 or 🟡 threads** — those stay unread so the user still acts on
+  them.
+
+**Disclosure and consent.** On a **manual run**, both actions are named in the
+preview (step 5) and run only after `Looks good — create it`. On a **scheduled
+run**, they run silently with the rest of the digest.
+
+**Read-only fallback.** If a Gmail write tool is missing or errors, skip that
+action, still finish the digest, and note it once on a manual run ("Couldn't
+prepare drafts / mark read in this environment"). Never block or fail the run
+over it.
 
 ---
 

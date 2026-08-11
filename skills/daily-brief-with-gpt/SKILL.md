@@ -119,7 +119,7 @@ One sentence, then:
 ```
 genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
-  {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Granola","Linear","GitHub","Google Drive","Figma","Gamma"],"type":"multi_select","free_text_placeholder":"Add another source"}
+  {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Granola","Linear","GitHub","Google Drive","Figma","Gamma","LinkedIn"],"type":"multi_select","free_text_placeholder":"Add another source"}
 ]}}
 ```
 
@@ -157,6 +157,7 @@ genui{"ask_user_input":{"questions":[
 | Google Drive | Recently shared or updated files | `recent_files` |
 | Figma | Design updates and comments | `design_updates_and_comments` |
 | Gamma | Presentation updates | `presentation_updates` |
+| LinkedIn | Messages and mentions; Post engagement | `messages_and_mentions`, `post_engagement` |
 | Other source | Recent updates from the named source | `recent_updates` |
 
 - Require at least one content option. If none come back, re-emit with one-tap
@@ -259,13 +260,20 @@ note with matching title or participants, (2) the most recent Gmail thread with
 the organiser or attendees, (3) the event description. **If none yields
 anything, omit the agenda line** — never paraphrase the title back.
 
+**LinkedIn**: with its read-only tool, pull messages, mentions and notifications
+from the last 24 h, plus notable engagement on the user's recent posts. Keep the
+sender's name and a link to each message or notification; anything that needs a
+reply becomes an action item.
+
 **Other selected sources**: summarize only actual records their read-only tool
 returns.
 
 **Derive action items.** Every 🔴 email, every ⚡ mention, and every meeting that
 genuinely needs preparation yields one verb-first action item. While deriving,
 capture whether the source stated a **real deadline** and whether it carries
-**genuine urgency** — those, and only those, become `dueDate` and `priority`.
+**genuine urgency**. A stated deadline overrides the default date and genuine
+urgency sets `priority`; absent either, the task still takes the page's day as
+its `dueDate` and gets no `priority`.
 
 ---
 
@@ -349,15 +357,17 @@ same colour twice in a row.
 ```
 **Action items**
 
-<task>Restore the Google ad account</task>
+<task dueDate="2026-08-11">Restore the Google ad account</task>
 
 <task priority="high" dueDate="2026-08-10">Sign the Acme contract</task>
 ```
 
 One `<task>` per line, blank line between, never nested in a list item.
-`dueDate` only when the source stated a real deadline (resolved against the
-user's timezone), `priority` only when the source itself signals it — at most a
-third of a morning's tasks should be `high`. Never `completed="true"`.
+`dueDate` is always set — defaulting to the page's day (today for a Daily page),
+resolved against the user's timezone — and a **later real deadline** from the
+source overrides it (use the `dueDate="YYYY-MM-DD HH:MM"` form when a time is
+stated). `priority` only when the source itself signals it — at most a third of
+a morning's tasks should be `high`. Never `completed="true"`.
 
 ### Tiles
 
@@ -392,6 +402,11 @@ third of a morning's tasks should be `high`. Never `completed="true"`.
     no groups**, list flat.
   - ⚠️ anomalies collected at the bottom, one per line.
   - Omit the tile if there are no events.
+- **`### 💼 LinkedIn`** — messages, mentions and notifications that need
+  attention, plus notable engagement on the user's recent posts. One line per
+  item — `- **Name** — what they said/asked` with an inline link to the message
+  or notification — then a `**Tasks**` block with one `<task>` per item that
+  needs a reply. Omit the tile when the connector returned nothing.
 - **Optional sources** get one tile each, only when their tool returned data.
 
 ---

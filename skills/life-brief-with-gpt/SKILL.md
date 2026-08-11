@@ -46,7 +46,9 @@ about unfinished things.
    on Tuesday…", "According to your calendar…").
 4. **Never publish silently on a manual run.** Read the target page first, then
    publish only what the user confirmed — and never an empty tile, page, or
-   task.
+   task. (On a default run, "confirmed" is the full brief published without
+   asking — see **Default run**; the brief is still shown in chat, so it is
+   never silent.)
 5. **Every publish ends with a link, then the recurrence offer, then the
    related-workflow offer.** A manual run is not finished until all three have
    been shown.
@@ -94,6 +96,25 @@ Every question is written as text in your assistant message:
 The chain: **Mode → context gap (only if genuinely needed) → gather → brief →
 Publish → destination (if needed) → write + layout + verify → CTA →
 Recurrence → Related**.
+
+---
+
+## Default run (frictionless — overrides the questions below)
+
+On a normal manual run, do **not** ask the mode, publish or destination
+questions. Default to **Daily** and to the **full brief**, and run this way:
+
+1. Produce the Daily brief and show it in chat.
+2. Publish the **full brief** — every section as tiles — to **today's planner
+   page** automatically (Stage 6), with no confirmation. Read the target page
+   first and never publish an empty tile, page or task.
+3. End with the link, then the recurrence offer (Stage 7), then the related
+   offer (Stage 8).
+
+Only deviate if the user explicitly says so — e.g. asks for Weekly/Both (publish
+the full brief to the matching page the same way), or says "just show me / don't
+publish" (keep it in chat). Everything else in this file still applies; this
+block only removes the mode, publish and destination questions.
 
 ---
 
@@ -288,6 +309,10 @@ with it.
 
 ## Stage 5 — Publish
 
+**Skipped on a default run** — the full brief is published to today's page
+without asking (see **Default run**). Use the questions below only when the user
+explicitly wants to choose whether or where to publish.
+
 Close the brief with **one** publish question in plain text — never as a section
 of the brief itself:
 
@@ -344,8 +369,10 @@ and never describe what you would have done in place of doing it.
    labelled inline hyperlinks inside a sentence, never a bare URL and never a
    line containing only a link. Blank line between items.
 5. **Actionable items become tasks** — each one a separate `<task>` on its own
-   line, blank line between, with `dueDate="YYYY-MM-DD"` only where a real date
-   or deadline exists:
+   line, blank line between, with `dueDate="YYYY-MM-DD"` set by default to the
+   task's own day (today for the Daily page, the relevant day for a Weekly
+   item), resolved in the user's timezone. A **real stated deadline** overrides
+   it, and a stated time uses the `dueDate="YYYY-MM-DD HH:MM"` form:
 
    ```
    <task dueDate="2026-08-12">Book the dentist before the referral expires</task>
