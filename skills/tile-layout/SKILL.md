@@ -94,7 +94,9 @@ last-resort at the end of step 9.
    no leftover gap), proportional to content weight (≈ paragraph char count):
    light tiles get just above `min_tile_width`; the remaining columns go to the
    heavy tile(s) so they wrap less. Every tile stays `≥ min_tile_width`; widths in
-   a row sum to exactly `max_width`.
+   a row sum to exactly `max_width`. **All widths must be whole integers** — floor
+   each proportional result, then add any leftover columns (due to rounding) to the
+   widest tile so the row still sums to exactly `max_width`.
 
 7. **Equalize height (flush-bottom rule):** compute `H_tile(w)` at each tile's
    assigned width, then set every tile in the row to `h = max(H_tile)` so the row
@@ -109,17 +111,22 @@ last-resort at the end of step 9.
 8. **Self-check before calling:** for every row with more than one tile, widths
    sum to exactly `max_width`; every `w`/`h` is `≥ min_tile_width` /
    `≥ min_tile_height`; no added-tile rectangle overlaps another added tile or any
-   obstacle from step 1. Fix any violation yourself — don't rely on the server to
-   catch it.
+   obstacle from step 1. **All `x`, `y`, `w`, `h` values must be whole integers —
+   never send a float** (e.g. `6.67` fails schema validation and causes a
+   `protocol_error`). If any value is non-integer, floor it and redistribute the
+   remainder to the widest/tallest tile in the same row. Fix any violation yourself
+   — don't rely on the server to catch it.
 
 9. Call `mcp__xtiles__xtiles_set_page_layout` once, listing **only the added
    tiles** (`tile_id` + new `x/y/w/h`) — the same set identified in step 1. Never
    include an obstacle; tiles you omit keep their position automatically. **If the
    call is rejected**, retry once with a simpler fallback: rows of 2 added tiles
-   at equal width (`max_width / 2` each, or the full `max_width` for a lone
-   leftover), and per row a shared height equal to the tallest `H_tile` from
-   step 4 for that row. **Only if the retry also fails, skip silently and
-   continue** — a slightly-off layout beats a broken flow.
+   at equal width — first tile gets `floor(max_width / 2)`, second tile gets
+   `max_width − floor(max_width / 2)` (always integers that sum to `max_width`);
+   a lone leftover gets the full `max_width` — and per row a shared height equal to
+   the tallest `H_tile` from step 4 for that row (rounded up to the nearest whole
+   integer). **Only if the retry also fails, skip silently and continue** — a
+   slightly-off layout beats a broken flow.
 
 ## Return to the caller
 
