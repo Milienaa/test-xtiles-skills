@@ -119,13 +119,25 @@ One sentence, then:
 ```
 genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
-  {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Granola","Linear","GitHub","Google Drive","Figma","Gamma","LinkedIn"],"type":"multi_select","free_text_placeholder":"Add another source"}
+  {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Calendar (xTiles)","Granola","Linear","GitHub","Google Drive","Figma","Gamma","LinkedIn"],"type":"multi_select","free_text_placeholder":"Add another source"}
 ]}}
 ```
 
 Translate questions and placeholders; keep role and source names stable. Require
 one role and at least one source. Selecting a source is permission to read it
 for the brief.
+
+**Calendar (xTiles) is a distinct, optional source — no special-casing, but no
+auth check either.** It aggregates whatever Google/Outlook calendars the user
+connected inside xTiles itself, via `xtiles_list_calendar_events`. Unlike the
+other sources, that tool has no error path for "no calendar linked" — a
+successful call proves nothing, since an empty result is indistinguishable
+from a genuinely empty day. Selecting it in the form is the only signal there
+is; don't run a read-only check on it expecting an auth failure (see below).
+The `Calendar` option is unchanged from before — it stays the optional,
+directly-connected Google Calendar, and it does get the normal auth check.
+Either, both, or neither may be selected; when both are selected, their events
+merge into the same Workload tile (Stage 4).
 
 **The free-text row is mandatory** — the catalog is finite, the user's stack is
 not. A source typed there is treated exactly like a listed one: detect its MCP
@@ -151,6 +163,7 @@ genui{"ask_user_input":{"questions":[
 | Slack | Channel updates; Mentions and DMs | `channel_updates`, `mentions_and_dms` |
 | Gmail | Important unread email; Newsletters; Emails by topic | `important_unread`, `newsletters`, `by_topic` |
 | Calendar | Day shape and focus time; Meetings and conflicts | `day_shape`, `meetings_and_conflicts` |
+| Calendar (xTiles) | Day shape and focus time; Meetings and conflicts | `day_shape`, `meetings_and_conflicts` |
 | Granola | Relevant meeting notes | `meeting_notes` |
 | Linear | New or updated issues | `updated_issues` |
 | GitHub | Pull requests; Review requests | `pull_requests`, `review_requests` |
@@ -172,9 +185,12 @@ genui{"ask_user_input":{"questions":[
   question per source, never assumed.
 
 After valid answers, run a harmless read-only check on each selected connector
-(e.g. `list_events` with `maxResults:1`). If one fails auth, say so in one line
-and offer the native connect flow — keep the full config and resume from the
-connector check, never from Stage 1. **xTiles is required**: if it is not
+that can actually fail auth (e.g. `list_events` with `maxResults:1` for
+Calendar). If one fails auth, say so in one line and offer the native connect
+flow — keep the full config and resume from the connector check, never from
+Stage 1. **Skip this check for Calendar (xTiles)** — it has no auth-error path
+to test; its "maybe not linked" ambiguity is handled later, in Stage 4, if the
+merged event list comes back empty. **xTiles is required**: if it is not
 connected, stop and connect it first.
 
 ---
@@ -252,7 +268,28 @@ item carries the **message permalink** (`permalink`, or
 `https://slack.com/archives/{channel_id}/p{ts_without_dot}`) — never a channel
 homepage.
 
-**Calendar**: `list_events` for today. Compute event count, hours occupied,
+**Calendar**: build one merged event list, then run the analysis below over it.
+
+- **Calendar (xTiles), if selected in Stage 1.** Call `xtiles_list_calendar_events`
+  for today — it aggregates whatever Google/Outlook calendars the user connected
+  inside xTiles.
+- **The Calendar connector, if also selected in Stage 1.** Call
+  `list_events` for today and add its events to the same list.
+- **Dedup across the two.** Drop an event from the Calendar connector when an
+  xTiles-calendar event already has the same start time and the same title
+  (case-insensitive) — the common case where xTiles is already synced to the
+  same Google account the user also connected directly. Never show the same
+  meeting twice.
+- **If Calendar (xTiles) was selected and contributed zero events, don't treat
+  the day as simply free.** The tool can't tell "nothing scheduled" apart from
+  "no calendar linked." If the Calendar connector also contributed nothing (or
+  wasn't selected), flag this once in the preview instead of silently showing
+  an empty day: "No calendar events found today — this could mean nothing's
+  scheduled, or that no calendar is linked inside xTiles yet." Skip the note if
+  the Calendar connector did contribute at least one event — that already
+  confirms the day has genuinely nothing from xTiles specifically.
+
+Compute event count, hours occupied,
 longest free focus window, overlaps, back-to-back runs, events after 20:00,
 missing agendas, likely duplicates. For each event: time, title, participants,
 meeting link. Find each meeting's agenda in this order — (1) a Granola/meeting
@@ -401,7 +438,9 @@ a morning's tasks should be `high`. Never `completed="true"`.
     🤝 Client & external · 🔁 Recurring · 🧑‍🤝‍🧑 1:1s). **Fewer than 4 events →
     no groups**, list flat.
   - ⚠️ anomalies collected at the bottom, one per line.
-  - Omit the tile if there are no events.
+  - Omit the tile if the merged event list is empty. Always one tile, even when
+    both the xTiles calendar and the Calendar connector contributed events —
+    never split them into two.
 - **`### 💼 LinkedIn`** — messages, mentions and notifications that need
   attention, plus notable engagement on the user's recent posts. One line per
   item — `- **Name** — what they said/asked` with an inline link to the message
