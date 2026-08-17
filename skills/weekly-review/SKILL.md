@@ -22,6 +22,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
   mcp__xtiles__xtiles_get_user_timezone,
+  mcp__xtiles__xtiles_list_calendar_events,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
@@ -81,16 +82,19 @@ After receiving answers — detect which MCP tools are actually available:
 |--------------|-----------------------------------------------------------|
 | Slack        | `mcp__claude_ai_Slack__slack_search_channels`             |
 | Gmail        | `mcp__claude_ai_Gmail__search_threads`                    |
+| Calendar (xTiles) | `mcp__xtiles__xtiles_list_calendar_events`            |
 | Calendar     | `mcp__claude_ai_Google_Calendar__list_events`             |
 | Granola      | `mcp__claude_ai_Granola__list_meetings`                   |
 | Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files`          |
 | Linear       | `mcp__claude_ai_Linear__list_issues`                      |
 
+**Calendar (xTiles) is a distinct, optional card — not the same as Calendar.** It aggregates whatever Google/Outlook calendars the user connected inside xTiles itself, via `mcp__xtiles__xtiles_list_calendar_events`. `Calendar` stays the separate, optional card for a Google account connected *directly*, outside xTiles. When both are selected, merge their events for the week and dedup: drop a Calendar-connector event when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
+
 **For an "Other" app the user typed** (the free-text field in the widget) — treat it exactly like the known connectors: attempt detection via any available MCP tool for it; if not detected, say its name explicitly ("I'll connect Plaud for you"), walk the user through connecting it via `mcp__mcp-registry__suggest_connectors`, then resume with the full tool list. Never silently drop a custom app the user named — carry it through the fetch (step 3) and analysis.
 
 **If xTiles is not connected** — stop and walk the user through connecting it first (see **How to connect connectors**).
 
-**If a selected connector isn't connected** — walk through connecting it via `mcp__mcp-registry__suggest_connectors`. Wait for confirmation before continuing.
+**If a selected connector isn't connected** — walk through connecting it via `mcp__mcp-registry__suggest_connectors`. Wait for confirmation before continuing. **Calendar (xTiles) can't be checked this way** — `xtiles_list_calendar_events` has no auth-error path for "no calendar linked" (an empty result looks identical to a genuinely quiet week), so its selection is taken at face value; the "maybe not linked" ambiguity is resolved later, in step 3, if the merged event list ends up empty.
 
 ---
 
@@ -116,7 +120,12 @@ For each connector that was selected or detected — call it now, before analysi
 
 - **Slack**: `mcp__claude_ai_Slack__slack_read_channel` for each configured channel. After reading, filter to messages with timestamp ≥ Monday 00:00 of the current week — discard older messages. From filtered messages extract: decisions, shipped items, open threads
 - **Gmail**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox after:{Monday-YYYY/MM/DD}` using this week's Monday date (compute from current date) — extract key threads that represent decisions or open actions
-- **Calendar**: `mcp__claude_ai_Google_Calendar__list_events` — this week's events. Count meetings, identify recurring vs one-off, note people present
+- **Calendar**: build one merged event list for the week, then analyse it.
+  - **Calendar (xTiles), if selected.** Call `mcp__xtiles__xtiles_list_calendar_events` for Monday through today.
+  - **Calendar (the Google Calendar connector), if also selected.** Call `mcp__claude_ai_Google_Calendar__list_events` for the same range and add its events to the same list.
+  - **Dedup across the two.** Drop a Calendar-connector event when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
+  - **If Calendar (xTiles) was selected and contributed zero events for the whole week, don't assume the week was simply quiet.** The tool can't tell "nothing scheduled" from "no calendar linked." If the Calendar connector also contributed nothing (or wasn't selected), note this once in the summary instead of silently showing an empty week. Skip the note if the Calendar connector *did* contribute at least one event.
+  - From the merged list: count meetings, identify recurring vs one-off, note people present
 - **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items, decisions, and attendees
 - **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — documents created or edited this week
 - **Linear**: `mcp__claude_ai_Linear__list_issues` — issues closed, opened, and still in progress this week
@@ -464,6 +473,7 @@ h2{font-size:18px;font-weight:700;margin-bottom:4px}
     <div class="cards" id="tool-cards">
       <div class="card" onclick="tog(this,'Slack')"><div class="chk">✓</div>Slack</div>
       <div class="card" onclick="tog(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
+      <div class="card" onclick="tog(this,'CalendarXTiles')"><div class="chk">✓</div>Calendar (xTiles)</div>
       <div class="card" onclick="tog(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
       <div class="card" onclick="tog(this,'Granola')"><div class="chk">✓</div>Granola</div>
       <div class="card" onclick="tog(this,'Linear')"><div class="chk">✓</div>Linear</div>

@@ -120,7 +120,7 @@ One sentence, then:
 ```
 genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
-  {"question":"Which sources should feed your Evening Reflection?","options":["xTiles Planner","Slack","Gmail","Calendar","Granola","Linear"],"type":"multi_select","free_text_placeholder":"Add another source"}
+  {"question":"Which sources should feed your Evening Reflection?","options":["xTiles Planner","Slack","Gmail","Calendar","Calendar (xTiles)","Granola","Linear"],"type":"multi_select","free_text_placeholder":"Add another source"}
 ]}}
 ```
 
@@ -128,6 +128,12 @@ Require one role and at least one source. Selecting a source is permission to
 read it for this reflection. xTiles access is always required — for the
 destination and for deduplication — regardless of whether `xTiles Planner` is
 selected as an evidence source.
+
+**`Calendar (xTiles)` and `Calendar` are distinct.** The former aggregates
+whatever Google/Outlook calendars the user connected inside xTiles itself, via
+`xtiles_list_calendar_events`; the latter is any other, directly-connected
+calendar tool. Either, both, or neither may be selected — when both are, their
+events merge for today (Stage 5).
 
 ---
 
@@ -180,11 +186,13 @@ Typed channel names are kept exactly as entered.
 1. Resolve the active user and IANA timezone: `xtiles_get_current_user`,
    `xtiles_get_user_timezone`. xTiles is required — if it is unavailable, stop
    and connect it first.
-2. Perform a harmless read-only call on every selected external source. Tool
-   presence alone is not authorization.
+2. Perform a harmless read-only call on every selected external source that can
+   actually fail auth. Tool presence alone is not authorization.
 3. If a source needs reconnecting, keep the full config, offer the native
    connect action, and resume from this check — never from Stage 1. The user may
-   explicitly skip that source.
+   explicitly skip that source. **Skip this check for `Calendar (xTiles)`** — it
+   has no auth-error path to test; its "maybe not linked" ambiguity is handled
+   later, in Stage 5, if today's merged event list comes back empty.
 4. **Never silently omit a selected source.** A source that failed is named in
    the preview.
 
@@ -205,8 +213,19 @@ parallel where possible.
   important threads in the chosen channels. Keep message permalinks.
 - **Gmail**: mail sent today, plus important received mail that needs action.
   Read only what is necessary; keep thread links.
-- **Calendar**: today's events, separating meetings with others from solo focus
-  blocks.
+- **Calendar**: build one merged event list for today, then analyse it.
+  - `Calendar (xTiles)`, if selected — `xtiles_list_calendar_events` for today.
+  - `Calendar`, if also selected — its `list_events`-equivalent for today,
+    added to the same list.
+  - Dedup: drop a `Calendar` event when an xTiles-calendar event already has
+    the same start time and the same title (case-insensitive) — never show the
+    same meeting twice.
+  - If `Calendar (xTiles)` was selected and contributed zero events, and
+    `Calendar` contributed nothing too (or wasn't selected), don't assume the
+    day was simply free — note the ambiguity once instead of silently showing
+    an empty day.
+  - From the merged list: separate meetings with others from solo focus
+    blocks.
 - **Granola / meeting notes**: decisions, action items and attendees from
   today's meetings.
 - **Linear / issue tracker**: issues that moved meaningfully today.

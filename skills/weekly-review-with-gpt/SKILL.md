@@ -112,13 +112,19 @@ Related**.
 ```
 genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
-  {"question":"Which sources should feed your Weekly Review?","options":["Slack","Gmail","Calendar","Granola","Linear","GitHub","Google Drive"],"type":"multi_select","free_text_placeholder":"Add another source"}
+  {"question":"Which sources should feed your Weekly Review?","options":["Slack","Gmail","Calendar","Calendar (xTiles)","Granola","Linear","GitHub","Google Drive"],"type":"multi_select","free_text_placeholder":"Add another source"}
 ]}}
 ```
 
 Require one role and at least one source. Selecting a source is permission to
 read it for this review. **xTiles planner content is always the base source** —
 it is not offered as an option.
+
+**`Calendar (xTiles)` and `Calendar` are distinct.** The former aggregates
+whatever Google/Outlook calendars the user connected inside xTiles itself, via
+`xtiles_list_calendar_events`; the latter is a Google account connected
+*directly*, outside xTiles. Either, both, or neither may be selected — when
+both are, their events merge for the week (Stage 4).
 
 ---
 
@@ -153,11 +159,14 @@ conversations or DMs without the affirmative consent answer.**
 
 1. Resolve the active user and IANA timezone: `xtiles_get_current_user`,
    `xtiles_get_user_timezone`. xTiles is required.
-2. Perform a harmless read-only call on every selected external source. Tool
-   presence alone is not authorization.
+2. Perform a harmless read-only call on every selected external source that can
+   actually fail auth. Tool presence alone is not authorization.
 3. If a source needs reconnecting, keep the full config, offer the native
    connect action, and resume from this check — never from Stage 1. The user may
-   explicitly skip that source.
+   explicitly skip that source. **Skip this check for `Calendar (xTiles)`** — it
+   has no auth-error path to test; its "maybe not linked" ambiguity is handled
+   later, in Stage 4, if the merged event list comes back empty for the whole
+   week.
 4. **Never silently omit a selected source.**
 5. Repeat these checks before creating any automation.
 
@@ -179,8 +188,20 @@ The week is **Monday 00:00 → the current local time** in the user's timezone.
   Message permalinks, never channel homepages.
 - **Gmail** — important mail from Monday onward; read only the threads needed to
   identify outcomes, decisions and unresolved actions. Keep thread links.
-- **Calendar** — this week's events; separate meetings with others from solo
-  blocks, and recurring from one-off.
+- **Calendar** — build one merged event list for the week, then analyse it:
+  - `Calendar (xTiles)`, if selected — `xtiles_list_calendar_events` for Monday
+    through today.
+  - `Calendar`, if also selected — `list_events` for the same range, added to
+    the same list.
+  - Dedup: drop a `Calendar` event when an xTiles-calendar event already has
+    the same start time and the same title (case-insensitive) — never show the
+    same meeting twice.
+  - If `Calendar (xTiles)` was selected and contributed zero events for the
+    whole week, and `Calendar` contributed nothing too (or wasn't selected),
+    don't assume the week was simply quiet — note the ambiguity once instead of
+    silently showing an empty week.
+  - From the merged list: separate meetings with others from solo blocks, and
+    recurring from one-off.
 - **Granola / meeting notes** — grounded decisions, actions, attendees.
 - **Linear / GitHub** — work created, updated, merged/closed, and still open
   during the week.
