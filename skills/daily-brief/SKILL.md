@@ -29,6 +29,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__xtiles__xtiles_get_workflow,
+  mcp__xtiles__xtiles_list_calendar_events,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
@@ -78,17 +79,21 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. **The Claude card is exempt from this check — it has no auth to test and ships pre-selected unconditionally.** Generate the widget with those pre-selections applied, then call `show_widget`.
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. **The Claude card is exempt from this check — it has no auth to test and ships pre-selected unconditionally.** **Calendar (xTiles) has no auth check to run either** — `xtiles_list_calendar_events` never returns an auth error for "no calendar linked"; an empty result is indistinguishable from a genuinely empty day, by the tool's own description. Don't fake a pre-selection signal that doesn't exist: leave its card unselected like any untested connector, let the user opt in explicitly, and resolve the "maybe not linked" ambiguity later — see step 4. Generate the widget with those pre-selections applied, then call `show_widget`.
 
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
 **Connected tools** (multi select, show all regardless of what's actually detected):
 - Claude — your own past chats, read with `recent_chats`, **pre-selected by default**
+- Calendar (xTiles) — today's events from whatever calendars are connected inside xTiles, read with `mcp__xtiles__xtiles_list_calendar_events`
 - Slack
 - Gmail
+- Calendar — an additional, directly-connected Google account whose events aren't already synced into xTiles
 - Other — a free-text field where the user names any connector that isn't on the cards
 
 **Claude is a source, not just the thing reading the sources — and it is on by default.** The user's own past chats already hold real signal: what they asked for yesterday, what they said they'd do, what was decided, what was left half-finished. It is *their chat history* that is the source — read through `recent_chats` — not the conversation this run happens to be in; never mine the current session's context as a stand-in. Pre-select the Claude card in the widget (`class="card sel"`) and keep `Claude` in the initial `tools` set, so it is selected even if the user never clicks it. The user can deselect it like any other source. It needs **no connector and no auth** — which makes it the one source that always works: on a free plan with nothing connected, a Claude-only digest is still a real digest, not an empty page.
+
+**Calendar (xTiles) is a distinct, optional card — not pre-selected, same as Slack or Gmail.** It aggregates whatever Google or Outlook calendars the user connected inside their xTiles account, read via `mcp__xtiles__xtiles_list_calendar_events`. It is **not** exempt like Claude, but it also can't be auth-tested like Slack or Gmail — the tool has no error path for "no calendar linked," so a successful test call proves nothing. Show its card unselected and let the user opt in; if they select it and it turns out nothing is linked, that surfaces downstream (step 4) as an empty result, not as an upfront connection failure. **Calendar stays a separate, optional card, unchanged from before** — that one is for a Google account connected *directly*, outside xTiles, whose events aren't already synced there, and it does get the normal auth-error test. When both are selected, their events are merged into the same single `### 📅 Workload` tile in step 4 — never two separate calendar tiles.
 
 **The "add your own connector" field is mandatory and must never disappear.** When you regenerate the survey HTML to apply pre-selections, keep the `➕ Don't see your tool? Add your own connector` block (`#other-tool` input + `previewCustom()` + `readCustom()`) exactly as written — pre-selection only ever adds ` sel` to card classes, it never removes markup. The catalog is finite and the user's stack is not; this field is the only way someone can bring in a tool we don't ship a card for, and losing it is a setup failure, not a cosmetic one. Same in Claude Code (no widget): after listing the tool cards inline, always ask explicitly — "Any other tool you want me to pull from? Name it and I'll connect it."
 
@@ -103,10 +108,11 @@ This table is the authoritative, static list of tools this skill supports. It is
 | Connector | Identifying MCP tools | Contributes |
 |-----------|-----------------------|-------------|
 | **Claude (past chats)** | `recent_chats`, `conversation_search` | **Default-on, no connector needed** — from yesterday's chats: unfinished threads, open questions & decisions |
+| Calendar (xTiles) | `mcp__xtiles__xtiles_list_calendar_events` | Aggregates whatever Google/Outlook calendars are connected inside the user's xTiles account: workload analysis, agendas, prep, focus windows |
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel` | Channel signals, mentions, action points |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread` | Unread emails, newsletters, per-topic tiles |
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` | The Daily page itself (required) |
-| Calendar  | `mcp__claude_ai_Google_Calendar__list_events` | Workload: agendas, what to prepare, focus windows, conflicts |
+| Calendar | `mcp__claude_ai_Google_Calendar__list_events` | Optional, additional — events from a Google account connected directly (not already synced into xTiles); merged into the same Workload tile as Calendar (xTiles) |
 | Granola   | `mcp__claude_ai_Granola__list_meetings` | Meeting notes & summaries |
 | Google Drive | `mcp__claude_ai_Google_Drive__list_recent_files` | Recently shared/updated files |
 | Linear    | `mcp__claude_ai_Linear__list_issues` | New & updated issues |
@@ -121,7 +127,7 @@ These connectors are external and optional — they are not shipped with this pl
 
 **If xTiles is not connected** — do not continue. Immediately walk the user through connecting xTiles (see **How to connect connectors** below). Wait for confirmation that xTiles is connected before proceeding.
 
-**If a connector the user selected isn't connected** (Gmail, Slack, etc.) — immediately walk them through connecting it step by step. Do not move to the next step until they confirm it's connected or explicitly choose to skip that connector.
+**If a connector the user selected isn't connected** (Gmail, Slack, etc.) — immediately walk them through connecting it step by step. Do not move to the next step until they confirm it's connected or explicitly choose to skip that connector. **Calendar (xTiles) can't be checked this way** — it never fails auth, so "not connected" only shows up later as an empty result (see step 4).
 
 ---
 
@@ -137,7 +143,7 @@ Options — include only those relevant to connected tools:
 - Emails from key people — a VIP-sender tile *(only if Gmail connected)*
 - Follow-ups — threads awaiting your reply *(only if Gmail connected)*
 - Slack messages from key channels *(only if Slack connected)*
-- Workload — what each meeting is about, what to prepare for it, and where your focus time actually is *(only if Calendar connected)*
+- Workload — what each meeting is about, what to prepare for it, and where your focus time actually is *(only if Calendar (xTiles) and/or Calendar connected)*
 - Other (describe in next message)
 
 Do NOT suggest tasks — they're already in xTiles by default.
@@ -275,7 +281,12 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink. Rendered as a `**✅ Decisions**` block inside the **💬 Slack — Topics** tile, not as its own tile.
   - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳. Rendered as a `**❓ Open**` block inside the **💬 Slack — Topics** tile, not as its own tile.
 
-- **Calendar → the `### 📅 Workload` tile**: `mcp__claude_ai_Google_Calendar__list_events` — today's events. For each event extract: start/end time, title, participant names (first name + last name or company), the event description, and the meeting link (Google Meet, Zoom, or other video URL from event data).
+- **Calendar → the `### 📅 Workload` tile**: build one merged event list, then run the analysis below over it.
+  - **Calendar (xTiles), if selected in step 2.** Call `mcp__xtiles__xtiles_list_calendar_events` for today — it aggregates whatever Google/Outlook calendars the user connected inside xTiles.
+  - **Calendar (the existing Google Calendar connector), if also selected/connected.** Call `mcp__claude_ai_Google_Calendar__list_events` for today and add its events to the same list.
+  - **Dedup across the two sources.** An event from the Calendar connector is a duplicate — and gets dropped — when an xTiles-calendar event already has the same start time and the same title (case-insensitive); this is the common case where the user's xTiles account is already synced to the same Google account they also connected directly. Keep every event that doesn't match one already in the list. Never show the same meeting twice.
+  - For each surviving event extract: start/end time, title, participant names (first name + last name or company), the event description, and the meeting link (Google Meet, Zoom, or other video URL from event data).
+  - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day is simply free.** The tool can't distinguish "nothing scheduled" from "no calendar linked" (see step 2) — so if the Calendar connector also contributed nothing (or wasn't selected), flag this once in the preview (step 5) instead of silently treating it as an empty day: "No calendar events found today — this could mean nothing's scheduled, or that no calendar is linked inside xTiles yet. Want help connecting one?" Skip this note if the Calendar connector *did* contribute at least one event — that confirms the day genuinely has nothing from xTiles specifically, so there's nothing to flag.
 
   **This tile must earn its place — it is not a second copy of the calendar.** The user can already see their schedule; what they cannot see is *what each meeting is about*, *what they have to prepare*, and *where the day's real work fits*. An event row with no agenda and no prep is the weakest thing in the tile — the analysis below is the point, the timetable is just its scaffolding. Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
@@ -566,7 +577,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — the prep is for today's meeting, so its `dueDate` is today (the page's day) unless the source states an earlier real deadline
   - All ⚠️ anomalies collected at the bottom, one per line
   - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
-  - Omit tile entirely if Calendar returned no events
+  - Omit tile entirely if the merged event list is empty
 - This ensures the tile is scannable, not a wall of text
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
@@ -824,9 +835,10 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="hint">Select all that apply — I'll pull live data from them</div>
       <div class="cards" id="tool-cards">
         <div class="card sel" onclick="togTool(this,'Claude')"><div class="chk">✓</div>Claude <span class="tag">no setup</span></div>
+        <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar (xTiles)</div>
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
-        <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
+        <div class="card" onclick="togTool(this,'GoogleCalendar')"><div class="chk">✓</div>Calendar</div>
         <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
         <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
         <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
@@ -874,6 +886,7 @@ var TM={
   'Slack':       {daily:['Slack messages — work chat signals']},
   'Gmail':       {daily:['Important emails — unread inbox','Newsletters — curated summaries','Emails by topic — separate thematic tiles','Emails from key people — VIP senders','Follow-ups — threads awaiting your reply']},
   'Calendar':    {daily:['Workload — agendas, prep & focus time']},
+  'GoogleCalendar': {daily:['Workload — agendas, prep & focus time']},
   'Granola':     {daily:['Granola — meeting notes & summaries']},
   'Linear':      {daily:['Linear issues — new & updated']},
   'GitHub':      {daily:['GitHub — PRs & review requests']},
