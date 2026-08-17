@@ -29,6 +29,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
+  mcp__xtiles__xtiles_list_calendar_events,
   mcp__claude_ai_Slack__slack_search_channels,
   mcp__claude_ai_Slack__slack_search_public_and_private,
   mcp__claude_ai_Slack__slack_read_channel,
@@ -118,8 +119,18 @@ status.
 | xTiles    | `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`, `mcp__xtiles__xtiles_list_tasks`               |
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel`                       |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__get_thread`                                       |
-| Calendar  | the available calendar/events MCP tool, if any                                                                   |
+| Calendar (xTiles) | `mcp__xtiles__xtiles_list_calendar_events`                                                                  |
+| Calendar  | any other connected calendar/events MCP tool (e.g. Google Calendar), if any                                       |
 | PM / issue tracker | **any connected PM tool** — Linear (`mcp__claude_ai_Linear__list_issues`), Jira, Asana, monday, ClickUp, GitHub Issues. Detect by the connector's issue/task read tools; treat all of them the same way (read-only). |
+
+**Calendar (xTiles)'s tool presence is not proof of a linked calendar.** Unlike
+Slack or Gmail, its tool comes from the required xTiles server itself, not from
+a separate OAuth connection — so it's always "present" once xTiles is
+connected, whether or not the user actually linked a Google/Outlook calendar
+inside xTiles. Don't add it to the detected/pre-checked set on tool presence
+alone; leave its survey card unchecked and resolve "maybe not linked" later, in
+step 4, if today turns out empty. `Calendar` (the external one) doesn't have
+this problem — a real connector, detected and pre-checked normally.
 
 Build the **detected set** from this. Connecting is only ever raised in two cases:
 
@@ -150,7 +161,7 @@ Ask three things (folded into the survey widget; inline in Claude Code):
 connected tools:
 - Slack threads you were active in *(only if Slack connected)*
 - Emails you sent / that needed action *(only if Gmail connected)*
-- Meetings & calls (from calendar/notes) *(if calendar/Granola connected)*
+- Meetings & calls (from calendar/notes) *(if Calendar (xTiles), Calendar, or Granola connected)*
 - Tasks you completed today *(xTiles — on by default)*
 - Issues you moved or were assigned in your PM tool — Linear, Jira, Asana, monday… *(only if a PM tool is connected)*
 - Other (describe in next message)
@@ -207,8 +218,12 @@ Then pull from selected connectors:
 - **Gmail**: `mcp__claude_ai_Gmail__search_threads` for mail sent today and
   important received mail that needed action (`newer_than:1d`), then `get_thread`
   for sender/subject/threadId.
-- **Calendar / meeting notes** *(if connected)*: today's events; separate
-  meetings-with-others (attendees > 1) from solo work blocks.
+- **Calendar / meeting notes**: build one merged event list for today, then analyse it.
+  - **Calendar (xTiles), if selected.** Call `mcp__xtiles__xtiles_list_calendar_events` for today.
+  - **Calendar (the other connected calendar tool), if also selected.** Call its `list_events`-equivalent for today and add its events to the same list.
+  - **Dedup across the two.** Drop an event from the Calendar connector when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
+  - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day was simply free.** The tool can't tell "nothing scheduled" from "no calendar linked." If Calendar also contributed nothing (or wasn't selected), note this once in the reflection instead of silently treating it as a free day. Skip the note if Calendar *did* contribute at least one event.
+  - From the merged list: separate meetings-with-others (attendees > 1) from solo work blocks.
 - **PM / issue tracker** *(any connected — Linear, Jira, Asana, monday, ClickUp,
   GitHub Issues)*: pull, **read-only**, two sets — (a) issues **completed today**
   (status moved to Done/Closed today, assigned to or worked by the user) and (b)
@@ -579,6 +594,7 @@ sends a string of answers to chat — process it and continue.
       <div class="cards" id="tool-cards">
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
+        <div class="card" onclick="togTool(this,'CalendarXTiles')"><div class="chk">✓</div>Calendar (xTiles)</div>
         <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar</div>
         <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
         <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
@@ -629,6 +645,7 @@ var role=null, tools=new Set(), content=new Set(), tone='Honest coach', autolog=
 var TM={
   'Slack':   ['Slack threads I was active in'],
   'Gmail':   ['Emails I sent / that needed action'],
+  'CalendarXTiles':['Meetings & calls'],
   'Calendar':['Meetings & calls'],
   'Granola': ['Meeting notes & summaries'],
   'Linear':  ['Linear issues I moved']
