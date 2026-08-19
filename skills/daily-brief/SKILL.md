@@ -79,19 +79,19 @@ If the request is general — run the full flow.
 
 ### 2. Survey — who are you and what's connected
 
-**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. **The Claude card is exempt from this check — it has no auth to test and ships pre-selected unconditionally.** **Calendar (xTiles) has no auth check to run either** — `xtiles_list_calendar_events` never returns an auth error for "no calendar linked"; an empty result is indistinguishable from a genuinely empty day, by the tool's own description. Don't fake a pre-selection signal that doesn't exist: leave its card unselected like any untested connector, let the user opt in explicitly, and resolve the "maybe not linked" ambiguity later — see step 4. Generate the widget with those pre-selections applied, then call `show_widget`.
+**Before calling `show_widget`**: Make a lightweight test call to each connector's identifying MCP tool (e.g. `list_events` with `maxResults:1` for Calendar, `slack_search_channels` with query `general` for Slack — this is an auth check only, not channel discovery). For any connector that responds without an auth error, pre-select its card in the widget HTML by setting `class="card sel"`. **The Claude card is exempt from this check — it has no auth to test — but it is *not* pre-selected: chat history is pulled only if the user selects it.** **Calendar (xTiles) has no auth check to run either** — `xtiles_list_calendar_events` never returns an auth error for "no calendar linked"; an empty result is indistinguishable from a genuinely empty day, by the tool's own description. Don't fake a pre-selection signal that doesn't exist: leave its card unselected like any untested connector, let the user opt in explicitly, and resolve the "maybe not linked" ambiguity later — see step 4. Generate the widget with those pre-selections applied, then call `show_widget`.
 
 **Show the survey widget** (HTML form) in Cowork. In Claude Code (no Cowork environment), ask the same questions inline as plain text — role, tools, content preferences, schedule.
 
 **Connected tools** (multi select, show all regardless of what's actually detected):
-- Claude — your own past chats, read with `recent_chats`, **pre-selected by default**
+- Claude — your own past chats, read with `recent_chats`, **off by default — pick it to include chat history**
 - Calendar (xTiles) — today's events from whatever calendars are connected inside xTiles, read with `mcp__xtiles__xtiles_list_calendar_events`
 - Slack
 - Gmail
 - Calendar — an additional, directly-connected Google account whose events aren't already synced into xTiles
 - Other — a free-text field where the user names any connector that isn't on the cards
 
-**Claude is a source, not just the thing reading the sources — and it is on by default.** The user's own past chats already hold real signal: what they asked for yesterday, what they said they'd do, what was decided, what was left half-finished. It is *their chat history* that is the source — read through `recent_chats` — not the conversation this run happens to be in; never mine the current session's context as a stand-in. Pre-select the Claude card in the widget (`class="card sel"`) and keep `Claude` in the initial `tools` set, so it is selected even if the user never clicks it. The user can deselect it like any other source. It needs **no connector and no auth** — which makes it the one source that always works: on a free plan with nothing connected, a Claude-only digest is still a real digest, not an empty page.
+**Claude is a source, not just the thing reading the sources — but it is off by default.** The user's own past chats hold real signal: what they asked for yesterday, what they said they'd do, what was decided, what was left half-finished. It is *their chat history* that is the source — read through `recent_chats` — not the conversation this run happens to be in; never mine the current session's context as a stand-in. **Leave the Claude card unselected and keep `Claude` out of the initial `tools` set** — chat content reaches xTiles only when the user affirmatively selects it, exactly like any other source. It needs **no connector and no auth**, so once picked it always works: even on a free plan with nothing else connected, a Claude-only digest the user opted into is still a real digest.
 
 **Calendar (xTiles) is a distinct, optional card — not pre-selected, same as Slack or Gmail.** It aggregates whatever Google or Outlook calendars the user connected inside their xTiles account, read via `mcp__xtiles__xtiles_list_calendar_events`. It is **not** exempt like Claude, but it also can't be auth-tested like Slack or Gmail — the tool has no error path for "no calendar linked," so a successful test call proves nothing. Show its card unselected and let the user opt in; if they select it and it turns out nothing is linked, that surfaces downstream (step 4) as an empty result, not as an upfront connection failure. **Calendar stays a separate, optional card, unchanged from before** — that one is for a Google account connected *directly*, outside xTiles, whose events aren't already synced there, and it does get the normal auth-error test. When both are selected, their events are merged into the same single `### 📅 Workload` tile in step 4 — never two separate calendar tiles.
 
@@ -107,7 +107,7 @@ This table is the authoritative, static list of tools this skill supports. It is
 
 | Connector | Identifying MCP tools | Contributes |
 |-----------|-----------------------|-------------|
-| **Claude (past chats)** | `recent_chats`, `conversation_search` | **Default-on, no connector needed** — from yesterday's chats: unfinished threads, open questions & decisions |
+| **Claude (past chats)** | `recent_chats`, `conversation_search` | **Off by default, no connector needed** — include only if the user picks it; from yesterday's chats: unfinished threads, open questions & decisions |
 | Calendar (xTiles) | `mcp__xtiles__xtiles_list_calendar_events` | Aggregates whatever Google/Outlook calendars are connected inside the user's xTiles account: workload analysis, agendas, prep, focus windows |
 | Slack     | `mcp__claude_ai_Slack__slack_search_channels`, `mcp__claude_ai_Slack__slack_read_channel` | Channel signals, mentions, action points |
 | Gmail     | `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__list_labels`, `mcp__claude_ai_Gmail__get_thread` | Unread emails, newsletters, per-topic tiles |
@@ -136,7 +136,7 @@ These connectors are external and optional — they are not shipped with this pl
 Question: "What do you want to see on your Daily each morning?"
 
 Options — include only those relevant to connected tools:
-- From our chats — what you left unfinished or unanswered yesterday *(always offered — no connector required)*
+- From our chats — what you left unfinished or unanswered yesterday *(only if the user selected Claude — no connector required)*
 - Unread emails that need a reply *(only if Gmail connected)*
 - Newsletters — curated summaries from your subscriptions *(only if Gmail connected)*
 - Emails by topic — group your inbox into separate thematic tiles *(only if Gmail connected)*
@@ -254,7 +254,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
-- **Claude chats (yesterday)** — **runs by default, no connector needed**: read the user's own past conversations with `recent_chats`. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
+- **Claude chats (yesterday)** — **only when the user selected Claude as a source; no connector needed**: read the user's own past conversations with `recent_chats`. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
   - **The window.** Call `recent_chats` with `after` set to the previous digest's timestamp (fall back to 24 h ago), `before` set to now, and `sort_order: "desc"`. Both are ISO-8601 in the user's timezone from `xtiles_get_user_timezone` — never in UTC, or a late-evening chat lands on the wrong day. Ask for ~10 chats; if every returned chat sits at the edge of the window, page further back with `before` set to the oldest one you got. Stop as soon as a chat falls outside the window — this is a morning brief, not an archive sweep.
   - **Then go deeper only where it pays.** `recent_chats` returns the conversations themselves — read what comes back and stop there for most of them. Reach for `conversation_search` in exactly one case: a thread ends mid-task and clearly continues an earlier one — search its topic to find where the commitment was actually made, `max_results: 5`, keeping only hits inside the window. Never search speculatively — one query per real gap.
   - **Unfinished threads** — work started and not finished ("we drafted half the launch email"), or a next step the user named but hasn't done yet ("I'll send this to Stefan tomorrow").
@@ -627,7 +627,14 @@ sequence above (layout → CTA → schedule → related).
 
 **Disclosure and consent.** On a **manual run**, both actions are named in the
 preview (step 5) and run only after `Looks good — create it`. On a **scheduled
-run**, they run silently with the rest of the digest.
+run** the user isn't present to watch them happen, so — while the actions still
+run without asking — **record what changed on the page the run writes**: append
+one line to the `### 📩 Emails` tile (or, if there is no Emails tile, add it as a
+single line in the digest) noting the mailbox changes, e.g.
+`✉️ Auto-actions: prepared N draft replies · marked M Noise/newsletter emails as read`.
+State only the real counts; if a count is zero, drop that clause, and if nothing
+changed, write no line. A manual run needs no such line — the user saw and
+approved it.
 
 **Read-only fallback.** If a Gmail write tool is missing or errors, skip that
 action, still finish the digest, and note it once on a manual run ("Couldn't
@@ -834,11 +841,11 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="sec-title">Which tools do you use?</div>
       <div class="hint">Select all that apply — I'll pull live data from them</div>
       <div class="cards" id="tool-cards">
-        <div class="card sel" onclick="togTool(this,'Claude')"><div class="chk">✓</div>Claude <span class="tag">no setup</span></div>
+        <div class="card" onclick="togTool(this,'Claude')"><div class="chk">✓</div>Claude <span class="tag">no setup</span></div>
         <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar (xTiles)</div>
+        <div class="card" onclick="togTool(this,'GoogleCalendar')"><div class="chk">✓</div>Calendar</div>
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
         <div class="card" onclick="togTool(this,'Gmail')"><div class="chk">✓</div>Gmail</div>
-        <div class="card" onclick="togTool(this,'GoogleCalendar')"><div class="chk">✓</div>Calendar</div>
         <div class="card" onclick="togTool(this,'Granola')"><div class="chk">✓</div>Granola</div>
         <div class="card" onclick="togTool(this,'Linear')"><div class="chk">✓</div>Linear</div>
         <div class="card" onclick="togTool(this,'GitHub')"><div class="chk">✓</div>GitHub</div>
@@ -877,9 +884,9 @@ After Submit, the user sends a string of answers to chat — process it and cont
 </div>
 
 <script>
-// Claude is pre-selected: it's a source too, needs no connector, and works on any plan.
-// Its card ships with class="card sel", so the initial set must match.
-var role=null, tools=new Set(['Claude']), content=new Set();
+// Claude is a source (needs no connector) but is OFF by default — chat history
+// reaches xTiles only if the user picks it. Card ships unselected; initial set is empty.
+var role=null, tools=new Set(), content=new Set();
 
 var TM={
   'Claude':      {daily:['From our chats — unfinished threads & open questions']},
