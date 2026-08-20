@@ -61,11 +61,25 @@ missing, say so plainly and stop — never substitute a different write path.
 
 ## Form protocol
 
-Emit the directive **directly in your assistant message**:
+Every question is delivered through the host's `ask_user_input` surface as a
+`genui` directive emitted **directly in your assistant message** — but it only
+renders as an interactive form when wrapped in the host's three **invisible
+sentinel characters** (Private-Use-Area code points). Without them the host
+prints the raw JSON as text, which the user must never see.
 
-```
-genui{"ask_user_input":{"questions":[ … ]}}
-```
+The wrapper (sentinels shown here by code point — they are invisible in the file
+and in output):
+
+- **Prefix:** `U+E200`, then the literal `genui`, then `U+E202`
+- **Payload:** the JSON object `{"ask_user_input":{"questions":[ … ]}}`
+- **Suffix:** `U+E201`
+
+UTF-8 bytes — U+E200 = `EE 88 80` · U+E202 = `EE 88 82` · U+E201 = `EE 88 81`.
+
+Every `genui{…}` block below already carries these sentinels around it.
+Reproduce them **exactly**, including when you build a form dynamically — never
+emit a bare `genui{…}` without the sentinels, and never render the code points
+or JSON as visible text.
 
 - Emit it yourself. Do not check or discuss chat modes, do not call
   `functions.request_user_input`, and do not mention form availability, plans,
@@ -117,10 +131,10 @@ Classify before opening any form.
 One sentence, then:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
   {"question":"Which sources should feed your Daily Brief?","options":["Slack","Gmail","Calendar","Calendar (xTiles)","Granola","Linear","GitHub","Google Drive","Figma","Gamma","LinkedIn"],"type":"multi_select","free_text_placeholder":"Add another source"}
-]}}
+]}}
 ```
 
 Translate questions and placeholders; keep role and source names stable. Require
@@ -152,10 +166,10 @@ Show only content options belonging to the sources chosen in Stage 1. Include
 the consent question **only if Slack was selected**.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"What should appear in your Daily?","options":["<only options for selected sources>"],"type":"multi_select","free_text_placeholder":"Add something else"},
   {"question":"May I search your public and private Slack conversations for mentions?","options":["Yes, allow","No, public channels only"],"type":"single_select","free_text_placeholder":"Add a condition"}
-]}}
+]}}
 ```
 
 | Source | Content options | Keys |
@@ -213,9 +227,9 @@ already named channels. Discover first, then ask:
    then list the rest.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which channels do you open first each morning?","options":["<discovered channels, strongest first>"],"type":"multi_select","free_text_placeholder":"Add another channel"}
-]}}
+]}}
 ```
 
 Without consent, discover public channels only. Free-text channel names are kept
@@ -226,9 +240,9 @@ exactly as typed.
 extract unique publication names, then:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which newsletters do you want in your Daily?","options":["<discovered publications>"],"type":"multi_select","free_text_placeholder":"Add another publication"}
-]}}
+]}}
 ```
 
 If nothing is found, offer `Search again` / `Continue without newsletters` with
@@ -331,9 +345,9 @@ Then **stop and wait**. Nothing is written yet.
 ## Stage 6 — Approval
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Create this Daily in xTiles?","options":["Create it","Change something","Cancel"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
+]}}
 ```
 
 `Change something` → ask what, update **only** that part, re-show the preview,
@@ -462,18 +476,18 @@ a morning's tasks should be `high`. Never `completed="true"`.
 3. Schedule form:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Run this automatically every morning?","options":["Schedule it","No schedule"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+]}}
 ```
 
 On `Schedule it`, one follow-up form for cadence and time:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
   {"question":"What time?","options":["08:00","09:00","10:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+]}}
 ```
 
 Resolve the timezone with `xtiles_get_user_timezone`, then create the automation
@@ -492,9 +506,9 @@ Offer the other four workflows, each with a one-line description of what it
 does — never a bare list of names:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Want to set up anything else on xTiles?","options":["🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call

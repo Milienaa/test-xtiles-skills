@@ -61,11 +61,25 @@ missing, say so plainly and stop — never substitute a different write path.
 
 ## Form protocol
 
-Emit the directive **directly in your assistant message**:
+Every question is delivered through the host's `ask_user_input` surface as a
+`genui` directive emitted **directly in your assistant message** — but it only
+renders as an interactive form when wrapped in the host's three **invisible
+sentinel characters** (Private-Use-Area code points). Without them the host
+prints the raw JSON as text, which the user must never see.
 
-```
-genui{"ask_user_input":{"questions":[ … ]}}
-```
+The wrapper (sentinels shown here by code point — they are invisible in the file
+and in output):
+
+- **Prefix:** `U+E200`, then the literal `genui`, then `U+E202`
+- **Payload:** the JSON object `{"ask_user_input":{"questions":[ … ]}}`
+- **Suffix:** `U+E201`
+
+UTF-8 bytes — U+E200 = `EE 88 80` · U+E202 = `EE 88 82` · U+E201 = `EE 88 81`.
+
+Every `genui{…}` block below already carries these sentinels around it.
+Reproduce them **exactly**, including when you build a form dynamically — never
+emit a bare `genui{…}` without the sentinels, and never render the code points
+or JSON as visible text.
 
 - Emit it yourself. Do not check or discuss chat modes, do not call
   `functions.request_user_input`, and do not mention form availability, plans,
@@ -110,10 +124,10 @@ Related**.
 ## Stage 1 — Setup
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
   {"question":"Which sources should feed your Weekly Review?","options":["Slack","Gmail","Calendar","Calendar (xTiles)","Granola","Linear","GitHub","Google Drive"],"type":"multi_select","free_text_placeholder":"Add another source"}
-]}}
+]}}
 ```
 
 Require one role and at least one source. Selecting a source is permission to
@@ -133,9 +147,9 @@ both are, their events merge for the week (Stage 4).
 Only if Slack was selected. Consent first, as its own required question:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"May I search your public and accessible private Slack conversations?","options":["Yes, search public and private","No, public channels only"],"type":"single_select","free_text_placeholder":"Add a condition"}
-]}}
+]}}
 ```
 
 Then discover channels: search universal names (`general`, `all`, `team`,
@@ -145,9 +159,9 @@ activity, then frequency, then work relevance. Strip bots, tests, random, fun
 and off-topic noise. Show up to **eight** useful candidates, all unselected.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which channels should I read for this week?","options":["<up to eight discovered channels, strongest first>"],"type":"multi_select","free_text_placeholder":"Add another channel"}
-]}}
+]}}
 ```
 
 Typed channel names are kept exactly as entered. **Never search private
@@ -265,9 +279,9 @@ reads, real connector failures. Directly above the approval form state:
 - the destination — the personal Weekly planner.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Save this review to your Weekly page?","options":["Save to Weekly","Change something","Cancel"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
+]}}
 ```
 
 `Change something` → collect the change in a form, revise **only** that part,
@@ -277,9 +291,9 @@ re-show the full preview, ask again. `Cancel` → stop without writing.
 the three H3 titles. If all three exist:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"This week already has a review. What should I do?","options":["Replace the existing review","Append another review","Cancel"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Replace only through a content-update capability that can safely replace those
@@ -346,18 +360,18 @@ Cancel. On a scheduled run, do nothing when all three already exist.
 4. Schedule form:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Run this review automatically every week?","options":["Schedule it","No schedule"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+]}}
 ```
 
 On `Schedule it`:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which day?","options":["Friday","Thursday","Sunday"],"type":"single_select","free_text_placeholder":"Another day"},
   {"question":"What time?","options":["16:00","17:00","18:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+]}}
 ```
 
 Resolve the timezone and the next occurrence, then create the automation with
@@ -373,9 +387,9 @@ automation.**
 ## Stage 9 — Slack sharing
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Share a summary of this review to Slack?","options":["Share to Slack","Keep it personal"],"type":"single_select","free_text_placeholder":"Somewhere else"}
-]}}
+]}}
 ```
 
 On `Share to Slack`: resolve a **real** channel through a channel form — never a
@@ -384,9 +398,9 @@ message (week range, top outcomes, open items, next priority — 3–5 bullets) 
 require explicit confirmation:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Send this to the channel?","options":["Send","Change","Cancel"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
+]}}
 ```
 
 Call the Slack send tool only after `Send`.
@@ -399,9 +413,9 @@ Offer the other four workflows, each with a one-line description of what it
 does — never a bare list of names:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call

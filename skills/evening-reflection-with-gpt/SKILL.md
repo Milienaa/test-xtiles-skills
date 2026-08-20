@@ -69,11 +69,25 @@ missing, say so plainly and stop — never substitute a different write path.
 
 ## Form protocol
 
-Emit the directive **directly in your assistant message**:
+Every question is delivered through the host's `ask_user_input` surface as a
+`genui` directive emitted **directly in your assistant message** — but it only
+renders as an interactive form when wrapped in the host's three **invisible
+sentinel characters** (Private-Use-Area code points). Without them the host
+prints the raw JSON as text, which the user must never see.
 
-```
-genui{"ask_user_input":{"questions":[ … ]}}
-```
+The wrapper (sentinels shown here by code point — they are invisible in the file
+and in output):
+
+- **Prefix:** `U+E200`, then the literal `genui`, then `U+E202`
+- **Payload:** the JSON object `{"ask_user_input":{"questions":[ … ]}}`
+- **Suffix:** `U+E201`
+
+UTF-8 bytes — U+E200 = `EE 88 80` · U+E202 = `EE 88 82` · U+E201 = `EE 88 81`.
+
+Every `genui{…}` block below already carries these sentinels around it.
+Reproduce them **exactly**, including when you build a form dynamically — never
+emit a bare `genui{…}` without the sentinels, and never render the code points
+or JSON as visible text.
 
 - Emit it yourself. Do not check or discuss chat modes, do not call
   `functions.request_user_input`, and do not mention form availability, plans,
@@ -118,10 +132,10 @@ Related**.
 One sentence, then:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"What is your role?","options":["Product Manager","Designer","Engineer","Growth & Marketing","Founder / CEO","Support & Success"],"type":"single_select","free_text_placeholder":"Add another role"},
   {"question":"Which sources should feed your Evening Reflection?","options":["xTiles Planner","Slack","Gmail","Calendar","Calendar (xTiles)","Granola","Linear"],"type":"multi_select","free_text_placeholder":"Add another source"}
-]}}
+]}}
 ```
 
 Require one role and at least one source. Selecting a source is permission to
@@ -143,11 +157,11 @@ Build the first question's options **only** from the selected sources, plus the
 four universal ones.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"What should the reflection cover?","options":["Tasks completed today","Decisions and progress","Promises and follow-ups","Tomorrow's priorities","<one option per selected source>"],"type":"multi_select","free_text_placeholder":"Add something else"},
   {"question":"What tone should it use?","options":["Honest coach","Gentle","Neutral"],"type":"single_select","free_text_placeholder":"Describe another tone"},
   {"question":"Auto-log completed activities as xTiles tasks?","options":["Yes — preview first","Yes — automatically on scheduled runs","No — reflection only"],"type":"single_select","free_text_placeholder":"Another rule"}
-]}}
+]}}
 ```
 
 Require at least one content option. **Whatever the autolog answer is, a manual
@@ -161,9 +175,9 @@ option only authorizes silent mutation inside a scheduled run.
 Only if Slack was selected. Consent first, as its own required question:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"May I search your public and accessible private Slack conversations?","options":["Yes, search public and private","No, public channels only"],"type":"single_select","free_text_placeholder":"Add a condition"}
-]}}
+]}}
 ```
 
 Then discover channels within the approved scope — rank by where the user
@@ -172,9 +186,9 @@ test, random and off-topic streams by default; never hardcode company channel
 names.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which channels should I read for today's work?","options":["<discovered channels, most active first>"],"type":"multi_select","free_text_placeholder":"Add another channel"}
-]}}
+]}}
 ```
 
 Typed channel names are kept exactly as entered.
@@ -262,9 +276,9 @@ user's identity and today's local ISO date.
 ```
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Log these as tasks?","options":["Apply all","Change the list","Skip task logging"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
+]}}
 ```
 
 Mutate tasks only after `Apply all`. `Change the list` → collect the change in a
@@ -388,9 +402,9 @@ Directly above the approval form show: today's local date, the connected xTiles
 account name and email, and the destination — today's personal Daily planner.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Write this reflection to today's Daily?","options":["Write to Daily","Change something","Cancel"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
+]}}
 ```
 
 `Change something` → collect the change in a form, revise **only** that part,
@@ -404,9 +418,9 @@ already there, the whole reflection — that tile **and** any sibling section
 tiles carrying the same date — counts as existing:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Today already has a reflection. What should I do?","options":["Replace today's reflection","Append another reflection","Cancel"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Replace only through a safe exact content-update capability, and replace the
@@ -456,18 +470,18 @@ After `Write to Daily` (or immediately on a scheduled run):
    the link:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Run the Evening Reflection automatically?","options":["Schedule it","No schedule"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+]}}
 ```
 
 On `Schedule it`:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
   {"question":"What time?","options":["18:00","19:00","21:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+]}}
 ```
 
 Resolve the next occurrence in the user's timezone and create the automation
@@ -485,9 +499,9 @@ Offer the other four workflows, each with a one-line description of what it
 does — never a bare list of names:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call

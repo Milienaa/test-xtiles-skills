@@ -66,11 +66,25 @@ missing, say so plainly and stop — never substitute a different write path.
 
 ## Form protocol
 
-Emit the directive **directly in your assistant message**:
+Every question is delivered through the host's `ask_user_input` surface as a
+`genui` directive emitted **directly in your assistant message** — but it only
+renders as an interactive form when wrapped in the host's three **invisible
+sentinel characters** (Private-Use-Area code points). Without them the host
+prints the raw JSON as text, which the user must never see.
 
-```
-genui{"ask_user_input":{"questions":[ … ]}}
-```
+The wrapper (sentinels shown here by code point — they are invisible in the file
+and in output):
+
+- **Prefix:** `U+E200`, then the literal `genui`, then `U+E202`
+- **Payload:** the JSON object `{"ask_user_input":{"questions":[ … ]}}`
+- **Suffix:** `U+E201`
+
+UTF-8 bytes — U+E200 = `EE 88 80` · U+E202 = `EE 88 82` · U+E201 = `EE 88 81`.
+
+Every `genui{…}` block below already carries these sentinels around it.
+Reproduce them **exactly**, including when you build a form dynamically — never
+emit a bare `genui{…}` without the sentinels, and never render the code points
+or JSON as visible text.
 
 - Emit it yourself. Do not check or discuss chat modes, do not call
   `functions.request_user_input`, and do not mention form availability, plans,
@@ -120,11 +134,11 @@ to `AI & product`, `Tech industry`, `Startups`, `Business`. Inference populates
 the choices — it never decides them.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"What do you want news about?","options":["<four to six inferred topics>"],"type":"multi_select","free_text_placeholder":"Add another topic"},
   {"question":"How should sources be verified?","options":["Cross-check every story","Standard source check"],"type":"single_select","free_text_placeholder":"Add another verification preference"},
   {"question":"Include rumors and leaks in a separate tile?","options":["No, verified news only","Yes, include clearly labelled rumors"],"type":"single_select","free_text_placeholder":"Add another preference"}
-]}}
+]}}
 ```
 
 Translate labels and placeholders; replace the sample topics with the real
@@ -292,9 +306,9 @@ approval form state:
 - the destination — today's personal Daily planner.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Save this digest to today's Daily?","options":["Save to Daily","Change something","Cancel"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
+]}}
 ```
 
 `Change something` → collect the correction in a form, revise **only** that
@@ -307,9 +321,9 @@ writing today: a digest written as one tile yesterday and split today is still
 the same digest. If today's news is already on the page:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Today already has a news digest. What should I do?","options":["Replace today's digest","Append another digest","Cancel"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Replace only through a safe exact content-update capability, and replace the
@@ -356,18 +370,18 @@ Cancel. On a scheduled run, do nothing when the digest is already there.
    the link:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Run this digest automatically?","options":["Schedule it","No schedule"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+]}}
 ```
 
 On `Schedule it`:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
   {"question":"What time?","options":["07:00","08:00","09:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+]}}
 ```
 
 Resolve the next occurrence in the user's timezone and create the automation
@@ -386,9 +400,9 @@ Offer the other four workflows, each with a one-line description of what it
 does — never a bare list of names:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Want to set up anything else on xTiles?","options":["☀️ Daily Brief — tomorrow morning's digest from Slack, Gmail and Calendar","🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📊 Weekly Review — what actually moved forward this week","🧭 Life Brief — personal priorities and open loops beyond work tools","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call
