@@ -14,7 +14,7 @@ description: >
 
   Environment triggers: "Today News in Claude", "the Claude version",
   "Claude Today News".
-allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
+allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_patch_view_content, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
 ---
 
 # Today News
@@ -95,6 +95,8 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `period`: `"day"`
 - `date`: today in ISO 8601
 - `markdown`: approved digest (one News tile + optional Rumors tile)
+
+**Update matching tiles in place — never duplicate the user's template.** Before creating, call `mcp__xtiles__xtiles_get_planner_content` for today and match the tiles you're about to write (📰 `Today's News` / per-topic, 🕵️ `Rumors & Leaks`) against the existing `###` headings, ignoring any trailing date suffix. For each heading already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so a saved template is refreshed, not duplicated. Put only the not-present tiles in the create call; never create a second tile whose heading already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass.
 
 **After a successful write — run these steps in order, no exceptions. Step 1 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before the CTA button is even composed:**
 

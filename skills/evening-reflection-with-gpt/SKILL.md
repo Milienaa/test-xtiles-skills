@@ -412,10 +412,21 @@ re-show the full preview, ask again. `Cancel` → stop without writing the tile;
 task mutations already approved stay applied, since they were approved
 explicitly.
 
-**Existing reflection.** Before writing, look for the dated
-`✨ Day Characteristic — DD.MM.YYYY` title in today's planner content. If it is
-already there, the whole reflection — that tile **and** any sibling section
-tiles carrying the same date — counts as existing:
+**Existing reflection — update in place, don't duplicate.** Before writing, read
+today's planner content and match each section you're about to write against the
+existing `###` headings, ignoring any trailing date suffix (so
+`✨ Day Characteristic — DD.MM.YYYY` matches an existing `✨ Day Characteristic`
+tile from a saved template or an earlier run today). For every heading already
+there, **update that tile in place** with `xtiles_patch_view_content`: one
+search-and-replace of the tile's body (everything under its `###` heading and
+`@color` annotations, up to the next `###`), keeping the heading and `@color`
+annotations unchanged, so the user's template/colour/position stay and only the
+reflection content is refreshed. Create only headings not yet on the page, and
+never duplicate a heading. On a scheduled run, do this silently.
+
+Only if `xtiles_patch_view_content` can't target the page — and the dated
+`✨ Day Characteristic` (with any sibling tiles) already exists — fall back to
+asking:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -423,10 +434,11 @@ tiles carrying the same date — counts as existing:
 ]}}
 ```
 
-Replace only through a safe exact content-update capability, and replace the
-**whole set** — never leave yesterday's section tiles orphaned beside a new
-`Day Characteristic`. If no such capability exists, offer Append or Cancel. On a
-scheduled run, an existing dated `Day Characteristic` means do nothing.
+In that fallback, `Replace today's reflection` uses a safe exact content-update
+capability and replaces the **whole set** — never leaving section tiles orphaned
+beside a new `Day Characteristic`; if no such capability exists, offer Append or
+Cancel. On a scheduled run, update the existing tiles in place silently — never
+write a duplicate.
 
 ---
 
