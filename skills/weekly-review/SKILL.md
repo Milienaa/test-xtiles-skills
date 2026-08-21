@@ -18,7 +18,6 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
-  mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -200,8 +199,6 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `date`: current week's Monday in ISO 8601
 
 Write all sections in a **single call**.
-
-**Update matching tiles in place — never duplicate the user's template.** Before writing, call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for this week and match the three fixed titles (`### ✅ Week recap`, `### 🔍 Activities`, `### → Next week`) against the existing `###` headings. For each title already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so the user's Weekly template keeps its colour and position and only the data is refreshed. Put only the titles that aren't there yet in the create call; never create a second tile whose title already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass.
 
 **Tile structure** — every tile must follow this pattern exactly:
 

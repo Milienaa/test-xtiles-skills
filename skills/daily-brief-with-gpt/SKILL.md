@@ -379,22 +379,10 @@ emit this form again. `Cancel` → acknowledge and stop.
 Only after `Create it` (or immediately, on a scheduled run).
 
 1. `xtiles_get_user_timezone` → today's local date as `yyyy-MM-dd`.
-2. **Update matching tiles in place — never duplicate the user's template.**
-   `xtiles_get_planner_content` for that date; list the existing `###` headings.
-   For each section you're about to write, match its heading against them,
-   ignoring any trailing date suffix:
-   - **already on the page** → update that tile in place with
-     `xtiles_patch_view_content`: one search-and-replace that swaps the tile's
-     body (everything under its `###` heading and `@color` annotations, up to the
-     next `###`) for the freshly composed body. **Keep the `###` heading line and
-     the `@colorSize`/`@color` annotations unchanged** — the user's template,
-     colour and position stay; only the data is refreshed. This is what lets a
-     saved template be updated each morning instead of duplicated.
-   - **not on the page** → it goes into the create call in step 3.
-   Never create a second tile whose heading already exists; if `patch_view_content`
-   can't target this page, leave the existing tile untouched rather than write a
-   duplicate. **Steps 3–4 apply only to the not-present sections; if there are
-   none, skip them and reuse the `view_id` you already read.**
+2. `xtiles_get_planner_content` for that date. Compare `###` headings and append
+   **only** sections that do not exist yet. If all of them exist: on a manual
+   run ask `Replace all` / `Append anyway` / `Cancel` as a form; on a scheduled
+   run write nothing.
 3. **One** call to `xtiles_create_tiles_from_markdown_in_my_planner` with
    `period: "day"`, today's `date`, and all sections in a single markdown
    string. Inspect the schema first: it must accept `date`, `period`, `markdown`

@@ -314,20 +314,11 @@ approval form state:
 `Change something` → collect the correction in a form, revise **only** that
 part, re-show the full preview, ask again. `Cancel` → stop without writing.
 
-**Existing digest — update in place, don't duplicate.** Before writing, read
-today's Daily and match the tiles you're about to write against the existing
-`###` headings — any `📰` news tile (`Today's News` or a per-topic one) and the
-`🕵️ Rumors & Leaks` tile — on the tiles that are there, not the shape you happen
-to be writing today. For every heading already on the page, **update that tile
-in place** with `xtiles_patch_view_content`: one search-and-replace of the tile's
-body (everything under its `###` heading and `@color` annotations, up to the next
-`###`), keeping the heading and `@color` annotations unchanged, so a saved
-template keeps its colour and position and only the stories are refreshed. Create
-only headings not yet on the page, and never duplicate a heading. On a scheduled
-run, do this silently.
-
-Only if `xtiles_patch_view_content` can't target the page — and today's news is
-already on the page — fall back to asking:
+**Existing digest.** Before writing, read today's Daily and look for any `📰`
+news tile — `Today's News` or a per-topic one — and the `🕵️ Rumors & Leaks`
+tile. Match on the tiles that are there, not on the shape you happen to be
+writing today: a digest written as one tile yesterday and split today is still
+the same digest. If today's news is already on the page:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -335,11 +326,10 @@ already on the page — fall back to asking:
 ]}}
 ```
 
-In that fallback, `Replace today's digest` uses a safe exact content-update
-capability and replaces the **whole digest** — every existing news tile plus the
-rumors tile — so no tile from the previous shape is left orphaned; otherwise
-offer Append or Cancel. On a scheduled run, update the existing tiles in place
-silently — never write a duplicate.
+Replace only through a safe exact content-update capability, and replace the
+**whole digest** — every existing news tile plus the rumors tile — so no tile
+from the previous shape is left orphaned on the page. Otherwise offer Append or
+Cancel. On a scheduled run, do nothing when the digest is already there.
 
 ---
 

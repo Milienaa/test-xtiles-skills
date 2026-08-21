@@ -26,7 +26,6 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tasks,
   mcp__xtiles__xtiles_update_task,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
-  mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -369,25 +368,10 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `date`: today in ISO 8601
 - `markdown`: all sections in a **single call** — never split per section.
 
-**Update in place, don't clobber or duplicate.** The evening reflection writes to
-the same Daily page the morning brief uses. First call
-`mcp__xtiles__xtiles_get_planner_content` for today and list the existing `###`
-headings. For each section you're about to write, match its heading against them,
-ignoring any trailing date suffix (so `✨ Day Characteristic — DD.MM.YYYY` matches
-an existing `✨ Day Characteristic` tile from a saved template or an earlier run
-today):
-- **already on the page** → update that tile in place with
-  `mcp__xtiles__xtiles_patch_view_content`: one search-and-replace of the tile's
-  body (everything under its `###` heading and `@color` annotations, up to the
-  next `###`). **Keep the heading and `@color` annotations unchanged** — the
-  user's template, colour and position stay; only the reflection content is
-  refreshed.
-- **not on the page** → create it with
-  `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`.
-Never create a second tile whose heading already exists; if `patch_view_content`
-can't target this page, leave the existing tile untouched rather than write a
-duplicate. Only newly-created tiles go through the layout pass; tiles updated in
-place keep their position.
+**Append, don't clobber.** The evening reflection writes to the same Daily page
+the morning brief uses. First call `mcp__xtiles__xtiles_get_planner_content` for
+today; compare existing `###` headers; append only sections whose headers don't
+exist yet. If everything already exists, ask: replace, append anyway, or cancel.
 
 **One single tile.** The whole reflection is **one** `###` tile titled
 `✨ Day Characteristic — DD.MM.YYYY` — not separate tiles per section. The color
