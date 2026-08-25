@@ -379,10 +379,22 @@ emit this form again. `Cancel` → acknowledge and stop.
 Only after `Create it` (or immediately, on a scheduled run).
 
 1. `xtiles_get_user_timezone` → today's local date as `yyyy-MM-dd`.
-2. `xtiles_get_planner_content` for that date. Compare `###` headings and append
-   **only** sections that do not exist yet. If all of them exist: on a manual
-   run ask `Replace all` / `Append anyway` / `Cancel` as a form; on a scheduled
-   run write nothing.
+2. **Update matching tiles in place — never duplicate the user's template.**
+   `xtiles_get_planner_content` for that date; list the existing `###` headings.
+   For each section you're about to write, match its heading against them,
+   ignoring any trailing date suffix:
+   - **already on the page** → update that tile in place with
+     `xtiles_patch_view_content`: one search-and-replace that swaps the tile's
+     body (everything under its `###` heading and `@color` annotations, up to the
+     next `###`) for the freshly composed body. **Keep the `###` heading line and
+     the `@colorSize`/`@color` annotations unchanged** — the user's template,
+     colour and position stay; only the data is refreshed. This is what lets a
+     saved template be updated each morning instead of duplicated.
+   - **not on the page** → it goes into the create call in step 3.
+   Never create a second tile whose heading already exists; if `patch_view_content`
+   can't target this page, leave the existing tile untouched rather than write a
+   duplicate. **Steps 3–4 apply only to the not-present sections; if there are
+   none, skip them and reuse the `view_id` you already read.**
 3. **One** call to `xtiles_create_tiles_from_markdown_in_my_planner` with
    `period: "day"`, today's `date`, and all sections in a single markdown
    string. Inspect the schema first: it must accept `date`, `period`, `markdown`
@@ -486,12 +498,15 @@ a morning's tasks should be `high`. Never `completed="true"`.
 ## Stage 8 — CTA and schedule
 
 1. Confirm in one line: `✅ Daily created.`
-2. **CTA** — use the `parent_resource_url` (or equivalent user-facing URL) from
-   the write response **byte-for-byte**. Never rebuild it from `view_id`, never
-   swap the host, never substitute `/my-planner`, never present a raw
-   `view_id`/`tile_id` as the result. If the write returned no user-facing URL,
-   say exactly that and stop before the schedule offer.
-   `✅ Daily created. [Open in xTiles →]({parent_resource_url})`
+2. **CTA** — link to the **first created tile**, not the page, so the user lands
+   right on the brief: use the `resource_url` of the **first** entry in the write
+   response's `tiles` array (a deep link that opens the Daily page focused on
+   that tile) **byte-for-byte**. Never rebuild it from `view_id`, never swap the
+   host, never substitute `/my-planner`, never present a raw `view_id`/`tile_id`
+   as the result. Only if the first tile has no `resource_url` fall back to
+   `parent_resource_url`; if neither exists, say exactly that and stop before the
+   schedule offer.
+   `✅ Daily created. [Open in xTiles →]({first tile resource_url})`
 3. Schedule form:
 
 ```

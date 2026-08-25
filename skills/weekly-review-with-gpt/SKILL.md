@@ -302,8 +302,18 @@ reads, real connector failures. Directly above the approval form state:
 `Change something` → collect the change in a form, revise **only** that part,
 re-show the full preview, ask again. `Cancel` → stop without writing.
 
-**Existing review.** Before writing, read the current Weekly page and compare
-the three H3 titles. If all three exist:
+**Existing review — update in place, don't duplicate the user's template.**
+Before writing, read the current Weekly page and match each of the three H3
+titles against the existing `###` headings. For every title already there,
+**update that tile in place** with `xtiles_patch_view_content`: one
+search-and-replace of the tile's body (everything under its `###` heading and
+`@color` annotations, up to the next `###`), keeping the heading and `@color`
+annotations unchanged, so a saved Weekly template keeps its colour and position
+and only the data is refreshed. Create only titles that aren't on the page yet,
+and never duplicate a title. On a scheduled run, do this silently.
+
+Only if `xtiles_patch_view_content` can't target the page — and all three titles
+already exist — fall back to asking:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -311,9 +321,10 @@ the three H3 titles. If all three exist:
 ]}}
 ```
 
-Replace only through a content-update capability that can safely replace those
-three sections; otherwise say replacement is unavailable and offer Append or
-Cancel. On a scheduled run, do nothing when all three already exist.
+In that fallback, `Replace the existing review` uses whatever safe content-update
+capability exists; otherwise offer Append or Cancel. On a scheduled run, update
+the existing tiles in place silently — never leave a duplicated set of the three
+tiles on the page.
 
 ---
 
@@ -365,10 +376,13 @@ Cancel. On a scheduled run, do nothing when all three already exist.
 
 ## Stage 8 — CTA and schedule
 
-1. Use the exact user-facing `parent_resource_url` (or equivalent) returned by
-   xTiles, **byte-for-byte** — same host and path. Never build a URL from
-   `view_id`, never substitute `/my-planner`, never show a raw project, view, or
-   tile ID.
+1. Link to the **first written tile** (`### ✅ Week recap`), not the page, so the
+   user lands right on the review: use the `resource_url` of the **first** entry
+   in the write response's `tiles` array (a deep link that opens the Weekly page
+   focused on that tile), **byte-for-byte** — same host and path. Never build a
+   URL from `view_id`, never substitute `/my-planner`, never show a raw project,
+   view, or tile ID. Only if the first tile has no `resource_url` fall back to
+   `parent_resource_url`.
 2. If no valid user-facing URL comes back, say the review was saved but xTiles
    returned no openable link, and stop before the optional stages.
 3. Show it as a labelled link — `[Open Weekly Review](url)` — and retain it.

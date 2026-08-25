@@ -26,6 +26,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tasks,
   mcp__xtiles__xtiles_update_task,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -368,10 +369,25 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `date`: today in ISO 8601
 - `markdown`: all sections in a **single call** — never split per section.
 
-**Append, don't clobber.** The evening reflection writes to the same Daily page
-the morning brief uses. First call `mcp__xtiles__xtiles_get_planner_content` for
-today; compare existing `###` headers; append only sections whose headers don't
-exist yet. If everything already exists, ask: replace, append anyway, or cancel.
+**Update in place, don't clobber or duplicate.** The evening reflection writes to
+the same Daily page the morning brief uses. First call
+`mcp__xtiles__xtiles_get_planner_content` for today and list the existing `###`
+headings. For each section you're about to write, match its heading against them,
+ignoring any trailing date suffix (so `✨ Day Characteristic — DD.MM.YYYY` matches
+an existing `✨ Day Characteristic` tile from a saved template or an earlier run
+today):
+- **already on the page** → update that tile in place with
+  `mcp__xtiles__xtiles_patch_view_content`: one search-and-replace of the tile's
+  body (everything under its `###` heading and `@color` annotations, up to the
+  next `###`). **Keep the heading and `@color` annotations unchanged** — the
+  user's template, colour and position stay; only the reflection content is
+  refreshed.
+- **not on the page** → create it with
+  `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`.
+Never create a second tile whose heading already exists; if `patch_view_content`
+can't target this page, leave the existing tile untouched rather than write a
+duplicate. Only newly-created tiles go through the layout pass; tiles updated in
+place keep their position.
 
 **One single tile.** The whole reflection is **one** `###` tile titled
 `✨ Day Characteristic — DD.MM.YYYY` — not separate tiles per section. The color
@@ -426,15 +442,21 @@ between the title and the annotations):
   each — never a numbered list.
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
 
+**Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
+**(a) CTA link → (b) Schedule offer → (c) Related workflows.** The offer to open the reflection in xTiles (the CTA) and the schedule offer are distinct moments — never drop either, and never collapse the schedule offer into the CTA or the related step. Losing or reordering any of these is a failed run. On a scheduled run, stop silently after the layout pass — none of (a)–(c) are shown.
+
 **After a successful write — run these steps in order, no exceptions. Step 2 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 3's CTA button is even composed:**
 
 1. Write `✅ Evening reflection saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the `###` sections you just wrote — here a single reflection tile), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 1 tile (the reflection) · give it a generous width — max_width, or the largest free band next to existing tiles. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-3. Call `mcp__xtiles__xtiles_get_planner_content` for the same date/period,
-   extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see
-   below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`.
-   Translate the button label into the user's language. Never output a
-   markdown link instead of the widget — the button must render every time.
+3. **Link to the reflection tile, not the page.** Take the `resource_url` of the
+   **first** entry in the write response's `tiles` array (a deep link that opens
+   the Daily page focused on that tile) and use it as `{VIEW_URL}` when you call
+   `show_widget` with the **CTA widget HTML** (see below). Only if the first tile
+   has no `resource_url`, fall back to `https://xtiles.app/{view_id}` (call
+   `mcp__xtiles__xtiles_get_planner_content` for the date/period to get
+   `view_id`). Translate the button label into the user's language. Never output
+   a markdown link instead of the widget — the button must render every time.
 4. Immediately continue to **step 8 (Schedule)** — do not skip, do not ask
    first.
 
@@ -745,7 +767,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ## CTA widget HTML
 
-Show immediately after a successful write and after scheduling confirmation. Replace `{VIEW_URL}` with the real xTiles page URL before calling `show_widget`.
+Show immediately after a successful write and after scheduling confirmation. Replace `{VIEW_URL}` with the first created tile's `resource_url` from the write response (falling back to the page URL only if it is missing) before calling `show_widget`.
 
 ```html
 <style>
