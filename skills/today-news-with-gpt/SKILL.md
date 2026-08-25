@@ -86,24 +86,36 @@ Reproduce them **exactly**, including when you build a form dynamically — neve
 emit a bare `genui{…}` without the sentinels, and never render the code points
 or JSON as visible text.
 
-- Emit it yourself. Do not check or discuss chat modes, do not call
-  `functions.request_user_input`, and do not mention form availability, plans,
-  or implementation limitations.
-- Never substitute another surface: no `show_widget`, `sendPrompt`,
-  `visualize`, HTML fragments, widgets, scripts, `AskUserQuestion`, or Claude
-  scheduling tools.
-- Never replace a form with prose, a numbered list, or "reply with 1/2/3".
-- Every question carries `question`, `options`, `type`
-  (`single_select` | `multi_select`) and a short specific
-  `free_text_placeholder`. **Max 3 questions per form. Nothing pre-selected.**
-- **One short sentence before the form, then the form, then end the turn.**
-  No text after the directive.
-- The next user message is the answer — including the rendered `> Question` /
-  answer format. Parse it and continue. Never re-ask a validly answered stage.
-- Empty answer (`Не вибрано`, `Не выбрано`, `Not selected`, blank) → one
-  sentence saying what is required, then re-emit **the same** form.
-- Typed topics are preserved **verbatim**; at least one topic is required. The
-  accumulated config carries across turns.
+**Interactive-form contract — follow exactly whenever user input is required:**
+
+1. Output exactly one short introductory sentence.
+2. Immediately after it, emit the form directly in the assistant message:
+   U+E200 + `genui` + U+E202 + valid JSON payload + U+E201.
+3. Use the literal Private-Use-Area characters, **not** the strings `U+E200`,
+   `\uE200`, or their UTF-8 byte notation.
+4. The directive must **not** be inside a Markdown code fence, blockquote,
+   inline code, XML, or explanatory prose.
+5. End the turn immediately after the closing U+E201 character.
+6. Never call `functions.request_user_input`; it may be unavailable in Default
+   mode.
+7. Never print the JSON as visible text, and never replace the form with a
+   numbered list or a plain-text question.
+8. Every form must contain **1–3 questions**.
+9. Every question must contain **2–10 options. Never exceed 10.**
+10. If more than 10 options are needed, split them across two questions or
+    consecutive forms. **Never silently drop an option.**
+11. Every question must include: `question`, `options`, `type`
+    (`single_select` or `multi_select`), and `free_text_placeholder`.
+12. Nothing is preselected.
+13. Parse the next user message as the form response and continue from the next
+    workflow stage. Do not repeat an already-answered question.
+
+Also: never substitute another surface (`show_widget`, `sendPrompt`,
+`visualize`, HTML fragments, widgets, scripts, `AskUserQuestion`, or Claude
+scheduling tools). An empty answer (`Не вибрано`, `Не выбрано`, `Not selected`,
+blank) → one sentence saying what is required, then re-emit **the same** form.
+Typed topics are kept **verbatim**; at least one topic is required. The
+accumulated config carries across turns.
 
 The chain: **Setup → search → preview → Approval → write + layout + verify →
 CTA → Schedule → Related**.
