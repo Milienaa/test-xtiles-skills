@@ -14,7 +14,7 @@ description: >
 
   Environment triggers: "Today News in Claude", "the Claude version",
   "Claude Today News".
-allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
+allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_patch_view_content, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
 ---
 
 # Today News
@@ -96,10 +96,12 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 - `date`: today in ISO 8601
 - `markdown`: approved digest (one News tile + optional Rumors tile)
 
+**Update matching tiles in place — never duplicate the user's template.** Before creating, call `mcp__xtiles__xtiles_get_planner_content` for today and match the tiles you're about to write (📰 `Today's News` / per-topic, 🕵️ `Rumors & Leaks`) against the existing `###` headings, ignoring any trailing date suffix. For each heading already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so a saved template is refreshed, not duplicated. Put only the not-present tiles in the create call; never create a second tile whose heading already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass.
+
 **After a successful write — run these steps in order, no exceptions. Step 1 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before the CTA button is even composed:**
 
 1. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the News/Rumors sections you just wrote — 1 or 2 entries), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** 1–2 tiles (News + optional Rumors) · if both, place side by side in one row when they fit, else News gets the wider share · News is the heavier tile. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-2. Call `mcp__xtiles__xtiles_get_planner_content`, get `view_id`, show the **CTA widget HTML** with `{VIEW_URL}` = `https://xtiles.app/{view_id}`.
+2. **Link to the first tile, not the page.** Use the `resource_url` of the **first** entry in the write response's `tiles` array (a deep link that opens the Daily page focused on that tile) as `{VIEW_URL}` in the **CTA widget HTML**. Only if it is missing, fall back to `https://xtiles.app/{view_id}` (call `mcp__xtiles__xtiles_get_planner_content` to get `view_id`).
 
 ### 6. Schedule (optional)
 
@@ -403,7 +405,7 @@ window.onload=function(){
 
 ## CTA widget HTML
 
-Show immediately after a successful write. Replace `{VIEW_URL}` with the real URL.
+Show immediately after a successful write. Replace `{VIEW_URL}` with the first created tile's `resource_url` from the write response (falling back to the page URL only if it is missing).
 
 ```html
 <style>

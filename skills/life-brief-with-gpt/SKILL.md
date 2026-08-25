@@ -350,12 +350,21 @@ and never describe what you would have done in place of doing it.
 
 1. `xtiles_get_user_timezone` → today's local ISO date (and the current week for
    Weekly mode). `xtiles_get_current_user` → the destination account.
-2. **Planner destination** — one call to
-   `xtiles_create_tiles_from_markdown_in_my_planner` with `period: "day"`
-   (Daily) or `period: "week"` (Weekly), the resolved date, and all sections in
-   a single markdown string. In `Both` mode, write the Daily sections to the day
-   page and the Weekly sections to the week page — two calls, one per period,
-   never mixed onto one page.
+2. **Planner destination — update matching tiles in place, never duplicate the
+   user's template.** First read the target page and match each section's `###`
+   heading against the existing headings, ignoring any trailing date suffix. For
+   a heading already on the page, **update that tile in place** with
+   `xtiles_patch_view_content` — one search-and-replace of its body (everything
+   under the `###` heading and `@color` annotations, up to the next `###`),
+   keeping the heading and `@color` annotations unchanged — so a saved template
+   is refreshed, not duplicated. Then create only the not-present sections: one
+   call to `xtiles_create_tiles_from_markdown_in_my_planner` with `period: "day"`
+   (Daily) or `period: "week"` (Weekly), the resolved date, and those new
+   sections in a single markdown string. In `Both` mode, write the Daily sections
+   to the day page and the Weekly sections to the week page — two calls, one per
+   period, never mixed onto one page. Never create a second tile whose heading
+   already exists; if `patch_view_content` can't target the page, leave the
+   existing tile untouched rather than duplicate it.
 3. **Dedicated Life Brief page** — search for an existing one first
    (`xtiles_search_projects`) and append to it. Create a page only when none
    exists. **If a page for the relevant period already exists, append rather
@@ -390,11 +399,15 @@ and never describe what you would have done in place of doing it.
    now, 📅 The next seven days) its own full-width row.
 8. **Verify** — re-read the target page and confirm the sections are there.
 
-**Report back in one line**: what was created or updated, plus the link — the
-exact user-facing `parent_resource_url` returned by xTiles, byte-for-byte. Never
-build a URL from `view_id`, never substitute a generic route, never show a raw
-ID. If xTiles is unavailable or the call fails, say so plainly in one line and
-output the brief in clean Markdown the user can paste in themselves.
+**Report back in one line**: what was created or updated, plus the link — link
+to the **first written tile**, not the page, so the user lands right on the
+brief: use the `resource_url` of the **first** entry in the write response's
+`tiles` array (a deep link that opens the page focused on that tile),
+byte-for-byte (in `Both` mode use the Daily write's first tile). Never build a
+URL from `view_id`, never substitute a generic route, never show a raw ID; only
+if the first tile has no `resource_url` fall back to `parent_resource_url`. If
+xTiles is unavailable or the call fails, say so plainly in one line and output
+the brief in clean Markdown the user can paste in themselves.
 
 ---
 

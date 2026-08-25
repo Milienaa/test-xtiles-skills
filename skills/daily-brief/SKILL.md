@@ -27,6 +27,7 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__xtiles__xtiles_get_workflow,
   mcp__xtiles__xtiles_list_calendar_events,
@@ -582,11 +583,15 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
-**If the page already exists:**
-1. Call `mcp__xtiles__xtiles_get_planner_content`
-2. Compare existing H3 headers (`###`) with what you're about to add
-3. Append only sections whose headers don't exist yet
-4. If everything already exists — ask: replace all, append anyway, or cancel?
+**If the page already exists — update matching tiles in place, never duplicate the user's template:**
+1. Call `mcp__xtiles__xtiles_get_planner_content` and list the existing `###` tile headings on the page.
+2. Split the sections you're about to write by comparing headings — match on the heading text, ignoring any trailing date suffix:
+   - **Heading already on the page** → update that tile in place with `mcp__xtiles__xtiles_patch_view_content`: one search-and-replace that swaps the tile's current body (everything under its `###` heading and colour annotations, up to the next `###`) for the freshly composed body. **Keep the `###` heading line and the `@colorSize`/`@color` annotations exactly as they are** — never change the user's colour, title wording, or the tile's position. This is what lets a user's own saved template be refreshed each morning instead of duplicated.
+   - **Heading not on the page** → include it in the single `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` call (append), as usual.
+3. **Never create a second tile whose heading already exists on the page.** If the in-place update capability can't target this page, leave the existing tile untouched (skip it) rather than writing a duplicate.
+4. The layout pass and CTA below apply only to tiles you **newly created**; tiles updated in place keep their position and are not re-laid-out. If you created nothing new, skip the layout pass and reuse the `view_id` from the `get_planner_content` call you already made.
+
+This runs silently on a scheduled run; on a manual run it needs no extra confirmation — the refreshed content is exactly what the user approved in the preview.
 
 **After each successful write — run these four steps in order, no exceptions (Cowork included — these are chat widgets/questions, never replaced by an artifact):**
 
@@ -597,7 +602,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
    - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Slack — Topics, 📩 Emails, or 📅 Workload) its own full-width row.
    - Apply the layout silently — no message, no confirmation. Only once it is applied, continue to step 3.
 
-3. Reuse the `view_id` from the write response (step 2) — **do not call `get_planner_content` to re-derive it.** Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
+3. **Link to the first tile, not the page**, so the user lands right on the brief. Take the `resource_url` of the **first** entry in the write response's `tiles` array (a deep link that opens the Daily page focused on that tile) and use it as `{VIEW_URL}` when you call `show_widget` with the **CTA widget HTML** (see below). Only if the first tile has no `resource_url`, fall back to `https://xtiles.app/{view_id}` using the `view_id` from the write response (step 2) — **do not call `get_planner_content` to re-derive it.** Translate the button label into the user's language. **Never output a markdown link instead of the widget.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first — just show it.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
@@ -660,7 +665,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}` (the same `view_id` from step 7). Never output a markdown link here — always the button widget.
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, reusing the **same first-tile `resource_url`** you used for the CTA in step 7 (fall back to `https://xtiles.app/{view_id}` only if there was none). Never output a markdown link here — always the button widget.
 - If the user selects **"No, thanks"** — acknowledge briefly.
 
 Either way, continue to **step 9 (Related workflows)** — do not stop here.
@@ -991,7 +996,7 @@ function submit(){
 
 ## CTA widget HTML
 
-Show this immediately after a successful write. Replace `{VIEW_URL}` with the real xTiles page URL before calling `show_widget`.
+Show this immediately after a successful write. Replace `{VIEW_URL}` with the first created tile's `resource_url` from the write response (falling back to the page URL only if it is missing) before calling `show_widget`.
 
 ```html
 <style>

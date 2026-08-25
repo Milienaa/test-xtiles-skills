@@ -18,6 +18,7 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
+  mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -200,6 +201,8 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 Write all sections in a **single call**.
 
+**Update matching tiles in place — never duplicate the user's template.** Before writing, call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for this week and match the three fixed titles (`### ✅ Week recap`, `### 🔍 Activities`, `### → Next week`) against the existing `###` headings. For each title already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so the user's Weekly template keeps its colour and position and only the data is refreshed. Put only the titles that aren't there yet in the create call; never create a second tile whose title already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass.
+
 **Tile structure** — every tile must follow this pattern exactly:
 
 ```
@@ -253,11 +256,14 @@ Write all sections in a **single call**.
 
 `##### Suggested priorities` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
 
+**Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
+**(a) CTA link → (b) Schedule offer → (c) Slack sharing offer → (d) Related workflows.** Never fold the Slack offer into the schedule step and never propose Slack while asking about scheduling — they are two distinct, consecutive widgets. Losing or reordering any of these four is a failed run. On a scheduled run, stop silently after the layout pass — none of (a)–(d) are shown.
+
 **After a successful write — run these steps in order, no exceptions. Step 2 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 3's CTA button is even composed:**
 
 1. Write `✅ Weekly Review saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the 3 `###` sections you just wrote), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 3 tiles (Week recap, Activities, Next week) in that order · try all 3 in one row if they fit, else the heaviest tile (usually Activities) takes more width or its own row. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-3. Call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` and this week's date. Extract `view_id`. Call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with `https://xtiles.app/{view_id}`. Translate the button label into the user's language. Never output a markdown link instead of the widget.
+3. **Link to the first tile (`### ✅ Week recap`), not the page**, so the user lands right on the review. Use the `resource_url` of the **first** entry in the write response's `tiles` array (a deep link that opens the Weekly page focused on that tile) as `{VIEW_URL}` when you call `show_widget` with the **CTA widget HTML** (see below). Only if it is missing, fall back to `https://xtiles.app/{view_id}` (call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` and this week's date to get `view_id`). Translate the button label into the user's language. Never output a markdown link instead of the widget.
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip.
 
 **If an error occurs:** say what went wrong and offer to retry.
@@ -266,7 +272,10 @@ Write all sections in a **single call**.
 
 ### 7. Schedule (optional)
 
-The schedule widget is shown in step 6 above. This step handles the response.
+The schedule widget was shown as the final step of the write flow above (the
+Schedule widget, right after the CTA link) — this section handles the response.
+**This is the schedule offer only; do not mention or offer Slack here** — Slack
+sharing is the separate step 8 that comes next.
 
 In Claude Code: after writing, ask inline: "Want me to run this automatically every Friday at 4 PM?"
 
