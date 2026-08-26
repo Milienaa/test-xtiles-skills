@@ -706,7 +706,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." Then call `show_widget` with the **CTA widget HTML**, reusing the **same `{VIEW_URL}`** you resolved for the CTA in step 7 (its tile-level link, or the page fallback if that's what step 7 ended up using). Never output a markdown link here — always the button widget. **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." **Do not show the CTA widget again here** — it was already shown once, right after the write in step 7; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 - If the user selects **"No, thanks"** — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
 
 **Either way, step 9 still has to run before this turn ends — the schedule confirmation or decline is not a stopping point, do not wait for the user to ask.**
@@ -1051,6 +1051,7 @@ Show this immediately after a successful write. Replace `{VIEW_URL}` with the ti
 ```html
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow:hidden;height:auto}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
 .btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
 .btn:hover{background:#333}

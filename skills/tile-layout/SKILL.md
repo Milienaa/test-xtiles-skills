@@ -71,11 +71,16 @@ last-resort at the end of step 9.
    chars_per_line(w))`. Header/short-line = 1 line regardless of `w`.
 
 4. **Tile height at a width** (grid rows ≈ text lines):
-   `H_tile(w) = Σ lines(block, w) + (#header blocks) + (#paragraph→paragraph gaps) + 2`
+   `H_tile(w) = Σ lines(block, w) + (#header blocks) + (#paragraph→paragraph gaps) + 2 + 4`
    — the `+2` is tile chrome (title + top/bottom padding); the header/gap terms
-   are blank lines that don't shrink with width. Round up to whole rows, clamp to
-   `≥ min_tile_height`. (Naive "height ∝ 1/width" fails because only paragraphs
-   shrink with width.)
+   are blank lines that don't shrink with width. **The `+4` is a mandatory
+   safety margin, always added, never trimmed** — the line-wrap estimate in
+   step 3 is a heuristic (approximate char width, no real font metrics), and
+   the width a tile actually gets assigned in steps 6–7 can differ from what
+   felt intuitive while measuring. A tile with a few empty rows at the bottom
+   looks fine; a tile with its last line sliced off does not — always round up
+   in the tile's favor. Round up to whole rows, clamp to `≥ min_tile_height`.
+   (Naive "height ∝ 1/width" fails because only paragraphs shrink with width.)
 
 5. **Compose rows** from the added tiles in their existing top-to-bottom order
    (never reshuffle content, never pull in an existing tile). Place them in free

@@ -290,7 +290,7 @@ In Claude Code: after writing, ask inline: "Want me to run this automatically ev
   - `schedule`: cron from widget — default `0 16 * * 5` (Friday 4 PM). Widget sends a pre-built cron expression in the message (e.g. `cron: 00 16 * * 5`) — extract and use it directly as the `schedule` value.
   - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-  After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." Then call `show_widget` with the **CTA widget HTML** again, reusing the same `{VIEW_URL}` resolved in step 6.3. **This confirmation is not the end of the run — immediately continue to step 8 (Slack sharing) in the same turn.**
+  After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." **Do not show the CTA widget again here** — it was already shown once, right after the write in step 6; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 8 (Slack sharing) in the same turn.**
 
 - If **"No, thanks"** — acknowledge briefly, then **immediately continue to step 8 (Slack sharing) in the same turn.**
 
@@ -523,6 +523,7 @@ function cancelIt(){lock();document.getElementById('btn-cancel').textContent='�
 ```html
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow:hidden;height:auto}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
 .btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
 .btn:hover{background:#333}
