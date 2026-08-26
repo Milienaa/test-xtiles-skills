@@ -27,6 +27,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_update_task,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_patch_view_content,
+  mcp__xtiles__xtiles_get_content_by_link,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -55,8 +56,11 @@ tomorrow.
 ## Three principles
 
 1. **Survey first, write to xTiles last.** On setup and on the first manual run,
-   nothing is created until the user has seen a preview and approved it. Only
-   scheduled runs (with an approved config) act autonomously.
+   the **reflection tile itself** is never written until the user has seen the
+   step 6 preview and approved it. **Auto-log task creation (step 5) is the one
+   exception**: it follows the `autolog` setting exactly as configured — an
+   explicit "Yes, automatically" is itself the user's approval, honored from the
+   very first run, never re-confirmed "just this once."
 2. **Real data, not placeholders.** Always pull from the user's own past Claude
    chats via `recent_chats` (no connector needed) and from any connected tools
    before preview so the user sees live content. Never invent names, meetings, or
@@ -156,6 +160,14 @@ pre-check the tools that are already connected, pull only from detected sources,
 and treat an "Other…" / not-detected pick as the *only* trigger to offer
 connecting. Never re-prompt to connect something already detected.
 
+**When rendering the Survey widget, only ever pre-check existing cards (add the
+`sel` class, matching `tools`/`togTool` state) and relabel the PM-tool card to
+whatever tool step 2 actually detected (Jira, Asana, monday… in place of
+"Linear") — never rebuild the card list from scratch, and never drop the
+"Other…" card or its free-text input.** It is the only way to add a source this
+skill doesn't name explicitly, and it must render every time, connected sources
+or not.
+
 Ask three things (folded into the survey widget; inline in Claude Code):
 
 **3.1 What to reflect on each evening.** Options — include only those relevant to
@@ -173,9 +185,9 @@ connected tools:
 - **Neutral** — plain factual summary, no editorializing
 
 **3.3 Auto-log completed tasks.** Single select:
+- **Yes, automatically** — just create and complete them, no preview (recommended default — this is what most users want)
 - **Yes, with a preview first** — show me the tasks before creating them, then do
-  it automatically on scheduled runs (recommended default)
-- **Yes, automatically** — just create and complete them, no preview
+  it automatically on scheduled runs
 - **No** — don't auto-create tasks, only write the reflection tile
 
 **If Slack is selected and the user has not named channels:** call
@@ -210,9 +222,15 @@ Then pull from selected connectors:
 
 - **xTiles tasks (PRIMARY SOURCE)**: `mcp__xtiles__xtiles_list_tasks` with
   `completed: "true"`, `due_date_after`: today, `due_date_before`: tomorrow,
-  `per_page: 50`. Repeat with `completed: "false"` for open tasks due today. Also
-  `mcp__xtiles__xtiles_get_planner_content` with `period: "day"` and today's date
-  for full day context.
+  `per_page: 50` — these completed tasks are their own signal for 🎯 Results,
+  not just a reconciliation target for step 5. Repeat with `completed: "false"`
+  for open tasks due today.
+- **Daily Page notes**: from the same `mcp__xtiles__xtiles_get_planner_content`
+  call (`period: "day"`, today's date), read every tile on the page beyond the
+  task list — saved notes, decisions recorded, anything the user wrote or
+  pasted in during the day. This is real signal for 🎯 Results and 🌟
+  Opportunities, not just background context; don't fetch the page and then
+  only look at its tasks.
 - **Slack**: `slack_search_public_and_private` with `on:[today] from:[user]` to
   find where the user was active, then `slack_read_thread` on the important
   threads. Apply the ignore filter from step 3.
@@ -231,6 +249,16 @@ Then pull from selected connectors:
   issues **newly created or newly assigned to the user today** that are still
   open. Keep each issue's title, status and permalink. This is a one-way pull —
   never write a status or a task back to the PM tool.
+- **Goals check (opportunistic, optional).** Call
+  `mcp__xtiles__xtiles_get_planner_content` twice — `period: "week"` and
+  `period: "month"`, both anchored on today — purely to check **whether a
+  Goals/Milestones tile exists**, nothing more. Scan the returned tiles for a
+  heading containing `Goal`, `Goals`, `Milestone`, `Milestones`, `OKR`,
+  `Target`, or `Focus`. **If found**, extract the goal statements verbatim —
+  they feed the optional Goal progress section in step 6. **If neither page has
+  one, drop this silently** — no note, no flag; most users won't have set one
+  up, and that's not a connector failure worth mentioning (unlike the Calendar
+  "maybe not linked" case above).
 - **Claude chat history (today)** — **always run, no connector needed**: call
   `recent_chats` with `after` = today 00:00 and `before` = now, both ISO-8601 in
   the user's timezone from `xtiles_get_user_timezone` (never UTC — an evening run
@@ -303,13 +331,17 @@ role — do not force a fixed founder/PM template):
 - 🛠 Materials prepared (decks, webinars)
 - 🗺 Strategic decisions or priority shifts
 
-**Behavior by `autolog` setting:**
-- **Yes, with a preview first** (and on the first manual run regardless): show the
-  proposed list in chat, marking each as **new** or **closing an existing task** —
-  `✅ [emoji] short specific title` for new, `☑️ closes: "[existing task]"` for
-  matches — and ask via `AskUserQuestion`: "Log these for today?" → Apply all /
-  Edit the list / Skip. Only after approval, apply them.
-- **Yes, automatically**: create without preview.
+**Behavior by `autolog` setting — always exactly as configured, including the
+very first manual run right after setup. The setting itself is the user's
+standing approval; never add an extra confirmation on top of it:**
+- **Yes, with a preview first**: show the proposed list in chat, marking each as
+  **new** or **closing an existing task** — `✅ [emoji] short specific title` for
+  new, `☑️ closes: "[existing task]"` for matches — and ask via
+  `AskUserQuestion`: "Log these for today?" → Apply all / Edit the list / Skip.
+  Only after approval, apply them.
+- **Yes, automatically**: create without preview — **on every run, including the
+  first one.** Do not fall back to the preview flow "just this once"; the user
+  already answered this question during setup.
 - **No**: skip task creation entirely; go straight to the reflection tile.
 
 To create: `mcp__xtiles__xtiles_create_tasks` with `assignee_email` (from
@@ -326,7 +358,21 @@ duplicates — never recreate a task that already exists for today.
 **Derive themes dynamically from ALL collected data — never from a template.**
 Determine: the main themes of the day; what actually moved something forward vs
 pure operations; opportunities (new contacts, ideas, competitive intel, insights);
-promises & follow-ups (what was promised, who needs a message).
+promises & follow-ups (what was promised, who needs a message). Explicitly draw
+on **all** of step 4's sources for this, not just chat/connector outcomes:
+completed xTiles tasks in their own right (not only as a reconciliation
+target), and any Daily Page notes — both are real signal for Results and
+Opportunities, easy to under-weight next to the more narrative Slack/Gmail/chat
+sources.
+
+**If step 4's Goals check found a Goals/Milestones tile** (Weekly and/or
+Monthly), add one optional **Goal progress** section: for each goal, one line —
+`- **[Goal name]** — [✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫
+Blocked] — one-line note on how today connects to it, or honestly that it
+didn't`. Skip a goal only if today genuinely has nothing to say about it — but
+don't invent a connection to avoid an empty line either. **If no Goals tile was
+found on either page, omit this section entirely** — most users won't have one
+set up, and that's normal, not a gap to flag.
 
 Apply the chosen **tone**. If the day was quiet, say so honestly — don't stretch
 it. Optional sections appear only if there is something genuinely valuable.
@@ -348,9 +394,12 @@ Here's your reflection for [actual date]:
 🌟 OPPORTUNITIES   (only if non-trivial)
 - [Specific finds: partnerships, leads, competitor intel, ideas]
 
+🎯 GOAL PROGRESS   (only if a Goals/Milestones tile was found on the Weekly or Monthly page)
+- [Goal name] — [✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked] — [one-line note on how today connects, or honestly that it didn't]
+
 → TOMORROW
-- [ ] Specific action with names — "Message X about Y", not "continue X"
-- [ ] max 3 items
+<task dueDate="YYYY-MM-DD">Specific action with names — "Message X about Y", not "continue X" — dueDate is tomorrow's date</task>
+<task dueDate="YYYY-MM-DD">max 3 items total</task>
 ---
 ```
 
@@ -387,7 +436,9 @@ today):
 Never create a second tile whose heading already exists; if `patch_view_content`
 can't target this page, leave the existing tile untouched rather than write a
 duplicate. Only newly-created tiles go through the layout pass; tiles updated in
-place keep their position.
+place keep their position. **While matching, note the reflection tile's own
+link/`resource_url`** if this `get_planner_content` call returns one alongside
+it — step 7's CTA needs it when the tile is only patched, not created.
 
 **One single tile.** The whole reflection is **one** `###` tile titled
 `✨ Day Characteristic — DD.MM.YYYY` — not separate tiles per section. The color
@@ -415,11 +466,17 @@ between the title and the annotations):
 
 ---
 
+**🎯 Goal progress**
+
+- **[Goal name]** — [✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked] — [one-line note on how today connects, or honestly that it didn't]
+
+---
+
 **→ Tomorrow**
 
-- [ ] [Specific action with names — "Message X about Y", not "continue X"]
+<task dueDate="YYYY-MM-DD">[Specific action with names — "Message X about Y", not "continue X" — dueDate is tomorrow's date]</task>
 
-- [ ] [max 3 items total]
+<task dueDate="YYYY-MM-DD">[max 3 items total]</task>
 
 ⚠️ [unavailable connectors, only if some failed]
 ```
@@ -427,9 +484,12 @@ between the title and the annotations):
 - `@colorSize` is always `LIGHTER`; `@color` is always `SAIL` for this tile. (Do
   **not** use plain names like "purple" — they will not render.)
 - Sections inside the tile are **bold subheaders** (`**🎯 Results**`), separated by
-  `---` dividers — never separate `###` tiles.
-- Drop any optional section (Opportunities) entirely if there's nothing genuinely
-  valuable — don't leave an empty header.
+  `---` dividers — never separate `###` tiles. Never `####`/`#####` headings —
+  a tile has exactly one heading, its own `###` title.
+- Drop any optional section (Opportunities, Goal progress) entirely if there's
+  nothing genuinely valuable — don't leave an empty header. **Goal progress**
+  specifically is dropped whenever step 4's Goals check found nothing — most
+  days, most users.
 
 **Content formatting inside the tile:**
 - Separate each item with a blank line — never a continuous block.
@@ -438,8 +498,13 @@ between the title and the annotations):
   chat follows the same rule, linked to the conversation URL `recent_chats`
   returned — the chat title is the link text. If the tool returned no URL, write
   the title as plain text; never fabricate a `claude.ai` link.
-- Tomorrow's actions as task blocks (`- [ ] Task name`), one empty line between
-  each — never a numbered list.
+- **Tomorrow's actions are real xTiles tasks, not checkboxes.** Write each as
+  `<task dueDate="YYYY-MM-DD">Task name</task>` with `dueDate` set to
+  **tomorrow's date** (this seeds tomorrow, it isn't due today), one empty line
+  between each, never a numbered list. **Never `- [ ]`** — a plain markdown
+  checkbox renders inside the tile's text but never becomes a real, trackable
+  xTiles task; only `<task>` does (same rule `daily-brief` uses for its action
+  items — see its "Action items are real tasks" section).
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
@@ -449,16 +514,13 @@ between the title and the annotations):
 
 1. Write `✅ Evening reflection saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the `###` sections you just wrote — here a single reflection tile), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 1 tile (the reflection) · give it a generous width — max_width, or the largest free band next to existing tiles. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-3. **Link to the reflection tile, not the page.** Take the `resource_url` of the
-   **first** entry in the write response's `tiles` array (a deep link that opens
-   the Daily page focused on that tile) and use it as `{VIEW_URL}` when you call
-   `show_widget` with the **CTA widget HTML** (see below). Only if the first tile
-   has no `resource_url`, fall back to `https://xtiles.app/{view_id}` (call
-   `mcp__xtiles__xtiles_get_planner_content` for the date/period to get
-   `view_id`). Translate the button label into the user's language. Never output
-   a markdown link instead of the widget — the button must render every time.
+3. **Link to the reflection tile, not the page.**
+   - **If this run newly created the reflection tile** — take the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Daily page focused on that tile) and use it as `{VIEW_URL}` directly.
+   - **If the reflection tile already existed and was only patched — the common case on a recurring Daily page.** Take the link/`resource_url` you noted for it in step 7 while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page.
+   - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made in step 7 (no extra call needed).
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render every time, whether the tile was created or only patched.**
 4. Immediately continue to **step 8 (Schedule)** — do not skip, do not ask
-   first.
+   first, and never substitute `AskUserQuestion` for the schedule widget.
 
 On error, say briefly what went wrong and offer to retry.
 
@@ -466,8 +528,8 @@ On error, say briefly what went wrong and offer to retry.
 
 ### 8. Schedule (optional)
 
-**After every successful manual write — show the schedule widget** (see below),
-regardless of survey answers. In Claude Code, ask inline: "Want me to run this
+**After every successful manual write — call `show_widget` with the schedule widget** (see below),
+regardless of survey answers. Do not ask first and never substitute `AskUserQuestion` for it — this is a Cowork chat widget, not a question. In Claude Code, ask inline: "Want me to run this
 every evening automatically? What time? (default: 9:00 PM)".
 
 - If the user schedules it — invoke `anthropic-skills:schedule`, then
@@ -481,10 +543,10 @@ every evening automatically? What time? (default: 9:00 PM)".
     - **`timezone`**: from `mcp__xtiles__xtiles_get_user_timezone`.
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
-      Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`)
-- If the user declines — acknowledge briefly.
+      Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`) **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
+- If the user declines — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
 
-Either way, continue to **step 9 (Related workflows)** — do not stop here.
+**Either way, step 9 still has to run before this turn ends — do not wait for the user to ask.**
 
 ---
 
@@ -552,7 +614,11 @@ function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.st
 ## Survey widget HTML
 
 Show via `show_widget` at the start of setup in Cowork. After Submit, the user
-sends a string of answers to chat — process it and continue.
+sends a string of answers to chat — process it and continue. Adapt only by
+pre-checking detected cards and relabeling the PM-tool card (see step 3) — the
+`__other__` card and its free-text input (`togTool(this,'__other__')` /
+`tool-other-in`) are part of the template exactly as shown below and must never
+be removed.
 
 ```html
 <style>
@@ -650,8 +716,8 @@ sends a string of answers to chat — process it and continue.
     <div class="sec">
       <div class="sec-title">Auto-log today's activities as completed tasks?</div>
       <div class="pills" id="autolog-pills">
-        <div class="pill sel" onclick="pickLog(this,'preview')">Yes — preview first</div>
-        <div class="pill" onclick="pickLog(this,'auto')">Yes — automatically</div>
+        <div class="pill sel" onclick="pickLog(this,'auto')">Yes — automatically</div>
+        <div class="pill" onclick="pickLog(this,'preview')">Yes — preview first</div>
         <div class="pill" onclick="pickLog(this,'off')">No</div>
       </div>
     </div>
@@ -663,7 +729,7 @@ sends a string of answers to chat — process it and continue.
 </div>
 
 <script>
-var role=null, tools=new Set(), content=new Set(), tone='Honest coach', autolog='preview';
+var role=null, tools=new Set(), content=new Set(), tone='Honest coach', autolog='auto';
 var TM={
   'Slack':   ['Slack threads I was active in'],
   'Gmail':   ['Emails I sent / that needed action'],
@@ -767,7 +833,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ## CTA widget HTML
 
-Show immediately after a successful write and after scheduling confirmation. Replace `{VIEW_URL}` with the first created tile's `resource_url` from the write response (falling back to the page URL only if it is missing) before calling `show_widget`.
+Show immediately after a successful write and after scheduling confirmation. Replace `{VIEW_URL}` with the tile-level link resolved in step 7.3 above (falling back to the page URL only if no tile-level link was available) before calling `show_widget`.
 
 ```html
 <style>
@@ -810,6 +876,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 - **The CTA button (step 7) is not optional.** Always call `show_widget` with
   the CTA widget after a successful write — never end the write step with just
   the confirmation text.
+- **In Cowork, the CTA and Schedule offer are `show_widget` HTML widgets, never
+  `AskUserQuestion` and never plain text** — `AskUserQuestion` is for step 9
+  (Related workflows) only.
 - **Never end the flow with a plain-text list of next steps.** After
   scheduling is resolved (step 8), always offer related workflows through the
   `AskUserQuestion` in step 9 — the user picks, they never retype a choice.
+- **`autolog: auto` means auto from the first run, not the second.** Never add a
+  one-time confirmation "just to be safe" on top of an explicit setting — that
+  makes the setting meaningless.
+- **The Survey widget's "Other…" card is not optional decoration.** It's the
+  only way to add a connector this skill doesn't name explicitly — never drop it
+  when adapting the widget to detected connectors.

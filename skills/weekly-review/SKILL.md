@@ -19,6 +19,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_patch_view_content,
+  mcp__xtiles__xtiles_get_content_by_link,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -140,37 +141,37 @@ If a connector call fails — note the failure, continue with remaining data. Do
 
 **Be concise throughout.** Each item is one line. No multi-sentence explanations inside tiles. Dense but scannable.
 
-Synthesise the collected data into **3 tiles**, each with `#####` subheadings inside.
+Synthesise the collected data into **3 tiles**, each with bold `**[Title]**` subheadings inside (add a leading emoji where one fits, as in the reference below) — never `####`/`#####`.
 
 ---
 
 **Tile 1 — ✅ Week recap** contains three subheadings:
 
-`##### ✅ Accomplishments` — concrete things finished, shipped, or resolved. Include results from Daily pages AND connectors (Slack threads closed, Linear issues shipped, Drive docs published, etc.). First line: WoW delta (`↑ More than last week (N vs M)` / `↓ Less` / `≈ Similar`). Each item: **numbered** (`1.`, `2.`…), one line, source attribution at the end (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`).
+`**✅ Accomplishments**` — concrete things finished, shipped, or resolved. Include results from Daily pages AND connectors (Slack threads closed, Linear issues shipped, Drive docs published, etc.). First line: WoW delta (`↑ More than last week (N vs M)` / `↓ Less` / `≈ Similar`). Each item: **numbered** (`1.`, `2.`…), one line, source attribution at the end (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`).
 
-`##### 🎯 Goals` — only if a Goals/Milestones tile was found on the weekly page. Each goal as a bullet: `- **[Goal name]** — ✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked — one-line assessment`. Omit entire subheading if no Goals tile found.
+`**🎯 Goals**` — only if a Goals/Milestones tile was found on the weekly page. Each goal as a bullet: `- **[Goal name]** — ✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked — one-line assessment`. Omit entire subheading if no Goals tile found.
 
-`##### 💡 Decisions` — choices made this week (Granola, Slack, Daily pages). **Numbered** (`1.`, `2.`…), one decision per line + source in parentheses.
+`**💡 Decisions**` — choices made this week (Granola, Slack, Daily pages). **Numbered** (`1.`, `2.`…), one decision per line + source in parentheses.
 
 ---
 
 **Tile 2 — 🔍 Activities** — patterns derived from ALL collected data (Daily pages + every connector). Contains four subheadings:
 
-`##### 🗂️ Dominant topics` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic as a bullet: `- **[Topic name]** — N days — [one sentence on what happened]`
+`**🗂️ Dominant topics**` — group all topics semantically across the week. Identify top 5 by frequency (how many days they appeared) + attention volume. Format per topic as a bullet: `- **[Topic name]** — N days — [one sentence on what happened]`
 
-`##### ⚡ Activity type` — classify every action from the week into three types. Output as a **single percentage line, no bullets**: `Initiative 40% · Reactive 45% · Decisions 15%`
+`**⚡ Activity type**` — classify every action from the week into three types. Output as a **single percentage line, no bullets**: `Initiative 40% · Reactive 45% · Decisions 15%`
 
-`##### 📊 Productivity pattern` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`
+`**📊 Productivity pattern**` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`
 
-`##### 👥 Key interactions` — top 5 people by interaction count this week. Format each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
+`**👥 Key interactions**` — top 5 people by interaction count this week. Format each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
 
 ---
 
 **Tile 3 — → Next week** contains two subheadings:
 
-`##### 🔄 Open` — tasks, threads, or decisions not resolved this week. Format: `📌 [What needs to happen] — [source]`
+`**🔄 Open**` — tasks, threads, or decisions not resolved this week. Format: `📌 [What needs to happen] — [source]`
 
-`##### Suggested priorities` — suggested top 3 for next week. **Priority logic:**
+`**Suggested priorities**` — suggested top 3 for next week. **Priority logic:**
 1. If a Goals tile was found — derive priorities from goal blockers and next steps toward those goals first
 2. Fill remaining slots (or all 3 if no goals) from "Open" by importance
 Format: `- [ ] [priority]` — one line each, specific and actionable. No assignee, no due date.
@@ -201,7 +202,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 Write all sections in a **single call**.
 
-**Update matching tiles in place — never duplicate the user's template.** Before writing, call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for this week and match the three fixed titles (`### ✅ Week recap`, `### 🔍 Activities`, `### → Next week`) against the existing `###` headings. For each title already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so the user's Weekly template keeps its colour and position and only the data is refreshed. Put only the titles that aren't there yet in the create call; never create a second tile whose title already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass.
+**Update matching tiles in place — never duplicate the user's template.** Before writing, call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for this week and match the three fixed titles (`### ✅ Week recap`, `### 🔍 Activities`, `### → Next week`) against the existing `###` headings. For each title already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so the user's Weekly template keeps its colour and position and only the data is refreshed. Put only the titles that aren't there yet in the create call; never create a second tile whose title already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass. **While matching, note the `### ✅ Week recap` tile's own link/`resource_url`** if this `get_planner_content` call returns one alongside it — step 6.3 needs it for the CTA button when that tile is only patched, not created.
 
 **Tile structure** — every tile must follow this pattern exactly:
 
@@ -220,7 +221,7 @@ Write all sections in a **single call**.
 - Each tile gets a different color — do not repeat the same color twice in a row
 - Do not create a date/header tile — start directly with content tiles
 
-**Always write exactly 3 tiles** using `#####` subheadings inside each.
+**Always write exactly 3 tiles** using bold `**[Title]**` subheadings inside each (leading emoji where it fits) — never `####`/`#####`.
 
 - **Tile 1 — `### ✅ Week recap`**: accomplishments + goal progress + decisions
 - **Tile 2 — `### 🔍 Activities`**: dominant topics + activity type % + productivity pattern + key interactions
@@ -234,27 +235,27 @@ Write all sections in a **single call**.
 
 **Tile 1 — ✅ Week recap:**
 
-`##### ✅ Accomplishments` — WoW delta as first line. Each accomplishment: **numbered** (`1.`, `2.`, `3.`), one line + source (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`). Include results from connectors, not only Daily pages.
+`**✅ Accomplishments**` — WoW delta as first line. Each accomplishment: **numbered** (`1.`, `2.`, `3.`), one line + source (`— [#channel](url)`, `— [Linear #123](url)`, `— Granola`). Include results from connectors, not only Daily pages.
 
-`##### 🎯 Goals` — only if Goals tile found. Each goal as a bullet: `- **[name]** — [status badge] — one-line assessment`. Omit subheading entirely if no Goals tile.
+`**🎯 Goals**` — only if Goals tile found. Each goal as a bullet: `- **[name]** — [status badge] — one-line assessment`. Omit subheading entirely if no Goals tile.
 
-`##### 💡 Decisions` — **numbered** (`1.`, `2.`, `3.`), one decision per line + source in parentheses.
+`**💡 Decisions**` — **numbered** (`1.`, `2.`, `3.`), one decision per line + source in parentheses.
 
 **Tile 2 — 🔍 Activities:**
 
-`##### 🗂️ Dominant topics` — top 5 topics, each as a bullet: `- **[Topic]** — N days — [one-sentence summary]`
+`**🗂️ Dominant topics**` — top 5 topics, each as a bullet: `- **[Topic]** — N days — [one-sentence summary]`
 
-`##### ⚡ Activity type` — single line, no bullets: `Initiative N% · Reactive N% · Decisions N%`
+`**⚡ Activity type**` — single line, no bullets: `Initiative N% · Reactive N% · Decisions N%`
 
-`##### 📊 Productivity pattern` — each observation as a bullet: `- [observation about most active day, morning/afternoon/evening split, anomalies]`
+`**📊 Productivity pattern**` — each observation as a bullet: `- [observation about most active day, morning/afternoon/evening split, anomalies]`
 
-`##### 👥 Key interactions` — top 5 people, each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
+`**👥 Key interactions**` — top 5 people, each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
 
 **Tile 3 — → Next week:**
 
-`##### 🔄 Open` — each item: `📌 [what needs to happen] — [source]`
+`**🔄 Open**` — each item: `📌 [what needs to happen] — [source]`
 
-`##### Suggested priorities` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
+`**Suggested priorities**` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
 **(a) CTA link → (b) Schedule offer → (c) Slack sharing offer → (d) Related workflows.** Never fold the Slack offer into the schedule step and never propose Slack while asking about scheduling — they are two distinct, consecutive widgets. Losing or reordering any of these four is a failed run. On a scheduled run, stop silently after the layout pass — none of (a)–(d) are shown.
@@ -263,8 +264,12 @@ Write all sections in a **single call**.
 
 1. Write `✅ Weekly Review saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the 3 `###` sections you just wrote), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 3 tiles (Week recap, Activities, Next week) in that order · try all 3 in one row if they fit, else the heaviest tile (usually Activities) takes more width or its own row. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-3. **Link to the first tile (`### ✅ Week recap`), not the page**, so the user lands right on the review. Use the `resource_url` of the **first** entry in the write response's `tiles` array (a deep link that opens the Weekly page focused on that tile) as `{VIEW_URL}` when you call `show_widget` with the **CTA widget HTML** (see below). Only if it is missing, fall back to `https://xtiles.app/{view_id}` (call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` and this week's date to get `view_id`). Translate the button label into the user's language. Never output a markdown link instead of the widget.
-4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip.
+3. **Link to the first tile (`### ✅ Week recap`), not the page**, so the user lands right on the review.
+   - **If step 6 newly created any tile** — use the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Weekly page focused on that tile) as `{VIEW_URL}` directly.
+   - **If the `### ✅ Week recap` tile already existed and was only patched — the common case on a recurring Weekly page.** Take the link/`resource_url` you noted for it in step 6 while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page, before it goes on the button.
+   - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made in step 6 (no extra call needed).
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every run, whether tiles were created or only patched.**
+4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
 
 **If an error occurs:** say what went wrong and offer to retry.
 
@@ -285,9 +290,9 @@ In Claude Code: after writing, ask inline: "Want me to run this automatically ev
   - `schedule`: cron from widget — default `0 16 * * 5` (Friday 4 PM). Widget sends a pre-built cron expression in the message (e.g. `cron: 00 16 * * 5`) — extract and use it directly as the `schedule` value.
   - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-  After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." Then call `show_widget` with the **CTA widget HTML** again using the same `view_id`.
+  After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." Then call `show_widget` with the **CTA widget HTML** again, reusing the same `{VIEW_URL}` resolved in step 6.3. **This confirmation is not the end of the run — immediately continue to step 8 (Slack sharing) in the same turn.**
 
-- If **"No, thanks"** — acknowledge briefly and proceed to step 8.
+- If **"No, thanks"** — acknowledge briefly, then **immediately continue to step 8 (Slack sharing) in the same turn.**
 
 ---
 
@@ -307,11 +312,11 @@ After the schedule widget response — call `show_widget` with the **Slack shari
    ```
 3. Show the message preview in chat and call `show_widget` with a confirm/cancel widget (2 buttons: "Send" / "Cancel") before sending.
 4. Call `mcp__claude_ai_Slack__slack_send_message` with the channel and message.
-5. Confirm: "Sent to #[channel]."
+5. Confirm: "Sent to #[channel]." **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 
-**If "No, keep it personal"** — acknowledge briefly.
+**If "No, keep it personal"** — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
 
-Either way, continue to **step 9 (Related workflows)** — do not stop here.
+**Either way, step 9 still has to run before this turn ends — do not wait for the user to ask.**
 
 ---
 
@@ -348,14 +353,14 @@ Call `mcp__mcp-registry__suggest_connectors` passing the names of missing connec
 
 ## Review tile format (reference)
 
-Use the example below as the ground-truth formatting reference — match it character for character (blank lines, `#####` subheadings, `@colorSize`, `@color`, emoji placement, source attribution).
+Use the example below as the ground-truth formatting reference — match it character for character (blank lines, bold subheadings, `@colorSize`, `@color`, emoji placement, source attribution).
 
 ```markdown
 ### ✅ Week recap
 @colorSize: LIGHTER
 @color: GOSSIP
 
-##### ✅ Accomplishments
+**✅ Accomplishments**
 
 ↑ More than last week (5 vs 3)
 
@@ -367,7 +372,7 @@ Use the example below as the ground-truth formatting reference — match it char
 
 4. Submitted MCP plugin draft to marketplace — Google Drive
 
-##### 🎯 Goals
+**🎯 Goals**
 
 - **Launch MCP plugin to marketplace** — ✅ Clear progress — draft submitted Monday, review pending since Wednesday
 
@@ -375,7 +380,7 @@ Use the example below as the ground-truth formatting reference — match it char
 
 - **Reduce support tickets by 20%** — 🔄 Some progress — new FAQ live; tickets down ~8%, trend positive
 
-##### 💡 Decisions
+**💡 Decisions**
 
 1. PartnerStack postponed — Impact affiliate only for July (Slack — [#growth](https://slack.com/...))
 
@@ -387,7 +392,7 @@ Use the example below as the ground-truth formatting reference — match it char
 @colorSize: LIGHTER
 @color: BLUE_CHALK
 
-##### 🗂️ Dominant topics
+**🗂️ Dominant topics**
 
 - **Affiliate & partnerships** — 4 days — Impact negotiations, EchoMe integration closing
 
@@ -399,17 +404,17 @@ Use the example below as the ground-truth formatting reference — match it char
 
 - **Auth sprint** — 2 days — 3 issues closed, E2E passing
 
-##### ⚡ Activity type
+**⚡ Activity type**
 
 Initiative 38% · Reactive 47% · Decisions 15%
 
-##### 📊 Productivity pattern
+**📊 Productivity pattern**
 
 - Most active: Tuesday. Quietest: Friday (2 meetings, little async).
 
 - Peak hours 10:00–13:00. Anomaly: Monday — 3 back-to-back calls after 18:00.
 
-##### 👥 Key interactions
+**👥 Key interactions**
 
 - **Andrew** — 6 interactions — Q3 OKRs — decision (OKRs approved)
 
@@ -425,7 +430,7 @@ Initiative 38% · Reactive 47% · Decisions 15%
 @colorSize: LIGHTER
 @color: HAWKES_BLUE
 
-##### 🔄 Open
+**🔄 Open**
 
 📌 Todd Savard — EchoMe follow-up, waiting on their tech team — [#partnerships](https://slack.com/...)
 
@@ -433,7 +438,7 @@ Initiative 38% · Reactive 47% · Decisions 15%
 
 📌 Q3 budget — Alex to confirm by EOW — Granola
 
-##### Suggested priorities
+**Suggested priorities**
 
 - [ ] Merge review-fixes branch and send for review — blocks marketplace submission (goal)
 
@@ -672,3 +677,4 @@ function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.st
 - All links must be Markdown hyperlinks — `[text](url)`, never a bare URL
 - Match the user's language; adapt if they switch
 - Show the setup widget in Cowork only — in Claude Code, ask the same questions inline
+- **In Cowork, every terminal-sequence step (CTA, Schedule offer, Slack sharing offer) is a `show_widget` HTML widget, never `AskUserQuestion` and never plain text** — `AskUserQuestion` is for step 9 (Related workflows) only
