@@ -833,11 +833,12 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ## CTA widget HTML
 
-Show immediately after a successful write and after scheduling confirmation. Replace `{VIEW_URL}` with the tile-level link resolved in step 7.3 above (falling back to the page URL only if no tile-level link was available) before calling `show_widget`.
+Show immediately after a successful write — once only, never again after the schedule confirmation. Replace `{VIEW_URL}` with the tile-level link resolved in step 7.3 above (falling back to the page URL only if no tile-level link was available) before calling `show_widget`.
 
 ```html
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow:hidden;height:auto}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
 .btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
 .btn:hover{background:#333}
