@@ -61,7 +61,7 @@ tools, and weekly goals — then write a focused summary to the Weekly page.
 **Period is always Weekly.**
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: the incoming message starts with `Run weekly review —` AND contains `role:`, `tools:`, and `weekly_content:`. Skip the survey AND skip the preview — fetch data and write directly. After writing, **skip the schedule widget and Slack sharing widget** — the task is already scheduled. Jump to **step 3**.
+- **Scheduled run**: the incoming message starts with `Run weekly review —` AND contains `role:`, `tools:`, and `weekly_content:`. Skip the survey AND skip the preview — fetch data and write directly. Extract `notify:` from the config too if present (default `false` for older schedules that predate this setting). After writing, **skip the schedule widget and Slack sharing widget** — the task is already scheduled. Jump to **step 3**.
 - **Fast-track**: user asks "run my weekly review" or similar conversational phrase — skip setup, use all available connectors, jump to **step 3**. Preview (step 5) is still required.
 - **Manual setup**: general request ("set up weekly review") or setup form submission (message contains "Weekly review setup") — run the full flow. Preview (step 5) is still required.
 
@@ -271,7 +271,7 @@ Write all sections in a **single call**.
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made in step 6 (no extra call needed).
    Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
-5. **Scheduled runs only: notify instead of showing a widget.** Replace the CTA widget with `mcp__xtiles__xtiles_create_notification`, since nobody is present to click it during an unattended run:
+5. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 7's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
    - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference something concrete from this week's recap (an accomplishment count, a goal update) rather than a bland "Weekly Review saved." English placeholder examples to translate, not copy verbatim: `"Your Weekly Review is in — 5 wins, 2 things slipping →"`, `"This week, recapped: see what actually moved →"`. Never invent a number that isn't real.
    - `agent_source`: `"Claude"`.
@@ -289,13 +289,15 @@ sharing is the separate step 8 that comes next.
 
 In Claude Code: after writing, ask inline: "Want me to run this automatically every Friday at 4 PM?"
 
-- If **"Yes, schedule it"**: invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
-  - `prompt`: `Run weekly review — role: {role} · tools: {tools} · weekly_content: {content} · schedule: weekly-friday-4pm`  
-    Replace every placeholder with real values.
+- If **"Yes, schedule it"**: the widget response also carries `notify:true`/`notify:false` from its notification toggle. Invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
+  - `prompt`: `Run weekly review — role: {role} · tools: {tools} · weekly_content: {content} · notify: {true/false} (if true, call xtiles_create_notification at the very end of this scheduled run — mandatory, do not skip) · schedule: weekly-friday-4pm`  
+    Replace every placeholder with real values, `notify` straight from the widget.
   - `schedule`: cron from widget — default `0 16 * * 5` (Friday 4 PM). Widget sends a pre-built cron expression in the message (e.g. `cron: 00 16 * * 5`) — extract and use it directly as the `schedule` value.
   - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-  After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." **Do not show the CTA widget again here** — it was already shown once, right after the write in step 6; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 8 (Slack sharing) in the same turn.**
+  **If `notify:true`** — the review that's already on the page right now (from step 6's write) is also worth notifying about; don't make the user wait for next Friday to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is a short marketer-style CTA per the rules in step 6.5 above, `agent_source` is `"Claude"`.
+
+  After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." (append ", and I'll notify you in xTiles each time" if `notify:true`). **Do not show the CTA widget again here** — it was already shown once, right after the write in step 6; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 8 (Slack sharing) in the same turn.**
 
 - If **"No, thanks"** — acknowledge briefly, then **immediately continue to step 8 (Slack sharing) in the same turn.**
 
@@ -548,8 +550,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .icon{font-size:32px;margin-bottom:12px}
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px;flex-wrap:wrap;justify-content:center}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:16px;flex-wrap:wrap;justify-content:center}
 .time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.notify-row{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 14px;border-radius:10px;background:#f8f8f8;border:1.5px solid #eee;cursor:pointer;user-select:none;margin-bottom:24px}
+.notify-info{flex:1;margin-right:12px}
+.notify-label{font-size:13px;font-weight:600}
+.notify-desc{font-size:11px;color:#888;margin-top:2px;line-height:1.4}
+.sw{width:40px;height:22px;background:#e0e0e0;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0}
+.sw.on{background:#1a1a1a}
+.knob{width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw.on .knob{left:20px}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -570,6 +580,13 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
     </select>
     at <input type="time" id="sched-time" value="16:00">
   </div>
+  <div class="notify-row" onclick="togNotify()">
+    <div class="notify-info">
+      <div class="notify-label">🔔 Notify me in xTiles</div>
+      <div class="notify-desc">Get pinged the moment each week's review is ready</div>
+    </div>
+    <div class="sw on" id="notify-sw"><div class="knob"></div></div>
+  </div>
   <div class="btns">
     <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
@@ -577,6 +594,8 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
 </div>
 <script>
 var DAYS={1:'Monday',4:'Thursday',5:'Friday'};
+var notify=true;
+function togNotify(){notify=!notify;document.getElementById('notify-sw').classList.toggle('on',notify);}
 function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
   var d=document.getElementById('sched-day').value;
@@ -584,7 +603,7 @@ function scheduleIt(){
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   collapse('⏳ Scheduling…');
-  sendPrompt('Yes, schedule my weekly review every '+DAYS[d]+' at '+label+' (cron: '+m+' '+h+' * * '+d+')');
+  sendPrompt('Yes, schedule my weekly review every '+DAYS[d]+' at '+label+' (cron: '+m+' '+h+' * * '+d+') · notify:'+notify);
 }
 function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>

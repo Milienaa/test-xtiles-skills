@@ -43,7 +43,7 @@ Generate a fresh morning digest from live web sources based on the user's intere
 ## Algorithm
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: incoming message contains `topics:` and `schedule:`. Skip setup. Extract topics and flags (`verify`, `rumors`), search the web, write the digest to today's xTiles Daily. Also skip step 4 (preview) and step 6 (schedule widget) — the task is already scheduled.
+- **Scheduled run**: incoming message contains `topics:` and `schedule:`. Skip setup. Extract topics and flags (`verify`, `rumors`, and `notify` if present — default `false` for older schedules that predate this setting), search the web, write the digest to today's xTiles Daily. Also skip step 4 (preview) and step 6 (schedule widget) — the task is already scheduled.
 - **Fast-track**: user names a specific topic ("news about AI"). Skip setup — infer topic and jump to step 3.
 - **Setup**: general request ("set up daily news", "I want morning news"). Run the full flow.
 
@@ -113,7 +113,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
    - **If the News tile already existed and was only patched** — take the link/`resource_url` you noted for it while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page.
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made to check existing headings (no extra call needed).
    Call `show_widget` with the **CTA widget HTML** using that `{VIEW_URL}`. **Never leave `{VIEW_URL}` unresolved — the button must render on every non-scheduled run, whether tiles were created or only patched.**
-3. **Scheduled runs only: notify instead of showing a widget.** Replace the CTA widget with `mcp__xtiles__xtiles_create_notification`, since nobody is present to click it during an unattended run:
+3. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 6's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 2 (which this step skips anyway).
    - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference an actual headline or topic from today's digest rather than a bland "News created." English placeholder examples to translate, not copy verbatim: `"Today's headlines are in — the AI story you'll want first →"`, `"Fresh news is up: 3 stories worth your coffee break →"`. Never invent a story that isn't real.
    - `agent_source`: `"Claude"`.
@@ -122,12 +122,14 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 For non-scheduled runs only: after every successful write — call `show_widget` with the **Schedule widget HTML**. Do not ask first and never substitute `AskUserQuestion` for it — this is a Cowork chat widget, not a question.
 
-If the user schedules: invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`:
-- `prompt`: `Run today-news — topics: {topics} · flags: verify={true/false} rumors={true/false} · schedule: daily-{time}`
+If the user schedules: the widget response also carries `notify:true`/`notify:false` from its notification toggle. Invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`:
+- `prompt`: `Run today-news — topics: {topics} · flags: verify={true/false} rumors={true/false} · notify: {true/false} (if true, call xtiles_create_notification at the very end of this scheduled run — mandatory, do not skip) · schedule: daily-{time}`
 - `schedule`: parse `cron: HH:MM` from the widget message and build `M H * * *` (the widget always schedules every day)
 - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-Confirm scheduling succeeded, then **immediately continue to step 7 (Related workflows) in the same turn — this confirmation is not the end of the run.**
+**If `notify:true`** — the digest that's already on the page right now (from step 5's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is a short marketer-style CTA per the rules in step 5.3 above, `agent_source` is `"Claude"`.
+
+Confirm scheduling succeeded (mention ", and I'll notify you in xTiles each time" if `notify:true`), then **immediately continue to step 7 (Related workflows) in the same turn — this confirmation is not the end of the run.**
 
 If the user declines — acknowledge briefly, then **immediately continue to step 7 (Related workflows) in the same turn.**
 
@@ -448,8 +450,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .icon{font-size:32px;margin-bottom:12px}
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:16px}
 .time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.notify-row{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 14px;border-radius:10px;background:#f8f8f8;border:1.5px solid #eee;cursor:pointer;user-select:none;margin-bottom:24px}
+.notify-info{flex:1;margin-right:12px}
+.notify-label{font-size:13px;font-weight:600}
+.notify-desc{font-size:11px;color:#888;margin-top:2px;line-height:1.4}
+.sw{width:40px;height:22px;background:#e0e0e0;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0}
+.sw.on{background:#1a1a1a}
+.knob{width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw.on .knob{left:20px}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -462,19 +472,28 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
   <h2>Run this every morning?</h2>
   <p class="sub">I'll fetch fresh news and write Today's News to xTiles automatically.</p>
   <div class="time-row">Every day at <input type="time" id="sched-time" value="09:00"></div>
+  <div class="notify-row" onclick="togNotify()">
+    <div class="notify-info">
+      <div class="notify-label">🔔 Notify me in xTiles</div>
+      <div class="notify-desc">Get pinged the moment each digest is ready</div>
+    </div>
+    <div class="sw on" id="notify-sw"><div class="knob"></div></div>
+  </div>
   <div class="btns">
     <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+var notify=true;
+function togNotify(){notify=!notify;document.getElementById('notify-sw').classList.toggle('on',notify);}
 function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
   var t=document.getElementById('sched-time').value||'09:00';
   var parts=t.split(':'),h=parseInt(parts[0],10),m=parts[1];
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   collapse('⏳ Scheduling…');
-  sendPrompt('Yes, schedule my today-news at '+label+' every day (cron: '+t+')');
+  sendPrompt('Yes, schedule my today-news at '+label+' every day (cron: '+t+') · notify:'+notify);
 }
 function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>

@@ -89,7 +89,9 @@ Monthly, say only the Daily reflection is currently supported.
 
 - **Scheduled run**: the incoming message contains `role:`, `tools:`,
   `evening_content:`, `tone:`, and `autolog:` (config injected by the `schedule`
-  skill). Do not show the survey. Extract the config from the message. If a
+  skill). Do not show the survey. Extract the config from the message,
+  including `notify:` if present (default `false` for older scheduled configs
+  that predate this setting). If a
   connector from the config is not detected — offer to walk the user through
   connecting it before continuing. Then jump to **step 4 (Silent data fetch)**.
   A scheduled run executes autonomously through to the written tile — but it
@@ -522,7 +524,7 @@ between the title and the annotations):
    Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render every non-scheduled run, whether the tile was created or only patched.**
 4. **For non-scheduled runs only:** immediately continue to **step 8 (Schedule)** — do not skip, do not ask
    first, and never substitute `AskUserQuestion` for the schedule widget.
-5. **Scheduled runs only: notify instead of showing a widget.** Replace the CTA widget with `mcp__xtiles__xtiles_create_notification`, since nobody is present to click it during an unattended run:
+5. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
    - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference something concrete from tonight's reflection (a result, a goal update, tomorrow's top action) rather than a bland "Evening reflection saved." English placeholder examples to translate, not copy verbatim: `"Tonight's wrap-up is in — see what you actually got done →"`, `"Your day, characterized: tomorrow's top move is waiting →"`. Never invent anything that isn't real.
    - `agent_source`: `"Claude"`.
@@ -537,18 +539,21 @@ On error, say briefly what went wrong and offer to retry.
 regardless of survey answers. Do not ask first and never substitute `AskUserQuestion` for it — this is a Cowork chat widget, not a question. In Claude Code, ask inline: "Want me to run this
 every evening automatically? What time? (default: 9:00 PM)".
 
-- If the user schedules it — invoke `anthropic-skills:schedule`, then
+- If the user schedules it — the widget response also carries `notify:true`/`notify:false` from its notification toggle. Invoke `anthropic-skills:schedule`, then
   `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
     - **`prompt`**: full config assembled from setup —
       ```
-      Run evening reflection — role: {role} · tools: {tools} · evening_content: {content} · tone: {tone} · autolog: {on/preview/off} · schedule: daily-9pm
+      Run evening reflection — role: {role} · tools: {tools} · evening_content: {content} · tone: {tone} · autolog: {on/preview/off} · notify: {true/false} (if true, call xtiles_create_notification at the very end of this scheduled run — mandatory, do not skip) · schedule: daily-9pm
       ```
-      Replace all placeholders with real values.
+      Replace all placeholders with real values, `notify` straight from the widget.
     - **`schedule`**: cron derived from the widget. The widget sends `cron: HH:MM days:1-5` (weekdays) or `cron: HH:MM days:*` (every day) — parse both values and build: `M H * * 1-5` for weekdays, `M H * * *` for every day. Default `0 21 * * 1-5` (9:00 PM on weekdays) if not found.
     - **`timezone`**: from `mcp__xtiles__xtiles_get_user_timezone`.
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
-      Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`) **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
+
+      **If `notify:true`** — the reflection that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is a short marketer-style CTA per the rules in step 7.5 above, `agent_source` is `"Claude"`.
+
+      Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`; append ", and I'll notify you in xTiles each time" if `notify:true`) **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 - If the user declines — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
 
 **Either way, step 9 still has to run before this turn ends — do not wait for the user to ask.**
@@ -793,8 +798,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .icon{font-size:36px;margin-bottom:12px}
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:16px}
 .time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.notify-row{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 14px;border-radius:10px;background:#f8f8f8;border:1.5px solid #eee;cursor:pointer;user-select:none;margin-bottom:24px}
+.notify-info{flex:1;margin-right:12px}
+.notify-label{font-size:13px;font-weight:600}
+.notify-desc{font-size:11px;color:#888;margin-top:2px;line-height:1.4}
+.sw{width:40px;height:22px;background:#e0e0e0;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0}
+.sw.on{background:#1a1a1a}
+.knob{width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw.on .knob{left:20px}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -814,12 +827,21 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
     </select>
     at <input type="time" id="sched-time" value="21:00">
   </div>
+  <div class="notify-row" onclick="togNotify()">
+    <div class="notify-info">
+      <div class="notify-label">🔔 Notify me in xTiles</div>
+      <div class="notify-desc">Get pinged the moment each reflection is ready</div>
+    </div>
+    <div class="sw on" id="notify-sw"><div class="knob"></div></div>
+  </div>
   <div class="btns">
     <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+var notify=true;
+function togNotify(){notify=!notify;document.getElementById('notify-sw').classList.toggle('on',notify);}
 function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
   var days=document.getElementById('sched-days').value;
@@ -828,7 +850,7 @@ function scheduleIt(){
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   var dLabel=days==='1-5'?'weekdays':'every day';
   collapse('⏳ Scheduling…');
-  sendPrompt('Yes, schedule my evening reflection at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
+  sendPrompt('Yes, schedule my evening reflection at '+label+' '+dLabel+' (cron: '+t+' days:'+days+') · notify:'+notify);
 }
 function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>
