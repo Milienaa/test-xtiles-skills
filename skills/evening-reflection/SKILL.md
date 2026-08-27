@@ -356,7 +356,7 @@ duplicates — never recreate a task that already exists for today.
 
 ---
 
-### 6. Compose the reflection & preview in chat
+### 6. Compose the reflection & preview
 
 **Derive themes dynamically from ALL collected data — never from a template.**
 Determine: the main themes of the day; what actually moved something forward vs
@@ -380,35 +380,16 @@ set up, and that's normal, not a gap to flag.
 Apply the chosen **tone**. If the day was quiet, say so honestly — don't stretch
 it. Optional sections appear only if there is something genuinely valuable.
 
-Show the preview in chat with real content (not headings with "TBD"):
-
-```
-Here's your reflection for [actual date]:
-
----
-✨ DAY CHARACTERISTIC — DD.MM.YYYY
-[1–2 sharp sentences — the tone and essence of the day, not a task list]
-
-🎯 RESULTS
-- [What was done]
-- ...
-[If no strategic movement: "Operational day — little strategic progress"]
-
-🌟 OPPORTUNITIES   (only if non-trivial)
-- [Specific finds: partnerships, leads, competitor intel, ideas]
-
-🎯 GOAL PROGRESS   (only if a Goals/Milestones tile was found on the Weekly or Monthly page)
-- [Goal name] — [✅ Clear progress / 🔄 Some / ⬜ No movement / 🚫 Blocked] — [one-line note on how today connects, or honestly that it didn't]
-
-→ TOMORROW
-<task dueDate="YYYY-MM-DD">Specific action with names — "Message X about Y", not "continue X" — dueDate is tomorrow's date</task>
-<task dueDate="YYYY-MM-DD">max 3 items total</task>
----
-```
-
-After the preview, ask via `AskUserQuestion`: **Looks good — write it** /
-**Change something** / **Cancel**. On scheduled runs, skip approval and write
-directly.
+**Show it with the Preview widget HTML** (see below) via `show_widget` — never
+as a plain-text chat dump. Build it fully dynamically: inject the real
+composed content into `#digest`, following the injection pattern in the
+template's comment block. The widget's own three buttons (**Looks good —
+write it** / **Change something** / **Cancel**) *are* the approval step — do
+not also ask via `AskUserQuestion` afterward, that would be a second approval
+for the same decision. If the user picks "Change something," update only that
+section, then show the Preview widget again with the revised content — never
+fall back to a plain-text re-preview. On scheduled runs, skip this step
+entirely and write directly.
 
 ---
 
@@ -780,6 +761,108 @@ function submit(){
   var tArr=Array.from(tools);var tOther=document.getElementById('tool-other-in').value.trim();if(tOther)tArr.push(tOther);
   var items=Array.from(content);var inp=document.getElementById('co-ev');if(inp){var v=inp.querySelector('input');if(v&&v.value.trim())items.push(v.value.trim());}
   sendPrompt('Evening reflection setup — role: '+r+' · tools: '+(tArr.join(', ')||'none')+' · evening_content: '+(items.join(', ')||'none')+' · tone: '+tone+' · autolog: '+autolog);
+}
+</script>
+```
+
+---
+
+## Preview widget HTML
+
+Show via `show_widget` in step 6, for every manual run. Build fully
+dynamically: inject the real, already-composed reflection into `#digest`
+following the injection pattern in the comment block below. Omit any section
+whose content doesn't exist for today (Opportunities, Goal progress) — don't
+inject an empty card.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:540px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+h2{font-size:16px;font-weight:700}
+.cnt{font-size:12px;color:#888;background:#f5f5f5;padding:2px 9px;border-radius:20px}
+.scroll{max-height:380px;overflow-y:auto;margin-bottom:16px;display:flex;flex-direction:column;gap:12px}
+.section{border-radius:12px;padding:14px;background:#f7f7f7}
+.section-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-bottom:10px}
+.char-line{font-size:13px;color:#1a1a1a;line-height:1.5;font-weight:600}
+.item{font-size:12px;color:#333;line-height:1.5;margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid rgba(0,0,0,.05)}
+.item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.item-title{font-weight:600;color:#1a1a1a}
+.item-badge{display:inline-block;margin-right:4px}
+.feedback{display:none;margin-bottom:12px}
+textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
+.btns{display:flex;flex-direction:column;gap:8px}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-save{background:#eef6ff;color:#1a5fb4;border:1.5px solid #c3d9f7}
+.btn-save:hover{background:#deeeff;border-color:#a8c8f0}
+.btn-edit{background:#f0f0f0;color:#444}
+.btn-edit:hover{background:#e0e0e0}
+.btn-cancel{background:transparent;color:#bbb;font-size:13px;font-weight:400}
+</style>
+<div class="wrap">
+  <div class="header">
+    <h2>✨ Day Characteristic</h2>
+    <span class="cnt" id="cnt">[actual date]</span>
+  </div>
+  <div class="scroll" id="digest">
+
+    <!--
+    INJECTION PATTERN — Claude fills in #digest with the real, already-composed reflection:
+
+    <div class="section">
+      <div class="char-line">1–2 sharp sentences — the tone and essence of the day.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">🎯 Results</div>
+      <div class="item">What was done.</div>
+      <div class="item">Another result.</div>
+    </div>
+
+    Opportunities — only if non-trivial, omit the whole section otherwise:
+    <div class="section">
+      <div class="section-head">🌟 Opportunities</div>
+      <div class="item">Specific find: partnership, lead, competitor intel, idea.</div>
+    </div>
+
+    Goal progress — only if step 4's Goals check found a tile, omit otherwise:
+    <div class="section">
+      <div class="section-head">🎯 Goal progress</div>
+      <div class="item"><span class="item-badge">✅</span><span class="item-title">Goal name</span> — one-line note on how today connects.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">→ Tomorrow</div>
+      <div class="item">Specific action with names — "Message X about Y", not "continue X".</div>
+    </div>
+    -->
+
+  </div>
+  <div class="feedback" id="fb">
+    <textarea id="fbtext" placeholder="What should I change?"></textarea>
+  </div>
+  <div class="btns">
+    <button class="btn btn-save" id="btn-save" onclick="doSave()">Looks good — write it</button>
+    <button class="btn btn-edit" id="btn-edit" onclick="toggleEdit()">Change something</button>
+    <button class="btn btn-cancel" id="btn-cancel" onclick="cancelIt()">Cancel</button>
+  </div>
+</div>
+<script>
+var editing=false;
+function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
+function doSave(){
+  var fb=document.getElementById('fbtext').value.trim();
+  collapse(fb?'⏳ Applying & saving…':'⏳ Saving…');
+  sendPrompt(fb?'Apply this change then save: '+fb:'Looks good — save the reflection');
+}
+function cancelIt(){collapse('✓ Cancelled');sendPrompt('Cancel reflection');}
+function toggleEdit(){
+  editing=!editing;
+  document.getElementById('fb').style.display=editing?'block':'none';
+  document.getElementById('btn-save').textContent=editing?'Apply & Save':'Looks good — write it';
+  document.getElementById('btn-edit').textContent=editing?'Never mind':'Change something';
 }
 </script>
 ```

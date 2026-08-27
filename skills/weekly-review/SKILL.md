@@ -187,9 +187,14 @@ If a subheading has no data — omit it entirely rather than writing a filler li
 
 **Mandatory for all non-scheduled runs.** Never skip from step 4 directly to step 6.
 
-Show the assembled review in chat — all 3 tiles with real content, not placeholders. Then call `show_widget` with the **Approval widget HTML** (see below).
+**Show it with the Preview widget HTML** (see below) via `show_widget` — never
+as a plain-text chat dump. Build it fully dynamically: inject all 3 tiles'
+real, already-assembled content into `#digest`, following the injection
+pattern in the template's comment block — not placeholders. The widget's own
+three buttons (**Looks good — save it** / **Change something** / **Cancel**)
+*are* the approval step — do not also ask separately.
 
-Do not call the xTiles write tool until the user clicks "Looks good — save it". If the user asks for a change — update only that section, re-show the full preview, show the approval widget again.
+Do not call the xTiles write tool until the user clicks "Looks good — save it". If the user asks for a change — update only that section, then show the Preview widget again with the revised content — never fall back to a plain-text re-preview.
 
 ---
 
@@ -611,33 +616,108 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ---
 
-## Approval widget HTML
+## Preview widget HTML
 
-Show via `show_widget` after the preview in step 5. If the user clicks "Change something" — ask what to change in plain text, update that section, re-show preview, then show this widget again.
+Show via `show_widget` in step 5, for every non-scheduled run. Build fully
+dynamically: inject all 3 tiles' real, already-assembled content into
+`#digest`, following the injection pattern in the comment block below. Omit
+any subsection whose content doesn't exist this week (Goals) — don't inject
+an empty block.
 
 ```html
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+h2{font-size:16px;font-weight:700}
+.cnt{font-size:12px;color:#888;background:#f5f5f5;padding:2px 9px;border-radius:20px}
+.scroll{max-height:420px;overflow-y:auto;margin-bottom:16px;display:flex;flex-direction:column;gap:12px}
+.section{border-radius:12px;padding:14px;background:#f7f7f7}
+.section-head{font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,.07)}
+.sub-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#888;margin:10px 0 6px}
+.sub-head:first-of-type{margin-top:0}
+.item{font-size:12px;color:#333;line-height:1.5;margin-bottom:6px}
+.item:last-child{margin-bottom:0}
+.item-title{font-weight:600;color:#1a1a1a}
+.feedback{display:none;margin-bottom:12px}
+textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
-.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
-.btn-yes{background:#1a1a1a;color:#fff}
-.btn-yes:hover{background:#333}
-.btn-edit{background:#f0f0f0;color:#1a1a1a}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-save{background:#eef6ff;color:#1a5fb4;border:1.5px solid #c3d9f7}
+.btn-save:hover{background:#deeeff;border-color:#a8c8f0}
+.btn-edit{background:#f0f0f0;color:#444}
 .btn-edit:hover{background:#e0e0e0}
-.btn-cancel{background:transparent;color:#aaa;font-weight:400}
-.btn-cancel:hover{color:#666}
+.btn-cancel{background:transparent;color:#bbb;font-size:13px;font-weight:400}
 </style>
-<div class="btns">
-  <button class="btn btn-yes" id="btn-yes" onclick="approve()">✓ Looks good — save it</button>
-  <button class="btn btn-edit" id="btn-edit" onclick="edit()">Edit</button>
-  <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
+<div class="wrap">
+  <div class="header">
+    <h2>📊 Weekly Review</h2>
+    <span class="cnt" id="cnt">[week of ...]</span>
+  </div>
+  <div class="scroll" id="digest">
+
+    <!--
+    INJECTION PATTERN — Claude fills in #digest with the real, already-assembled review:
+
+    <div class="section">
+      <div class="section-head">✅ Week recap</div>
+      <div class="sub-head">Accomplishments</div>
+      <div class="item">↑ More than last week (5 vs 3)</div>
+      <div class="item"><span class="item-title">1.</span> Shipped affiliate integration — Linear #312</div>
+      Goals — only if a Goals/Milestones tile was found, omit otherwise:
+      <div class="sub-head">Goals</div>
+      <div class="item"><span class="item-title">Launch MCP plugin</span> — ✅ Clear progress — draft submitted, review pending</div>
+      <div class="sub-head">Decisions</div>
+      <div class="item">1. PartnerStack postponed — Slack #growth</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">🔍 Activities</div>
+      <div class="sub-head">Dominant topics</div>
+      <div class="item"><span class="item-title">Affiliate & partnerships</span> — 4 days — Impact negotiations</div>
+      <div class="sub-head">Activity type</div>
+      <div class="item">Initiative 38% · Reactive 47% · Decisions 15%</div>
+      <div class="sub-head">Productivity pattern</div>
+      <div class="item">Most active: Tuesday. Quietest: Friday.</div>
+      <div class="sub-head">Key interactions</div>
+      <div class="item"><span class="item-title">Andrew</span> — 6 interactions — Q3 OKRs — decision</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">→ Next week</div>
+      <div class="sub-head">Open</div>
+      <div class="item">📌 Todd Savard — EchoMe follow-up — #partnerships</div>
+      <div class="sub-head">Suggested priorities</div>
+      <div class="item">☐ Merge review-fixes branch — blocks marketplace submission</div>
+    </div>
+    -->
+
+  </div>
+  <div class="feedback" id="fb">
+    <textarea id="fbtext" placeholder="What should I change?"></textarea>
+  </div>
+  <div class="btns">
+    <button class="btn btn-save" id="btn-save" onclick="doSave()">Looks good — save it</button>
+    <button class="btn btn-edit" id="btn-edit" onclick="toggleEdit()">Change something</button>
+    <button class="btn btn-cancel" id="btn-cancel" onclick="cancelIt()">Cancel</button>
+  </div>
 </div>
 <script>
+var editing=false;
 function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
-function approve(){collapse('⏳ Saving…');sendPrompt('Looks good — save it');}
-function edit(){collapse('✓ Got it');sendPrompt('Change something');}
-function cancel(){collapse('✓ Cancelled');sendPrompt('Cancel');}
+function doSave(){
+  var fb=document.getElementById('fbtext').value.trim();
+  collapse(fb?'⏳ Applying & saving…':'⏳ Saving…');
+  sendPrompt(fb?'Apply this change then save: '+fb:'Looks good — save it');
+}
+function cancelIt(){collapse('✓ Cancelled');sendPrompt('Cancel');}
+function toggleEdit(){
+  editing=!editing;
+  document.getElementById('fb').style.display=editing?'block':'none';
+  document.getElementById('btn-save').textContent=editing?'Apply & Save':'Looks good — save it';
+  document.getElementById('btn-edit').textContent=editing?'Never mind':'Change something';
+}
 </script>
 ```
 
