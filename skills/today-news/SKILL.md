@@ -115,7 +115,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
    Call `show_widget` with the **CTA widget HTML** using that `{VIEW_URL}`. **Never leave `{VIEW_URL}` unresolved — the button must render on every non-scheduled run, whether tiles were created or only patched.**
 3. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 6's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 2 (which this step skips anyway).
-   - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference an actual headline or topic from today's digest rather than a bland "News created." English placeholder examples to translate, not copy verbatim: `"Today's headlines are in — the AI story you'll want first →"`, `"Fresh news is up: 3 stories worth your coffee break →"`. Never invent a story that isn't real.
+   - `text`: **a fixed hook plus one real highlight, max 100 characters total.** The hook is always `"Today's headlines — 2 min catch-up."` (translate it, but keep the same hook every time — this is the brand-recognizable part). Then, only if it fits within the limit, append `" [highlight] →"` — **exactly one** concrete headline pulled from the just-written digest, the single most attention-grabbing story (usually the lead of the top topic). Never a list, never more than one story, never invented. Example: `"Today's headlines — 2 min catch-up. OpenAI ships GPT-6 →"`. **If the highlight would push past 100 characters — send the hook alone, don't trim it into nonsense.**
    - `agent_source`: `"Claude"`.
 
 ### 6. Schedule (optional)
@@ -127,7 +127,7 @@ If the user schedules: the widget response also carries `notify:true`/`notify:fa
 - `schedule`: parse `cron: HH:MM` from the widget message and build `M H * * *` (the widget always schedules every day)
 - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-**If `notify:true`** — the digest that's already on the page right now (from step 5's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is a short marketer-style CTA per the rules in step 5.3 above, `agent_source` is `"Claude"`.
+**If `notify:true`** — the digest that's already on the page right now (from step 5's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed hook + one real highlight per the rules in step 5.3 above, `agent_source` is `"Claude"`.
 
 Confirm scheduling succeeded (mention ", and I'll notify you in xTiles each time" if `notify:true`), then **immediately continue to step 7 (Related workflows) in the same turn — this confirmation is not the end of the run.**
 
