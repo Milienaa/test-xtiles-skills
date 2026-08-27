@@ -20,6 +20,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_content_by_link,
+  mcp__xtiles__xtiles_create_notification,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -258,18 +259,22 @@ Write all sections in a **single call**.
 `**Suggested priorities**` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
-**(a) CTA link → (b) Schedule offer → (c) Slack sharing offer → (d) Related workflows.** Never fold the Slack offer into the schedule step and never propose Slack while asking about scheduling — they are two distinct, consecutive widgets. Losing or reordering any of these four is a failed run. On a scheduled run, stop silently after the layout pass — none of (a)–(d) are shown.
+**(a) CTA link → (b) Schedule offer → (c) Slack sharing offer → (d) Related workflows.** Never fold the Slack offer into the schedule step and never propose Slack while asking about scheduling — they are two distinct, consecutive widgets. Losing or reordering any of these four is a failed run. On a scheduled run, stop after the layout pass and the notification (step 5 below) — none of (a)–(d) are shown; nobody is watching chat during an unattended run.
 
 **After a successful write — run these steps in order, no exceptions. Step 2 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 3's CTA button is even composed:**
 
 1. Write `✅ Weekly Review saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the 3 `###` sections you just wrote), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 3 tiles (Week recap, Activities, Next week) in that order · try all 3 in one row if they fit, else the heaviest tile (usually Activities) takes more width or its own row. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-3. **Link to the first tile (`### ✅ Week recap`), not the page**, so the user lands right on the review.
+3. **For non-scheduled runs only: link to the first tile (`### ✅ Week recap`), not the page**, so the user lands right on the review. (On a scheduled run, skip this widget entirely — step 5 below reaches the user instead.)
    - **If step 6 newly created any tile** — use the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Weekly page focused on that tile) as `{VIEW_URL}` directly.
    - **If the `### ✅ Week recap` tile already existed and was only patched — the common case on a recurring Weekly page.** Take the link/`resource_url` you noted for it in step 6 while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page, before it goes on the button.
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made in step 6 (no extra call needed).
-   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every run, whether tiles were created or only patched.**
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
+5. **Scheduled runs only: notify instead of showing a widget.** Replace the CTA widget with `mcp__xtiles__xtiles_create_notification`, since nobody is present to click it during an unattended run:
+   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
+   - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference something concrete from this week's recap (an accomplishment count, a goal update) rather than a bland "Weekly Review saved." English placeholder examples to translate, not copy verbatim: `"Your Weekly Review is in — 5 wins, 2 things slipping →"`, `"This week, recapped: see what actually moved →"`. Never invent a number that isn't real.
+   - `agent_source`: `"Claude"`.
 
 **If an error occurs:** say what went wrong and offer to retry.
 
@@ -323,8 +328,8 @@ After the schedule widget response — call `show_widget` with the **Slack shari
 ### 9. Related workflows
 
 **After every manual run, once step 8 is resolved** (shared or kept personal)
-— offer related workflows. Skip this on scheduled runs, which end silently
-after step 6.
+— offer related workflows. Skip this on scheduled runs, which end after step
+6's notification — no widgets, nobody to ask.
 
 Ask via `AskUserQuestion` (single select): "Want to set up anything else on
 xTiles?"
