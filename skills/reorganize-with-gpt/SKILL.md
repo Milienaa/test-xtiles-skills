@@ -70,14 +70,15 @@ allowed-tools: >
 
 ## CONTEXT — required before doing anything
 
-- **`viewId`** — the source page's view id, injected at launch.
-- **`projectId`** — the project the source page lives in, injected at launch.
-  `xtiles_create_view_from_markdown` requires a `projectId` and there is no tool
-  that resolves a project from a bare `viewId`. If `projectId` is not present in
-  your launch context, **stop** and tell the user you can't identify the page's
-  project — do not call `xtiles_list_projects` to search for it, and do not ask
-  the user a clarifying question. This workflow never asks; it either has what
-  it needs or it doesn't.
+- **`viewId`** — the source page's view id, injected at launch. If it's not
+  present, **stop** and tell the user you can't identify the page — do not ask
+  a clarifying question. This workflow never asks; it either has what it needs
+  or it doesn't.
+- **`projectId`** — not a separate launch input. `xtiles_get_view_content`
+  (step 1) returns `project_id` in its response alongside the page's content —
+  that is where `projectId` comes from, every time, for both the reorganize
+  and scaffold branches. Never call `xtiles_list_projects` to search for it;
+  it's already in the step 1 response.
 
 ---
 
@@ -88,7 +89,9 @@ allowed-tools: >
 Call `xtiles_get_view_content(viewId)`. This is the only source of truth for the
 page's words — every block placed on the new page has to be a verbatim copy of
 something read here. Note the language the content is written in; every piece of
-text generated later (tile titles, scaffold hints) has to match it.
+text generated later (tile titles, scaffold hints) has to match it. **Capture
+`project_id` from this same response** — this is the `projectId` used in every
+`xtiles_create_view_from_markdown` / `xtiles_get_project_content` call below.
 
 **If the response describes a collection (database) page** — a schema of
 attributes/columns instead of a markdown body — this workflow does not apply.
@@ -239,9 +242,10 @@ untouched.
   top of unchanged words per step 3. The only actually generated text is tile
   titles (from the tile's own wording) and, on a genuinely empty page only,
   short scaffold hint lines.
-- No clarifying questions, ever. Missing `projectId`/`viewId` is a stop
-  condition, not a question — and never worked around by calling
-  `xtiles_list_projects` to search for the project.
+- No clarifying questions, ever. Missing `viewId` is a stop condition, not a
+  question. `projectId` is never a launch input — it always comes from
+  `xtiles_get_view_content`'s own response (step 1), never from
+  `xtiles_list_projects`.
 - All generated text matches the source page's language.
 - **Never call `xtiles_get_tile_styles` or `xtiles_set_tile_styles`** — they
   are not available in this environment. Color must be correct via
