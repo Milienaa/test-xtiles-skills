@@ -155,11 +155,18 @@ Do NOT suggest tasks — they're already in xTiles by default.
 
 **Carry over overdue tasks?** A single-select toggle in the same Survey widget
 (Step 2 of 2, below the content checklist; ask the same question inline in
-Claude Code): "Carry over tasks still open from the last 2 days to today?" —
-**Yes, move them to today** / **No, leave them where they are** (default).
-Store the answer as `carry_over_tasks: {true/false}` in the config. This is
-about rescheduling existing open tasks, not the digest's own content — a
-separate toggle, not one of the options list above.
+Claude Code): "Reschedule overdue tasks in My Planner?" with the context spelled
+out right below it — "If My Planner has tasks still open from the last 2 days,
+I'll move them onto today's page — automatically, every morning this runs, not
+just once." — **Yes, always** / **No, never** (default). The wording matters:
+name the actual surface (**My Planner** — the page the user already knows, not
+an abstract "the planner"), name the actual window ("last 2 days"), state
+explicitly that matching tasks land on **today's** page, and make clear this
+repeats **every morning** going forward, not just once — a user who has never
+used the planner before has no other way to know any of that. Store the answer
+as `carry_over_tasks: {true/false}` in the config. This is about rescheduling
+existing open tasks, not the digest's own content — a separate toggle, not one
+of the options list above.
 
 **Email is often the main source — always ask what the user actually wants from it.** Don't stop at a single yes/no on "unread emails". When Gmail is connected, explicitly ask what they want to pull out of their inbox and how it should be split — a frequent and high-value case is a user whose email is their primary signal, which is best broken down into **several thematic tiles by question/topic** (e.g. one tile per project, client, or recurring subject) rather than one generic Emails tile. If the user names topics/projects/senders, capture each one — they become the tile breakdown in step 7. If they don't, default to the single `### 📩 Emails` tile.
 
@@ -344,120 +351,35 @@ If a connector call fails (error, timeout, 401) — record the failure. Do not w
 
 ---
 
-### 5. Preview — show content in chat
+### 5. Preview — show content in a widget
 
-Show real content with real data. Not structure, not headings with "(TBD)" — actual text.
+**Show it with the Preview widget HTML** (see below) via `show_widget` — never
+as a plain-text chat dump. Real content with real data, not structure, not
+"(TBD)" placeholders. Build it fully dynamically: one `.section` card per
+selected/populated tile (Emails, Newsletters, Claude chats, Slack — Action
+Points/Mentions/Topics, Workload), following the injection pattern in the
+widget's own comment block.
 
-Format (adapt to selected pages):
-
-```
-Here's what I've prepared:
-
----
-📅 DAILY — [actual date]
-
-### 📩 Emails
-🔴 Needs action (N)
-- [Poke-style description — 1–2 sentences, second person, action + consequence] → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
-
-- [Next 🔴 email, same format] → [Open email](https://mail.google.com/mail/u/0/#inbox/{threadId})
-
-🟡 FYI (N)
-- [One-line item — no link]
-- [One-line item]
-
-⚪ Noise
-- N notifications (sources) — nothing urgent
-
-**Action items:**
-
-<task dueDate="YYYY-MM-DD">[verb-first task from 🔴 email 1 — dueDate defaults to today]</task>
-
-<task priority="high" dueDate="YYYY-MM-DD">[verb-first task from 🔴 email 2 — use the email's real deadline if it named one]</task>
-
-*(omit Action items entirely if no 🔴 emails)*
-
-### 📧 Newsletters
-
-**[Newsletter Name](https://mail.google.com/mail/u/0/#inbox/{threadId})** — one-line summary.
-
-**[Another Newsletter](https://mail.google.com/mail/u/0/#inbox/{threadId})** — one-line summary.
-
-### 🤖 Claude — From our chats
-- [What you left open yesterday + what it needs today — 1 sentence, second person] — [chat title](conversation URL from recent_chats)
-
-- [Next unfinished thread, same format] — [chat title](conversation URL from recent_chats)
-
-**Tasks**
-
-<task dueDate="YYYY-MM-DD">[verb-first task — dueDate defaults to today]</task>
-
-### 📌 Slack — Action Points
-
-**Tasks**
-
-<task dueDate="YYYY-MM-DD">[verb-first task — dueDate defaults to today]</task>
-
-### ⚡ Slack — Mentions
-- **@Name** in [#channel](url) — what they asked/said ⚡
-
-### 💬 Slack — Topics
-**Channels:** #channel1 (N) · #channel2 (N)
-- **[Topic name]** — [one-sentence summary] — [#channel](url)
-
-**✅ Decisions**
-- [Decision] — [#channel](url)
-
-**❓ Open**
-- [Question] — [#channel](url) ⏳
-
-### 📅 Workload
-**N events · ~X h occupied · longest focus window HH:MM–HH:MM (X h)**
-
-🎯 [Focus recommendation — one concrete sentence about this specific day]
-
-**⭐ [Group name]**
-
-**HH:MM–HH:MM · Meeting name** — Participant1, Participant2 · [Google Meet](url)
-
-📋 [Agenda — one sentence: what will be decided, or where the last conversation left off]
-
-<task dueDate="YYYY-MM-DD">[What to prepare before this meeting — dueDate is today's date]</task>
-
-**🤝 [Second group name]**
-
-**HH:MM–HH:MM · Meeting name** — Participant from Company · [Google Meet](url)
-
-📋 [Agenda]
-
-**HH:MM–HH:MM · Meeting name**
-
-⚠️ [anomaly — e.g. two external calls back-to-back in the evening, 30 min gap between them]
-
----
-```
-
-Each 🔴 email uses the real `threadId` from `get_thread` for the [Open email] link. 🟡 items are one-liners with no link.
-Each newsletter is shown as its own named section in the preview — never mixed into the Emails section.
-Separate each item with a blank line for readability.
+Each 🔴 email uses the real `threadId` from `get_thread` for its link. 🟡 items are one-liners with no link.
+Each newsletter is its own line — never mixed into the Emails section.
 
 **Rules:**
 - Show only selected sections the user asked for
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- In one line, tell the user that after they approve you'll prepare Gmail draft replies for the 🔴 Needs action emails and mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers those actions (see step 7·A)
-- **If `carry_over_tasks: true` and step 4 found overdue open tasks**, list them in one line before the approval: `🔁 Will carry over N task(s) to today: "[title 1]", "[title 2]"…` — so the approval in step 6 covers this too. If none were found, omit the line entirely (nothing to carry over is not worth mentioning).
-- After the preview, **stop and wait**. Do not write anything to xTiles yet.
+- In one line inside the widget, tell the user that after they approve you'll prepare Gmail draft replies for the 🔴 Needs action emails and mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers those actions (see step 7·A)
+- **If `carry_over_tasks: true` and step 4 found overdue open tasks**, list them in one line inside the widget before the approval: `🔁 Will carry over N task(s) to today: "[title 1]", "[title 2]"…` — so the approval in step 6 covers this too. If none were found, omit the line entirely (nothing to carry over is not worth mentioning).
+- After showing the widget, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
 ### 6. Approval
 
-**Mandatory. Never skip this step.** After showing the preview, call `show_widget` with the **Approval widget HTML** (see below).
+**Mandatory. Never skip this step — but there is nothing extra to do here.** The Preview widget shown in step 5 already carries its own **Looks good — create it** / **Change something** / **Cancel** buttons; those *are* the approval. Never call a separate `AskUserQuestion` or a second widget for this — that would be approving the same decision twice.
 
-Do not call `xtiles_create_tiles_from_markdown_in_my_planner` until the user explicitly clicks **"Looks good — create it"**.
+Do not call `xtiles_create_tiles_from_markdown_in_my_planner` until the user explicitly clicks **"Looks good — create it"** in the step 5 widget.
 
-If the user asks for a change — clarify exactly what, update only that section, re-show preview, ask again.
+If the user asks for a change (via the widget's "Change something" + feedback text, or a follow-up message) — clarify exactly what if it's ambiguous, update only that section, then show the Preview widget again with the revised content.
 
 ---
 
@@ -759,33 +681,131 @@ Call `mcp__mcp-registry__suggest_connectors` — it renders interactive connect 
 **Fallback when the registry is unavailable (free ChatGPT / Claude).** On free plans `mcp__mcp-registry__suggest_connectors` often isn't available, so there are no interactive connect buttons. Do not dead-end. Instead, present the **Supported tools — embedded catalog** (step 2) so the user still sees the full menu of what's possible, explain that connecting tools requires upgrading their plan / enabling connectors, and proceed with whatever *is* available so they still get a first digest. The embedded catalog — not the registry — is the source of truth for what the skill can offer.
 ---
 
-## Approval widget HTML
+## Preview widget HTML
 
-Show this via `show_widget` after the preview in step 6. If the user clicks "Change something" — ask what to change in plain text, update that section, re-show the preview, then show this widget again.
+Show via `show_widget` in step 5, for every non-scheduled run. Build fully
+dynamically: inject **one `.section` card per selected/populated tile**
+(Emails, Newsletters, Claude chats, Slack — Action Points, Slack — Mentions,
+Slack — Topics, Workload — whichever were actually selected in step 2/3, in
+that order) with real, already-composed content into `#digest`, following the
+injection pattern in the comment block below. Never inject a section for a
+tile the user didn't select. All the **Rules** from step 5's prose still
+apply here (real data only, connector-empty state, etc.) — this widget is
+a different rendering surface, not a relaxation of those rules.
 
 ```html
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+h2{font-size:16px;font-weight:700}
+.cnt{font-size:12px;color:#888;background:#f5f5f5;padding:2px 9px;border-radius:20px}
+.scroll{max-height:420px;overflow-y:auto;margin-bottom:16px;display:flex;flex-direction:column;gap:12px}
+.section{border-radius:12px;padding:14px;background:#f7f7f7}
+.section-head{font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,.07)}
+.sub-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#888;margin:10px 0 6px}
+.sub-head:first-of-type{margin-top:0}
+.item{font-size:12px;color:#333;line-height:1.5;margin-bottom:6px}
+.item:last-child{margin-bottom:0}
+.item-title{font-weight:600;color:#1a1a1a}
+.feedback{display:none;margin-bottom:12px}
+textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
-.btn{width:100%;padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
-.btn-yes{background:#1a1a1a;color:#fff}
-.btn-yes:hover{background:#333}
-.btn-edit{background:#f0f0f0;color:#1a1a1a}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-save{background:#eef6ff;color:#1a5fb4;border:1.5px solid #c3d9f7}
+.btn-save:hover{background:#deeeff;border-color:#a8c8f0}
+.btn-edit{background:#f0f0f0;color:#444}
 .btn-edit:hover{background:#e0e0e0}
-.btn-cancel{background:transparent;color:#aaa;font-weight:400}
-.btn-cancel:hover{color:#666}
+.btn-cancel{background:transparent;color:#bbb;font-size:13px;font-weight:400}
 </style>
-<div class="btns">
-  <button class="btn btn-yes" id="btn-yes" onclick="approve()">✓ Looks good — create it</button>
-  <button class="btn btn-edit" id="btn-edit" onclick="edit()">Edit</button>
-  <button class="btn btn-cancel" id="btn-cancel" onclick="cancel()">Cancel</button>
+<div class="wrap">
+  <div class="header">
+    <h2>📅 Daily Brief</h2>
+    <span class="cnt" id="cnt">[actual date]</span>
+  </div>
+  <div class="scroll" id="digest">
+
+    <!--
+    INJECTION PATTERN — Claude fills in #digest with one .section per selected tile, real content only:
+
+    <div class="section">
+      <div class="section-head">📩 Emails</div>
+      <div class="sub-head">🔴 Needs action (2)</div>
+      <div class="item">Poke-style description, second person, action + consequence.</div>
+      <div class="sub-head">🟡 FYI (1)</div>
+      <div class="item">One-line item.</div>
+      <div class="sub-head">⚪ Noise</div>
+      <div class="item">N notifications — nothing urgent.</div>
+      <div class="sub-head">Action items</div>
+      <div class="item">Verb-first task from 🔴 email 1.</div>
+    </div>
+
+    Newsletters — only if selected and there's at least one unread:
+    <div class="section">
+      <div class="section-head">📧 Newsletters</div>
+      <div class="item"><span class="item-title">Newsletter Name</span> — one-line summary.</div>
+    </div>
+
+    Claude chats — only if the user selected Claude as a source:
+    <div class="section">
+      <div class="section-head">🤖 Claude — From our chats</div>
+      <div class="item">What was left open yesterday + what it needs today.</div>
+      <div class="sub-head">Tasks</div>
+      <div class="item">Verb-first task.</div>
+    </div>
+
+    Slack — only the sub-tiles that have content (Action Points needs ⚡ mentions, Topics always renders if Slack selected):
+    <div class="section">
+      <div class="section-head">📌 Slack — Action Points</div>
+      <div class="sub-head">Tasks</div>
+      <div class="item">Verb-first task, same wording as its &lt;task&gt;.</div>
+    </div>
+    <div class="section">
+      <div class="section-head">⚡ Slack — Mentions</div>
+      <div class="item"><span class="item-title">@Name</span> in #channel — what they asked/said ⚡</div>
+    </div>
+    <div class="section">
+      <div class="section-head">💬 Slack — Topics</div>
+      <div class="item">Channels: #channel1 (N) · #channel2 (N)</div>
+      <div class="item"><span class="item-title">Topic name</span> — one-sentence summary — #channel</div>
+    </div>
+
+    Workload — only if Calendar/Granola selected:
+    <div class="section">
+      <div class="section-head">📅 Workload</div>
+      <div class="item">N events · ~X h occupied · longest focus window HH:MM–HH:MM.</div>
+      <div class="item">🎯 Focus recommendation — one concrete sentence.</div>
+      <div class="sub-head">⭐ Group name</div>
+      <div class="item"><span class="item-title">HH:MM–HH:MM · Meeting name</span> — Participants.<br>📋 Agenda sentence.</div>
+    </div>
+    -->
+
+  </div>
+  <div class="feedback" id="fb">
+    <textarea id="fbtext" placeholder="What should I change?"></textarea>
+  </div>
+  <div class="btns">
+    <button class="btn btn-save" id="btn-save" onclick="doSave()">Looks good — create it</button>
+    <button class="btn btn-edit" id="btn-edit" onclick="toggleEdit()">Change something</button>
+    <button class="btn btn-cancel" id="btn-cancel" onclick="cancelIt()">Cancel</button>
+  </div>
 </div>
 <script>
+var editing=false;
 function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
-function approve(){collapse('⏳ Creating…');sendPrompt('Looks good — create it');}
-function edit(){collapse('✓ Got it');sendPrompt('Change something');}
-function cancel(){collapse('✓ Cancelled');sendPrompt('Cancel');}
+function doSave(){
+  var fb=document.getElementById('fbtext').value.trim();
+  collapse(fb?'⏳ Applying & creating…':'⏳ Creating…');
+  sendPrompt(fb?'Apply this change then save: '+fb:'Looks good — create it');
+}
+function cancelIt(){collapse('✓ Cancelled');sendPrompt('Cancel');}
+function toggleEdit(){
+  editing=!editing;
+  document.getElementById('fb').style.display=editing?'block':'none';
+  document.getElementById('btn-save').textContent=editing?'Apply & Create':'Looks good — create it';
+  document.getElementById('btn-edit').textContent=editing?'Never mind':'Change something';
+}
 </script>
 ```
 
@@ -835,8 +855,6 @@ After Submit, the user sends a string of answers to chat — process it and cont
     .card{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
     .card:hover{border-color:var(--color-border-secondary)}
     .card.sel{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
-    .tag{font-size:10px;font-weight:600;padding:2px 6px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.03em}
-    .card.sel .tag{background:rgba(255,255,255,.22);color:var(--color-background-primary)}
     .chk{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
     .card.sel .chk{background:var(--color-background-primary);border-color:var(--color-background-primary);color:var(--color-text-primary)}
     .custom-in{margin-top:9px}
@@ -893,7 +911,7 @@ After Submit, the user sends a string of answers to chat — process it and cont
       <div class="sec-title">Which tools do you use?</div>
       <div class="hint">Select all that apply — I'll pull live data from them</div>
       <div class="cards" id="tool-cards">
-        <div class="card" onclick="togTool(this,'Claude')"><div class="chk">✓</div>Claude <span class="tag">no setup</span></div>
+        <div class="card" onclick="togTool(this,'Claude')"><div class="chk">✓</div>Claude</div>
         <div class="card" onclick="togTool(this,'Calendar')"><div class="chk">✓</div>Calendar (xTiles)</div>
         <div class="card" onclick="togTool(this,'GoogleCalendar')"><div class="chk">✓</div>Calendar</div>
         <div class="card" onclick="togTool(this,'Slack')"><div class="chk">✓</div>Slack</div>
@@ -929,10 +947,11 @@ After Submit, the user sends a string of answers to chat — process it and cont
     </div>
 
     <div class="sec">
-      <div class="sec-title">Carry over tasks still open from the last 2 days?</div>
+      <div class="sec-title">Reschedule overdue tasks in My Planner?</div>
+      <div class="hint">If My Planner has tasks still open from the last 2 days, I'll move them onto today's page — automatically, every morning this runs, not just once.</div>
       <div class="pills" id="carry-pills">
-        <div class="pill sel" onclick="pickCarry(this,false)">No, leave them</div>
-        <div class="pill" onclick="pickCarry(this,true)">Yes, move to today</div>
+        <div class="pill sel" onclick="pickCarry(this,false)">No, never</div>
+        <div class="pill" onclick="pickCarry(this,true)">Yes, always</div>
       </div>
     </div>
 
