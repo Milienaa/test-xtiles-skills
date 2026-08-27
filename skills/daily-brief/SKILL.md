@@ -71,7 +71,7 @@ allowed-tools: >
 **Period is always Daily.** At the start of the flow, tell the user: "I'll set up your **Daily** planner page — a live morning brief from your connected tools." Never ask which period to set up.
 
 **Run mode — detect before step 1:**
-- **Scheduled run**: the incoming message contains `role:`, `tools:`, and `daily_content:` (config injected by the `schedule` skill). Do not show the survey. Extract the config from the message, including `carry_over_tasks:` if present (default `false` for older scheduled configs that predate this setting). If a connector from the config is not detected — offer to walk the user through connecting it before continuing. **Skip steps 5 and 6 (preview and approval) — after the fetch, write directly to xTiles. Also skip the schedule widget in step 7 — the task is already scheduled.** Then jump to **step 4 (Silent data fetch)**.
+- **Scheduled run**: the incoming message contains `role:`, `tools:`, and `daily_content:` (config injected by the `schedule` skill). Do not show the survey. Extract the config from the message, including `carry_over_tasks:` and `notify:` if present (default `false` for both, for older scheduled configs that predate these settings). If a connector from the config is not detected — offer to walk the user through connecting it before continuing. **Skip steps 5 and 6 (preview and approval) — after the fetch, write directly to xTiles. Also skip the schedule widget in step 7 — the task is already scheduled.** Then jump to **step 4 (Silent data fetch)**.
 - **Fast-track or fresh manual run**: proceed to step 1.
 
 ### 1. Fast-track
@@ -289,7 +289,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   **Slack renders as exactly three tiles** (see step 7): `### 📌 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics`. Analyse the messages into the groups below, but only three tiles come out of them — Decisions and Open are folded into the Topics tile, they never get tiles of their own.
 
   - **Mentions** *(highest priority)* — all messages from the `to:me` search. For each: who mentioned the user, in which channel, what was asked or said — one line per mention, message permalink. If the mention requires a response — flag it as ⚡. → **⚡ Slack — Mentions** tile.
-  - **Action Points** — every ⚡-flagged mention also becomes an item here, but **stripped down to just the action — no retelling of who/where/what, that's what Mentions is for.** One line: the verb-first action item itself (e.g. "Reply to Maria in #product") plus the message permalink — the exact same wording as its `<task>` below, not a separate poke-style sentence. → **🔴 Slack — Action Points** tile.
+  - **Action Points** — every ⚡-flagged mention also becomes a task here, **and only a task — no bullet line, no restated description.** The narrative (who/where/what) already lives in Mentions; a bullet here would just repeat it — or worse, once narrowed to "just the action," repeat the task's own title verbatim. One `<task>` per item is the entire tile. → **🔴 Slack — Action Points** tile.
   - **Topics** — what was discussed in channels; group by theme, one topic = one line, permalink to the most relevant message, channel attribution `[#channel](permalink)`. **Exclude any message already surfaced in Mentions or Action Points** — it doesn't get a second, redundant appearance here just because it also touched on a topic; if a topic's only messages are ones already covered there, drop the topic entirely. → **💬 Slack — Topics** tile.
   - **Decisions** — where something was agreed, committed to, or confirmed — include message permalink. Rendered as a `**✅ Decisions**` block inside the **💬 Slack — Topics** tile, not as its own tile.
   - **Open questions** — where a question was raised but no clear answer came yet — include message permalink, mark as ⏳. Rendered as a `**❓ Open**` block inside the **💬 Slack — Topics** tile, not as its own tile.
@@ -310,8 +310,8 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
 
 **Cross-source dedup (Slack ↔ Gmail) — run once, after both are fetched, before either is classified into tiles or turned into action items.** The same ask sometimes arrives twice — a Slack message and a follow-up (or lead-in) email about the same specific thing, from the same person, close together in time. When a Slack message and a Gmail email clearly describe the same underlying ask:
-- **Slack is primary** — it gets the full treatment in Mentions / Action Points as usual.
-- **The matching email does not get its own 🔴/🟡 bucket entry or its own action item/task.** Fold it into the Slack item instead: append a short cross-reference to that Mentions/Action Points line, e.g. `(also emailed — [Open email](url))`. It never appears a second time in the Emails tile.
+- **Slack is primary** — it gets the full treatment in Mentions (and the resulting task in Action Points) as usual.
+- **The matching email does not get its own 🔴/🟡 bucket entry or its own action item/task.** Fold it into the Slack item instead: append a short cross-reference to its **Mentions** line — `(also emailed — [Open email](url))`. Action Points has no bullet line to attach it to (see below); Mentions is the one place this cross-reference lives. It never appears a second time in the Emails tile.
 - **Only one `<task>` per duplicated pair** — never derive a second task for the email side of a duplicate.
 - **Don't over-merge.** Fold only when it's genuinely the same ask (same person, same specific thing) — a Slack ping and an unrelated email from the same person are two separate items, not a duplicate.
 
@@ -393,7 +393,6 @@ Here's what I've prepared:
 <task dueDate="YYYY-MM-DD">[verb-first task — dueDate defaults to today]</task>
 
 ### 📌 Slack — Action Points
-- [Verb-first action item, same wording as its task — no who/where/what retelling] — [#channel](url)
 
 **Tasks**
 
@@ -564,7 +563,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Omit the entire tile only if there are no unread newsletters at all.
 - **Claude chats**: a single `### 🤖 Claude — From our chats` tile. One line per unfinished thread / unanswered question / actionable decision, Poke-style and second person, blank line between items. Each line ends with the chat link in the shape `— [<chat title>](<conversation URL from the tool>)`, so the user can jump back into the thread; use only URLs returned by `recent_chats` / `conversation_search`, and where one is missing write the chat title in plain bold instead of a broken link. Below them a `**Tasks**` block with one `<task>` per item (see **Action items are real tasks** above). **Omit the tile entirely if nothing was left open** — unlike the Slack Topics tile, an empty chat day is normal and doesn't look like a failure.
 - **Slack**: split into **exactly three tiles** — `### 📌 Slack — Action Points`, `### ⚡ Slack — Mentions`, `### 💬 Slack — Topics` — never one big tile, and never more than these three (Decisions and Open are blocks inside the Topics tile, not tiles of their own). Each tile uses `###` as its header. All Slack links must point to the specific message permalink, never to the channel homepage.
-  - `### 📌 Slack — Action Points` — the actionable subset, **narrowed to just the action, never a retelling of who/where/what** (that belongs in Mentions, not here): one line per ⚡-flagged mention: `- [Verb-first action item — same wording as its <task>] — [#channel](message_permalink)`, plus `(also emailed — [Open email](url))` appended when the cross-source dedup above folded a matching email into this item. Below that, a `**Tasks**` block with one `<task>` per item (e.g. `<task>Reply to Maria in #product</task>`) — see **Action items are real tasks** above. **Omit tile entirely if no ⚡ mentions today.** This tile is a rollup, not a replacement — the same messages still appear in `### ⚡ Slack — Mentions` below for full context.
+  - `### 📌 Slack — Action Points` — **tasks only, no bullet list.** A separate description line would just repeat Mentions (the narrative already lives there) or, worse, repeat the task's own title verbatim — pure duplication either way, no added value. The entire tile is a `**Tasks**` block with one `<task>` per ⚡-flagged mention (e.g. `<task>Reply to Maria in #product</task>`) — see **Action items are real tasks** above. **Omit tile entirely if no ⚡ mentions today.**
   - `### ⚡ Slack — Mentions` — one line per mention: `- **@Name** in [#channel](message_permalink) — what they asked/said`. Add ` ⚡` if a response is needed, and `(also emailed — [Open email](url))` when the dedup above folded a matching email in. **Omit tile entirely if no mentions.**
   - `### 💬 Slack — Topics` — the discussion rollup, **excluding any message already shown in Mentions or Action Points** (a topic whose only messages are already covered there is dropped entirely, not repeated here). First line: `**Channels:** #channel1 (N) · #channel2 (N)`. Then one line per topic: `- **Topic name** — one-sentence summary — [#channel](message_permalink)`. Then fold decisions and open questions into this same tile as labeled blocks (never separate tiles):
     - a `**✅ Decisions**` block — one line per decision: `- Decision made — [#channel](message_permalink)`; omit the block if there are no decisions.
@@ -621,7 +620,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 This runs silently on a scheduled run; on a manual run it needs no extra confirmation — the refreshed content is exactly what the user approved in the preview.
 
-**After each successful write — run these steps in order, no exceptions (Cowork included — steps 3–4 are chat widgets/questions, never replaced by an artifact; step 6 is scheduled-run-only and replaces them with a real notification):**
+**After each successful write — run these steps in order, no exceptions (Cowork included — steps 3–4 are chat widgets/questions, never replaced by an artifact; step 6 is scheduled-run-only, and only fires if the user opted into notifications when scheduling):**
 
 1. Write `✅ Daily created.`
 
@@ -637,7 +636,7 @@ This runs silently on a scheduled run; on a manual run it needs no extra confirm
    Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
 5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later," scheduled runs included.** Immediately after step 4 (do not wait for the schedule widget's response), run both actions from **step 7·A** below: draft replies for every 🔴 Needs action email, and mark every ⚪ Noise/newsletter thread as read. These do not block or reorder steps 1–4 above — they run as their own step, not folded into any of them — but they are just as mandatory as the layout pass. Skipping them silently is a failed run, identical to skipping the CTA button.
-6. **Scheduled runs only: notify instead of showing a widget.** Nobody is present to click a `show_widget` CTA during an unattended run — replace it with `mcp__xtiles__xtiles_create_notification` so the user still learns their brief is ready:
+6. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** Nobody is present to click a `show_widget` CTA during an unattended run — the user opted into `mcp__xtiles__xtiles_create_notification` instead when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — the tool requires a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
    - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give the user an actual reason to tap it *now*: reference something concrete from today's brief (a count, the most pressing item) rather than a bland "Daily created." English placeholder examples to translate, not copy verbatim: `"Your Daily Brief just landed — 3 emails need you today →"`, `"Morning brief's in: your only free block is 10–12 →"`. Never invent a number that isn't real — pull it from what you actually wrote.
    - `agent_source`: `"Claude"`.
@@ -700,18 +699,20 @@ The schedule widget is shown in step 7 above. This step handles the user's respo
 
 In Claude Code (no Cowork): after writing, ask inline: "Want me to run this every morning automatically? What time? (default: 9:00 AM)"
 
-- If the user selects **"Yes, schedule it"** — first invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
+- If the user selects **"Yes, schedule it"** — the widget response also carries `notify:true`/`notify:false` from its notification toggle. First invoke `anthropic-skills:schedule`, then call `mcp__scheduled-tasks__create-scheduled-tasks`. Pass to both:
   - **`prompt`**: the full config string assembled from values collected during setup —
     ```
-    Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · carry_over_tasks: {true/false} · schedule: daily-{HH:MM} days:{days}
+    Run daily digest — role: {role} · tools: {tools} · daily_content: {content} · carry_over_tasks: {true/false} · notify: {true/false} (if true, call xtiles_create_notification at the very end of this scheduled run — mandatory, do not skip) · schedule: daily-{HH:MM} days:{days}
     ```
-    Replace `{role}`, `{tools}`, `{content}`, `{true/false}`, `{HH:MM}`, and `{days}` with the actual values parsed from the widget response and setup. Do not leave placeholders. Use `;` to separate multiple entries within a single field (names may contain commas).
+    Replace `{role}`, `{tools}`, `{content}`, `{true/false}` (carry-over), `{true/false}` (notify — straight from the widget), `{HH:MM}`, and `{days}` with the actual values parsed from the widget response and setup. Do not leave placeholders. Use `;` to separate multiple entries within a single field (names may contain commas).
   - **`schedule`**: cron expression derived from the widget. The widget sends `cron: HH:MM days:1-5` or `cron: HH:MM days:*` — parse both values: time gives H and M, days gives the weekday field. Build: `M H * * {days}`. Examples: `cron: 08:30 days:1-5` → `30 8 * * 1-5` · `cron: 08:30 days:*` → `30 8 * * *`. Default if missing: `0 9 * * 1-5`.
   - **`timezone`**: the user's local timezone — call `mcp__xtiles__xtiles_get_user_timezone` to get it before scheduling if it hasn't been fetched yet.
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." **Do not show the CTA widget again here** — it was already shown once, right after the write in step 7; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
+  **If `notify:true`** — the brief that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is a short marketer-style CTA per the rules in step 7.6 below, `agent_source` is `"Claude"`.
+
+  After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." (append ", and I'll notify you in xTiles each time" if `notify:true`). **Do not show the CTA widget again here** — it was already shown once, right after the write in step 7; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 - If the user selects **"No, thanks"** — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
 
 **Either way, step 9 still has to run before this turn ends — the schedule confirmation or decline is not a stopping point, do not wait for the user to ask.**
@@ -1079,8 +1080,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:
 .icon{font-size:36px;margin-bottom:12px}
 h2{font-size:17px;font-weight:700;margin-bottom:6px}
 .sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:24px}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:16px}
 .time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.notify-row{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 14px;border-radius:10px;background:#f8f8f8;border:1.5px solid #eee;cursor:pointer;user-select:none;margin-bottom:24px}
+.notify-info{flex:1;margin-right:12px}
+.notify-label{font-size:13px;font-weight:600}
+.notify-desc{font-size:11px;color:#888;margin-top:2px;line-height:1.4}
+.sw{width:40px;height:22px;background:#e0e0e0;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0}
+.sw.on{background:#1a1a1a}
+.knob{width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw.on .knob{left:20px}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
 .btn-yes{background:#1a1a1a;color:#fff}
@@ -1101,12 +1110,21 @@ h2{font-size:17px;font-weight:700;margin-bottom:6px}
     </select>
     at <input type="time" id="sched-time" value="09:00">
   </div>
+  <div class="notify-row" onclick="togNotify()">
+    <div class="notify-info">
+      <div class="notify-label">🔔 Notify me in xTiles</div>
+      <div class="notify-desc">Get pinged the moment each morning's brief is ready</div>
+    </div>
+    <div class="sw on" id="notify-sw"><div class="knob"></div></div>
+  </div>
   <div class="btns">
     <button class="btn btn-yes" id="btn-yes" onclick="scheduleIt()">Yes, schedule it</button>
     <button class="btn btn-no" id="btn-no" onclick="noThanks()">No, thanks</button>
   </div>
 </div>
 <script>
+var notify=true;
+function togNotify(){notify=!notify;document.getElementById('notify-sw').classList.toggle('on',notify);}
 function collapse(msg){document.querySelector('.btns').innerHTML='<p style="font-size:13px;color:#aaa;text-align:center;padding:4px 0">'+msg+'</p>';}
 function scheduleIt(){
   var days=document.getElementById('sched-days').value;
@@ -1115,7 +1133,7 @@ function scheduleIt(){
   var label=(h%12||12)+':'+m+' '+(h>=12?'PM':'AM');
   var dLabel=days==='1-5'?'weekdays':'every day';
   collapse('⏳ Scheduling…');
-  sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+')');
+  sendPrompt('Yes, schedule my daily digest at '+label+' '+dLabel+' (cron: '+t+' days:'+days+') · notify:'+notify);
 }
 function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 </script>
@@ -1140,5 +1158,6 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
 - **Gmail follow-through (drafts + mark-as-read, step 5/7·A) is mandatory whenever Gmail is connected — not a nice-to-have.** A run that finishes the digest and the widgets but skips it is an incomplete run, same severity as a missing CTA button.
 - **A section representing a selected connector is never silently blank.** If Calendar/Granola/Slack/etc. was selected and returned nothing, write the tile with a one-line text placeholder ("No meetings scheduled today.", "No updates today.") instead of omitting it — its total absence reads as a bug, not a quiet day.
+- **Never repeat the same event's meaning verbatim across tiles.** Mentions, Action Points, and Topics all draw on the same Slack messages — each tile earns its place by adding something the others don't (narrative, an actual task, a theme rollup). Two tiles saying the same thing in the same words is duplication with no value, not thoroughness — this is why Action Points is tasks-only (no bullet) and Topics excludes anything already in Mentions/Action Points. Apply the same instinct anywhere else a message or event could otherwise land in more than one tile.
 - **No self-tuning cycle.** The digest writes content tiles only — never a "Tune your digest", "Important keywords", or weekly-recap tile, and never a feedback checkbox. Do not invoke the `digest-tuning` workflow and do not hand-roll its tiles here.
  
