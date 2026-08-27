@@ -28,6 +28,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_content_by_link,
+  mcp__xtiles__xtiles_create_notification,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
   mcp__xtiles__xtiles_get_workflow,
@@ -508,19 +509,23 @@ between the title and the annotations):
 - Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
-**(a) CTA link → (b) Schedule offer → (c) Related workflows.** The offer to open the reflection in xTiles (the CTA) and the schedule offer are distinct moments — never drop either, and never collapse the schedule offer into the CTA or the related step. Losing or reordering any of these is a failed run. On a scheduled run, stop silently after the layout pass — none of (a)–(c) are shown.
+**(a) CTA link → (b) Schedule offer → (c) Related workflows.** The offer to open the reflection in xTiles (the CTA) and the schedule offer are distinct moments — never drop either, and never collapse the schedule offer into the CTA or the related step. Losing or reordering any of these is a failed run. On a scheduled run, stop after the layout pass and the notification (step 5 below) — none of (a)–(c) are shown; nobody is watching chat during an unattended run.
 
 **After a successful write — run these steps in order, no exceptions. Step 2 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before step 3's CTA button is even composed:**
 
 1. Write `✅ Evening reflection saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the `###` sections you just wrote — here a single reflection tile), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 1 tile (the reflection) · give it a generous width — max_width, or the largest free band next to existing tiles. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-3. **Link to the reflection tile, not the page.**
+3. **For non-scheduled runs only: link to the reflection tile, not the page.** (On a scheduled run, skip this widget entirely — step 5 below reaches the user instead.)
    - **If this run newly created the reflection tile** — take the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Daily page focused on that tile) and use it as `{VIEW_URL}` directly.
    - **If the reflection tile already existed and was only patched — the common case on a recurring Daily page.** Take the link/`resource_url` you noted for it in step 7 while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page.
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made in step 7 (no extra call needed).
-   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render every time, whether the tile was created or only patched.**
-4. Immediately continue to **step 8 (Schedule)** — do not skip, do not ask
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render every non-scheduled run, whether the tile was created or only patched.**
+4. **For non-scheduled runs only:** immediately continue to **step 8 (Schedule)** — do not skip, do not ask
    first, and never substitute `AskUserQuestion` for the schedule widget.
+5. **Scheduled runs only: notify instead of showing a widget.** Replace the CTA widget with `mcp__xtiles__xtiles_create_notification`, since nobody is present to click it during an unattended run:
+   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
+   - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference something concrete from tonight's reflection (a result, a goal update, tomorrow's top action) rather than a bland "Evening reflection saved." English placeholder examples to translate, not copy verbatim: `"Tonight's wrap-up is in — see what you actually got done →"`, `"Your day, characterized: tomorrow's top move is waiting →"`. Never invent anything that isn't real.
+   - `agent_source`: `"Claude"`.
 
 On error, say briefly what went wrong and offer to retry.
 
@@ -553,8 +558,8 @@ every evening automatically? What time? (default: 9:00 PM)".
 ### 9. Related workflows
 
 **After every manual run, once step 8 is resolved** (scheduled or declined) —
-offer related workflows. Skip this on scheduled runs, which end silently
-after step 7.
+offer related workflows. Skip this on scheduled runs, which end after step
+7's notification — no widgets, nobody to ask.
 
 Ask via `AskUserQuestion` (single select): "Want to set up anything else on
 xTiles?"

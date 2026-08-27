@@ -21,7 +21,7 @@ description: >
 
   Environment triggers: "Today News in Claude", "the Claude version",
   "Claude Today News".
-allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_patch_view_content, mcp__xtiles__xtiles_get_content_by_link, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
+allowed-tools: WebSearch, WebFetch, show_widget, mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner, mcp__xtiles__xtiles_patch_view_content, mcp__xtiles__xtiles_get_content_by_link, mcp__xtiles__xtiles_create_notification, mcp__xtiles__xtiles_get_planner_content, mcp__xtiles__xtiles_get_page_layout, mcp__xtiles__xtiles_set_page_layout, mcp__xtiles__xtiles_get_workflow, mcp__xtiles__xtiles_get_user_timezone, AskUserQuestion, anthropic-skills:schedule, mcp__scheduled-tasks__create-scheduled-tasks
 ---
 
 # Today News
@@ -105,14 +105,18 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Update matching tiles in place — never duplicate the user's template.** Before creating, call `mcp__xtiles__xtiles_get_planner_content` for today and match the tiles you're about to write (📰 `Today's News` / per-topic, 🕵️ `Rumors & Leaks`) against the existing `###` headings, ignoring any trailing date suffix. For each heading already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so a saved template is refreshed, not duplicated. Put only the not-present tiles in the create call; never create a second tile whose heading already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass. **While matching, note the 📰 `Today's News` tile's own link/`resource_url`** if this `get_planner_content` call returns one alongside it — step 2 below needs it for the CTA button when that tile is only patched, not created.
 
-**After a successful write — run these steps in order, no exceptions. Step 1 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before the CTA button is even composed:**
+**After a successful write — run these steps in order, no exceptions (step 2 is non-scheduled-only, step 3 is scheduled-only — never both, never neither). Step 1 (the layout pass) is not optional and is never deferred, asked about, or judgment-called away — it runs automatically, immediately after every single write, before the CTA button is even composed:**
 
 1. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the News/Rumors sections you just wrote — 1 or 2 entries), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** 1–2 tiles (News + optional Rumors) · if both, place side by side in one row when they fit, else News gets the wider share · News is the heavier tile. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
-2. **Link to the first tile, not the page.**
+2. **For non-scheduled runs only: link to the first tile, not the page.** (On a scheduled run, skip this widget entirely — step 3 below reaches the user instead.)
    - **If step 1's layout pass ran (something was newly created)** — use the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Daily page focused on that tile) as `{VIEW_URL}` directly.
    - **If the News tile already existed and was only patched** — take the link/`resource_url` you noted for it while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page.
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made to check existing headings (no extra call needed).
-   Call `show_widget` with the **CTA widget HTML** using that `{VIEW_URL}`. **Never leave `{VIEW_URL}` unresolved — the button must render on every run, whether tiles were created or only patched.**
+   Call `show_widget` with the **CTA widget HTML** using that `{VIEW_URL}`. **Never leave `{VIEW_URL}` unresolved — the button must render on every non-scheduled run, whether tiles were created or only patched.**
+3. **Scheduled runs only: notify instead of showing a widget.** Replace the CTA widget with `mcp__xtiles__xtiles_create_notification`, since nobody is present to click it during an unattended run:
+   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 2 (which this step skips anyway).
+   - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give a real reason to open it now — reference an actual headline or topic from today's digest rather than a bland "News created." English placeholder examples to translate, not copy verbatim: `"Today's headlines are in — the AI story you'll want first →"`, `"Fresh news is up: 3 stories worth your coffee break →"`. Never invent a story that isn't real.
+   - `agent_source`: `"Claude"`.
 
 ### 6. Schedule (optional)
 
@@ -132,8 +136,8 @@ If the user declines — acknowledge briefly, then **immediately continue to ste
 ### 7. Related workflows
 
 **After every manual run, once step 6 is resolved** (scheduled or declined) —
-offer related workflows. Skip this on scheduled runs, which end silently
-after step 5.
+offer related workflows. Skip this on scheduled runs, which end after step
+5's notification — no widgets, nobody to ask.
 
 Ask via `AskUserQuestion` (single select): "Want to set up anything else on
 xTiles?"

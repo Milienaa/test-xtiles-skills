@@ -29,6 +29,7 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
   mcp__xtiles__xtiles_patch_view_content,
   mcp__xtiles__xtiles_get_content_by_link,
+  mcp__xtiles__xtiles_create_notification,
   mcp__xtiles__xtiles_list_tasks,
   mcp__xtiles__xtiles_update_task,
   mcp__xtiles__xtiles_get_user_timezone,
@@ -620,7 +621,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 This runs silently on a scheduled run; on a manual run it needs no extra confirmation — the refreshed content is exactly what the user approved in the preview.
 
-**After each successful write — run these five steps in order, no exceptions (Cowork included — these are chat widgets/questions, never replaced by an artifact):**
+**After each successful write — run these steps in order, no exceptions (Cowork included — steps 3–4 are chat widgets/questions, never replaced by an artifact; step 6 is scheduled-run-only and replaces them with a real notification):**
 
 1. Write `✅ Daily created.`
 
@@ -629,13 +630,17 @@ This runs silently on a scheduled run; on a manual run it needs no extra confirm
    - Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly: pass `tile_ids` as its "added tiles", the markdown you just wrote as their content, and these **layout hints** — 1–4 tiles · default 2 per row · give a heavy tile (usually 💬 Slack — Topics, 📩 Emails, or 📅 Workload) its own full-width row.
    - Apply the layout silently — no message, no confirmation. Only once it is applied, continue to step 3.
 
-3. **Link to the first tile, not the page**, so the user lands right on the brief.
+3. **For non-scheduled runs only: link to the first tile, not the page**, so the user lands right on the brief. (On a scheduled run, nobody is watching chat — skip this widget entirely and use step 6 below instead.)
    - **If step 2's layout pass ran (something was newly created)** — take the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Daily page focused on that tile) and use it as `{VIEW_URL}` directly.
    - **If nothing was newly created (the first composed section already existed and was only patched, so step 2 was skipped) — the common case on a recurring Daily page.** Take the link/`resource_url` you noted for it while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page.
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made when checking existing headings (no extra call needed).
-   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every run, whether tiles were created or only patched.**
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
-5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later."** Immediately after step 4 (do not wait for the schedule widget's response), run both actions from **step 7·A** below: draft replies for every 🔴 Needs action email, and mark every ⚪ Noise/newsletter thread as read. These do not block or reorder steps 1–4 above — they run as their own step, not folded into any of them — but they are just as mandatory as the layout pass. Skipping them silently is a failed run, identical to skipping the CTA button.
+5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later," scheduled runs included.** Immediately after step 4 (do not wait for the schedule widget's response), run both actions from **step 7·A** below: draft replies for every 🔴 Needs action email, and mark every ⚪ Noise/newsletter thread as read. These do not block or reorder steps 1–4 above — they run as their own step, not folded into any of them — but they are just as mandatory as the layout pass. Skipping them silently is a failed run, identical to skipping the CTA button.
+6. **Scheduled runs only: notify instead of showing a widget.** Nobody is present to click a `show_widget` CTA during an unattended run — replace it with `mcp__xtiles__xtiles_create_notification` so the user still learns their brief is ready:
+   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — the tool requires a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
+   - `text`: one short, punchy sentence in the user's language, max 100 characters — **written like a good marketer's notification, not a status log.** Give the user an actual reason to tap it *now*: reference something concrete from today's brief (a count, the most pressing item) rather than a bland "Daily created." English placeholder examples to translate, not copy verbatim: `"Your Daily Brief just landed — 3 emails need you today →"`, `"Morning brief's in: your only free block is 10–12 →"`. Never invent a number that isn't real — pull it from what you actually wrote.
+   - `agent_source`: `"Claude"`.
 
 **If an error occurs:** briefly say what went wrong, offer to retry or skip that page.
 
@@ -718,7 +723,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
 **After every manual run, once step 8 is resolved** (scheduled or declined) —
 offer related workflows. **This is a mandatory closing step of every manual run,
 not optional — the run is not complete without it.** Skip it only on scheduled
-runs, which end silently after step 7.
+runs, which end after step 7's notification — no widgets, nobody to ask.
 
 Ask via `AskUserQuestion` (single select): "Want to set up anything else on
 xTiles?"
