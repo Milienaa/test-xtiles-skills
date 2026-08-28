@@ -133,6 +133,18 @@ or summary) — this is the **primary tile**.
 **Grid.** Canvas pages are a 48-column-wide grid; every tile needs `x + w ≤ 48`,
 minimum size 8 wide × 2 tall (default 16×12), and tiles may never overlap.
 
+**Size tiles to their content, not the minimum.** The 8×2 floor and the 16×12
+default exist for tiles with little to show — a tile whose body runs past a
+short paragraph needs a taller `h` (and, where useful, a wider `w`) so its
+content is readable without collapsing or requiring a scroll. Scale `h` up
+with block count; a long list or a table needs more room than one line of
+text. Never leave a content-bearing tile at the minimum size.
+
+**Images get room to show in full.** A tile whose body includes an
+`![alt](url)` image block needs `w`/`h` sized so the image isn't cropped —
+give it at least the default 16×12, more for a wide/landscape image, rather
+than packing it into a small tile.
+
 **Position** with the inline directive, on its own line directly under the
 tile's `###` heading:
 
@@ -218,6 +230,11 @@ without asking the user to confirm it. Build 4–6 tiles, never more, each with:
 - one short instructional hint line as the tile's only body content (e.g. "Add
   your daily itinerary here") — a placeholder prompting the user to fill it in,
   never real content
+- if a tile's theme is visual (a "Photos", "Gallery", or similarly
+  picture-driven tile), don't just describe the picture in the hint line —
+  add an `@mediaKeyword:VALUE` directive line under that tile's `###` heading
+  (same line group as `@position`/`@color`) so it ships with an actual sourced
+  image, keyworded to the tile's theme, alongside the hint text
 
 Create it the same way, via `xtiles_create_view_from_markdown(projectId,
 markdown)`, as a new page.
@@ -225,8 +242,19 @@ markdown)`, as a new page.
 ### 6. Confirm
 
 Reply with the exact `resource_url` the creation tool returned — never a
-hand-built one — and say plainly that this is a new page and the original is
-untouched.
+hand-built one. Keep the reply a short, human summary, not a technical report:
+
+- Say plainly this is a new page in the same project and the original is untouched.
+- List what landed on the page, one line per tile: its emoji + title with a few
+  words on what it holds — enough that the user knows where to find things
+  without re-reading the page. Note which one is the primary tile if that's not
+  obvious from its position.
+- Never dump technical details in the reply — no color names, style codes, tile
+  ids, or grid coordinates. If the optional layout pass failed or was skipped
+  (see Hard rules), say so in plain language instead of naming the tool.
+- Close with a short, low-pressure offer to keep going — e.g. continuing to
+  develop the project, or turning the page into an action plan — phrased as a
+  question, not another workflow launch.
 
 ---
 
