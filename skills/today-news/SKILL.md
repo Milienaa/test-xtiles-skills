@@ -66,6 +66,14 @@ The widget lets the user:
 
 ### 3. Search
 
+**Resolve "now" first — before running any search.** Call
+`mcp__xtiles__xtiles_get_user_timezone` to get the current date/time in the
+user's timezone. This is the anchor for every freshness check below — never
+guess "today" from the query text or from a search result's own "today"/
+"breaking" language, and never fall back to training knowledge of what date
+it is. This matters most on a **scheduled run**, where there is no live
+conversation to infer the date from.
+
 **Verified news (always):** For each topic run `WebSearch`:
 - Tech/AI → `site:techcrunch.com OR site:theverge.com OR site:wired.com`
 - Finance → `site:bloomberg.com OR site:ft.com OR site:reuters.com`
@@ -73,15 +81,34 @@ The widget lets the user:
 
 Query: `[topic] news [today OR "last 24 hours"] [domain filters]`
 
-Fetch top 2–3 results per topic with `WebFetch`. Extract: headline + publication + date, 2–3 sentence summary, URL. Deduplicate by URL. Drop: opinion without a news hook, PR content, anything older than 48 h.
+Fetch top 3–5 results per topic with `WebFetch` — fetch a couple extra beyond
+the 2–3 you expect to keep, since the date check below will drop some.
+Extract: headline + publication + **the article's own published/updated
+date** (not the site's homepage date, not a relative phrase like "recently" —
+find the actual dateline or byline date) + a 2–3 sentence summary + URL.
+
+**Date check — mandatory per story, before anything else filters it out:**
+1. Compare the extracted published/updated date against "now" from the step
+   above. **Keep only stories inside the last 24 hours** (this matches the
+   skill's own declared scope — do not quietly widen it to 48h "to get more
+   results").
+2. **A search engine returning a story is not evidence it's fresh** — sites
+   get re-crawled, re-shared, and re-indexed constantly; old articles resurface
+   in results looking current. The query's "today"/"last 24 hours" is a
+   *hint* to the search engine, never a guarantee — the extracted date is the
+   only thing that counts.
+3. **If the date is genuinely ambiguous or can't be found on the page** —
+   drop the story. Never include it "just in case" and never assume it's
+   fresh because it ranked highly.
+4. Deduplicate by URL, then drop: opinion without a news hook, PR content.
 
 **If "Verify sources" is on:**
-For each story, assess source reputation and publication date. If the outlet is questionable or the date is ambiguous, run a corroborating `WebSearch` to confirm the event. Mark each story: ✅ verified or ⚠️ could not corroborate.
+For each surviving story, also assess source reputation. If the outlet is questionable, run a corroborating `WebSearch` to confirm the event. Mark each story: ✅ verified or ⚠️ could not corroborate.
 
 **Rumors & Leaks (if opted in):** Run a parallel search per topic:
 - Sources: `site:x.com OR site:reddit.com OR site:9to5mac.com OR site:macrumors.com OR site:androidauthority.com`
 - Query: `[topic] leak OR rumor OR exclusive OR insider [today OR this week]`
-- Fetch top 1–2 results. Extract claim, source, corroboration clues. Always label as **unverified**.
+- Fetch top 1–2 results. Extract claim, source, **the post/article's own date**, corroboration clues. Same date discipline as News above: check the extracted date against "now," keep only the last **7 days** (this section's own declared window), and drop anything whose date is ambiguous or missing — a rumor with no date is not more forgivable than a stale headline. Always label as **unverified**.
 
 **Cross-day deduplication:** before finalising, call `mcp__xtiles__xtiles_get_planner_content` with `period: "day"` and yesterday's date (ISO 8601). Scan the returned tile content for any hyperlink URLs. Drop any story from today's results whose URL already appeared yesterday — the same news must not repeat on consecutive days.
 
