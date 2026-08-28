@@ -41,7 +41,6 @@ allowed-tools: >
   mcp__claude_ai_Gmail__search_threads,
   mcp__claude_ai_Gmail__list_labels,
   mcp__claude_ai_Gmail__get_thread,
-  mcp__claude_ai_Gmail__create_draft,
   mcp__claude_ai_Gmail__unlabel_thread,
   mcp__claude_ai_Google_Calendar__list_events,
   mcp__claude_ai_Granola__list_meetings,
@@ -368,7 +367,7 @@ Each newsletter is its own line — never mixed into the Emails section.
 - If a connector returned no data — write exactly that ("No unread emails", "No newsletters today", "No Slack updates today") — never skip the section silently; its absence looks like a bug
 - If a connector call failed — write "Could not fetch [connector] data — connector error" (not "No data")
 - No placeholder names, example events, or invented data — ever
-- In one line inside the widget, tell the user that after they approve you'll prepare Gmail draft replies for the 🔴 Needs action emails and mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers those actions (see step 7·A)
+- In one line inside the widget, tell the user that after they approve you'll mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers that action (see step 7·A)
 - **If `carry_over_tasks: true` and step 4 found overdue open tasks**, list them in one line inside the widget before the approval: `🔁 Will carry over N task(s) to today: "[title 1]", "[title 2]"…` — so the approval in step 6 covers this too. If none were found, omit the line entirely (nothing to carry over is not worth mentioning).
 - After showing the widget, **stop and wait**. Do not write anything to xTiles yet.
 ---
@@ -557,7 +556,7 @@ This runs silently on a scheduled run; on a manual run it needs no extra confirm
    - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made when checking existing headings (no extra call needed).
    Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
-5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later," scheduled runs included.** Immediately after step 4 (do not wait for the schedule widget's response), run both actions from **step 7·A** below: draft replies for every 🔴 Needs action email, and mark every ⚪ Noise/newsletter thread as read. These do not block or reorder steps 1–4 above — they run as their own step, not folded into any of them — but they are just as mandatory as the layout pass. Skipping them silently is a failed run, identical to skipping the CTA button.
+5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later," scheduled runs included.** Immediately after step 4 (do not wait for the schedule widget's response), run the action from **step 7·A** below: mark every ⚪ Noise/newsletter thread as read. This does not block or reorder steps 1–4 above — it runs as its own step, not folded into any of them — but it is just as mandatory as the layout pass. Skipping it silently is a failed run, identical to skipping the CTA button.
 6. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** Nobody is present to click a `show_widget` CTA during an unattended run — the user opted into `mcp__xtiles__xtiles_create_notification` instead when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — the tool requires a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
    - `text`: **always the fixed string `"Your Daily Brief is ready — see what matters today in 2 min."`, translated into the user's language — no customized/dynamic part.** Do not append a highlight, a count, or any detail pulled from today's content — this text never changes run to run beyond translation.
@@ -567,7 +566,7 @@ This runs silently on a scheduled run; on a manual run it needs no extra confirm
 
 ---
 
-### 7·A. Gmail follow-through — draft replies & mark-as-read
+### 7·A. Gmail follow-through — mark-as-read
 
 This is **step 5** of the post-write sequence above — run it right after the
 Schedule widget (step 4), silently, as part of the same run. It is auxiliary
@@ -576,42 +575,37 @@ never reorders steps 1–4 (layout → CTA → schedule) — but it is not optio
 either: a run that writes the digest and stops at step 4 without also doing
 this is incomplete.
 
-- **Draft replies for important emails.** For every 🔴 **Needs action** email,
-  create a Gmail **draft reply on that thread** with
-  `mcp__claude_ai_Gmail__create_draft` — pass the thread's `threadId`, reply to
-  the sender, keep the `Re:` subject. Write a short, on-point reply in the
-  user's language that they could send after a quick check — **never send it,
-  only leave the draft**. Never draft for 🟡 FYI or ⚪ Noise.
 - **Mark noise and newsletters as read.** Once the digest has captured them,
   mark every ⚪ **Noise** email and every **newsletter** thread as read by
   removing the `UNREAD` label with `mcp__claude_ai_Gmail__unlabel_thread`.
   **Never touch 🔴 or 🟡 threads** — those stay unread so the user still acts on
   them.
 
+**Never draft or send email replies.** This skill only marks threads as read —
+it never calls `create_draft`, never composes a reply, and never sends
+anything on the user's behalf. 🔴 Needs-action emails stay exactly as the user
+left them; the digest's job is to surface them, not to draft responses.
+
 **Surface the outcome by patching the tile you already wrote — on every run,
-manual or scheduled.** Both actions are named in advance too (in the preview on
+manual or scheduled.** This action is named in advance too (in the preview on
 a manual run, step 5; implicitly approved by the schedule config on a scheduled
 run), but naming the *intent* beforehand isn't the same as confirming the
-*outcome*, and these actions run silently, off-screen, after the tile is
-already written (they're step 5 of the post-write sequence, after the draft
-URLs and read counts even exist). So once both actions finish, call
-`mcp__xtiles__xtiles_patch_view_content` once against the just-written
-`### 📩 Emails` tile (or the topic tile it landed in, if email was split by
-topic) to:
-1. Add `· [Draft reply](draft_url)` inline on each 🔴 email line that got one —
-   `… → [Open email](url) · [Draft reply](draft_url)`.
-2. Append one summary line at the end of the tile's body:
-   `✉️ Auto-actions: prepared N draft replies · marked M Noise/newsletter emails as read`.
+*outcome*, and it runs silently, off-screen, after the tile is already written
+(it's step 5 of the post-write sequence, after the read count even exists). So
+once it finishes, call `mcp__xtiles__xtiles_patch_view_content` once against
+the just-written `### 📩 Emails` tile (or the topic tile it landed in, if email
+was split by topic) to append one summary line at the end of the tile's body:
+`✉️ Auto-actions: marked M Noise/newsletter emails as read`.
 
-State only the real counts; if a count is zero, drop that clause, and if
-nothing changed, skip both edits — don't patch for a no-op. **Never skip this
-on a manual run** — the user approved the intent, not the result, and this
-patch is the only place they see what was actually done.
+State only the real count; if it's zero, skip the patch entirely — don't patch
+for a no-op. **Never skip this on a manual run** — the user approved the
+intent, not the result, and this patch is the only place they see what was
+actually done.
 
-**Read-only fallback.** If a Gmail write tool is missing or errors, skip that
+**Read-only fallback.** If the Gmail write tool is missing or errors, skip the
 action, still finish the digest, and note it once on a manual run ("Couldn't
-prepare drafts / mark read in this environment"). Never block or fail the run
-over it.
+mark emails as read in this environment"). Never block or fail the run over
+it.
 
 ---
 
@@ -1175,7 +1169,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - Daily is the only period. If the user asks for Weekly or Monthly, tell them only the Daily planner is currently supported and offer to create a Daily page instead — never silently downscope.
 - Match the user's language, adapt if they switch. All bucket labels, block titles, link texts, and action items in this file are English placeholders — render them in the user's language, and never carry over a language from an example
 - Show the survey widget in Cowork only — in Claude Code, ask the same questions inline
-- **Gmail follow-through (drafts + mark-as-read, step 5/7·A) is mandatory whenever Gmail is connected — not a nice-to-have.** A run that finishes the digest and the widgets but skips it is an incomplete run, same severity as a missing CTA button.
+- **Gmail follow-through (mark-as-read, step 5/7·A) is mandatory whenever Gmail is connected — not a nice-to-have.** A run that finishes the digest and the widgets but skips it is an incomplete run, same severity as a missing CTA button. **Never draft or send emails on the user's behalf** — this skill only marks threads read, it never composes a reply.
 - **A section representing a selected connector is never silently blank.** If Calendar/Granola/Slack/etc. was selected and returned nothing, write the tile with a one-line text placeholder ("No meetings scheduled today.", "No updates today.") instead of omitting it — its total absence reads as a bug, not a quiet day.
 - **Never repeat the same event's meaning verbatim across tiles.** Mentions, Action Points, and Topics all draw on the same Slack messages — each tile earns its place by adding something the others don't (narrative, an actual task, a theme rollup). Two tiles saying the same thing in the same words is duplication with no value, not thoroughness — this is why Action Points is tasks-only (no bullet) and Topics excludes anything already in Mentions/Action Points. Apply the same instinct anywhere else a message or event could otherwise land in more than one tile.
 - **No self-tuning cycle.** The digest writes content tiles only — never a "Tune your digest", "Important keywords", or weekly-recap tile, and never a feedback checkbox. Do not invoke the `digest-tuning` workflow and do not hand-roll its tiles here.
