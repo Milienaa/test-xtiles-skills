@@ -507,7 +507,7 @@ between the title and the annotations):
    first, and never substitute `AskUserQuestion` for the schedule widget.
 5. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
-   - `text`: **a fixed hook plus one real highlight, max 100 characters total.** The hook is always `"How was today? Your reflection is waiting."` (translate it, but keep the same hook every time — this is the brand-recognizable part). Then, only if it fits within the limit, append `" [highlight] →"` — **exactly one** concrete detail pulled from the just-written reflection, in priority order: the single most notable 🎯 Result > a goal-progress update, if one was found. Never a list, never more than one fact, never invented. Example: `"How was today? Your reflection is waiting. You shipped the affiliate integration →"`. **If nothing rises above the others, or the highlight would push past 100 characters — send the hook alone, no highlight, don't trim by abbreviating it into nonsense.**
+   - `text`: **always the fixed string `"Your Evening Reflection is ready — take 2 min to look back."`, translated into the user's language — no customized/dynamic part.** Do not append a highlight, a count, or any detail pulled from tonight's content — this text never changes run to run beyond translation.
    - `agent_source`: `"Claude"`.
 
 On error, say briefly what went wrong and offer to retry.
@@ -532,7 +532,7 @@ every evening automatically? What time? (default: 9:00 PM)".
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
 
-      **If `notify:true`** — the reflection that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed hook + one real highlight per the rules in step 7.5 above, `agent_source` is `"Claude"`.
+      **If `notify:true`** — the reflection that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed notification string per step 7.5 above, `agent_source` is `"Claude"`.
 
       Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`; append ", and I'll notify you in xTiles each time" if `notify:true`) **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 - If the user declines — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
