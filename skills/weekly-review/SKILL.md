@@ -18,8 +18,6 @@ description: >
 allowed-tools: >
   mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
-  mcp__xtiles__xtiles_patch_view_content,
-  mcp__xtiles__xtiles_get_content_by_link,
   mcp__xtiles__xtiles_create_notification,
   mcp__xtiles__xtiles_get_page_layout,
   mcp__xtiles__xtiles_set_page_layout,
@@ -208,7 +206,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 Write all sections in a **single call**.
 
-**Update matching tiles in place — never duplicate the user's template.** Before writing, call `mcp__xtiles__xtiles_get_planner_content` with `period: "week"` for this week and match the three fixed titles (`### ✅ Week recap`, `### 🔍 Activities`, `### → Next week`) against the existing `###` headings. For each title already on the page, update that tile in place with `mcp__xtiles__xtiles_patch_view_content` — one search-and-replace of its body (everything under the `###` heading and `@color` annotations, up to the next `###`), keeping the heading and `@color` annotations unchanged — so the user's Weekly template keeps its colour and position and only the data is refreshed. Put only the titles that aren't there yet in the create call; never create a second tile whose title already exists; if `patch_view_content` can't target the page, leave the existing tile untouched rather than duplicate it. Only newly-created tiles go through the layout pass. **While matching, note the `### ✅ Week recap` tile's own link/`resource_url`** if this `get_planner_content` call returns one alongside it — step 6.3 needs it for the CTA button when that tile is only patched, not created.
+**This skill has no way to update an existing tile's content, so every run creates a fresh set of three tiles.** If the Weekly page already has a `### ✅ Week recap` / `### 🔍 Activities` / `### → Next week` from an earlier run this week or from the user's own saved template, still write all three in the create call below — do not fetch the page to check for matching headings first, and do not skip any of them because a same-titled tile might already exist. A re-run is expected to produce a fresh, current review, not to silently do nothing.
 
 **Tile structure** — every tile must follow this pattern exactly:
 
@@ -271,10 +269,9 @@ Write all sections in a **single call**.
 1. Write `✅ Weekly Review saved.`
 2. **Layout pass — mandatory, silent, automatic, every single run (scheduled runs included, fast-track included, any tile count included).** Using the `view_id` and `tile_ids` returned by the write call above (`tile_ids` is ordered to match the 3 `###` sections you just wrote), apply the shared justified-grid layout rules: call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly — treat the tiles in `tile_ids` as its "added tiles" and the markdown you just composed as their content. **Layout hints for this workflow:** always exactly 3 tiles (Week recap, Activities, Next week) in that order · try all 3 in one row if they fit, else the heaviest tile (usually Activities) takes more width or its own row. Do not message the user about this pass, do not ask for confirmation, and never skip it — not even for a single tile or a scheduled run. (You may fetch `tile-layout` once per session and reuse it on later runs.)
 3. **For non-scheduled runs only: link to the first tile (`### ✅ Week recap`), not the page**, so the user lands right on the review. (On a scheduled run, skip this widget entirely — step 5 below reaches the user instead.)
-   - **If step 6 newly created any tile** — use the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Weekly page focused on that tile) as `{VIEW_URL}` directly.
-   - **If the `### ✅ Week recap` tile already existed and was only patched — the common case on a recurring Weekly page.** Take the link/`resource_url` you noted for it in step 6 while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page, before it goes on the button.
-   - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made in step 6 (no extra call needed).
-   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
+   - Use the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Weekly page focused on that tile) as `{VIEW_URL}` directly.
+   - **Only if that entry has no `resource_url` at all** — fall back to `https://xtiles.app/{view_id}`, also read from the create call's response.
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
 5. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 7's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
    - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).

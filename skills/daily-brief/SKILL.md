@@ -25,10 +25,7 @@ description: >
   Environment triggers: "Daily Brief in Claude", "the Claude version",
   "Claude Daily Brief".
 allowed-tools: >
-  mcp__xtiles__xtiles_get_planner_content,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner,
-  mcp__xtiles__xtiles_patch_view_content,
-  mcp__xtiles__xtiles_get_content_by_link,
   mcp__xtiles__xtiles_create_notification,
   mcp__xtiles__xtiles_list_tasks,
   mcp__xtiles__xtiles_update_task,
@@ -531,15 +528,9 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **If xTiles is not connected** — do not output the digest as plain text in chat. Walk the user through connecting xTiles (see **How to connect connectors**), wait for confirmation, then write.
 
-**If the page already exists — update matching tiles in place, never duplicate the user's template:**
-1. Call `mcp__xtiles__xtiles_get_planner_content` and list the existing `###` tile headings on the page.
-2. Split the sections you're about to write by comparing headings — match on the heading text, ignoring any trailing date suffix:
-   - **Heading already on the page** → update that tile in place with `mcp__xtiles__xtiles_patch_view_content`: one search-and-replace that swaps the tile's current body (everything under its `###` heading and colour annotations, up to the next `###`) for the freshly composed body. **Keep the `###` heading line and the `@colorSize`/`@color` annotations exactly as they are** — never change the user's colour, title wording, or the tile's position. This is what lets a user's own saved template be refreshed each morning instead of duplicated.
-   - **Heading not on the page** → include it in the single `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` call (append), as usual.
-3. **Never create a second tile whose heading already exists on the page.** If the in-place update capability can't target this page, leave the existing tile untouched (skip it) rather than writing a duplicate.
-4. The layout pass and CTA below apply only to tiles you **newly created**; tiles updated in place keep their position and are not re-laid-out. If you created nothing new, skip the layout pass and reuse the `view_id` from the `get_planner_content` call you already made. **While matching headings in step 2, note the first composed section's own link/`resource_url`** if that `get_planner_content` call returns one alongside the matched tile — step 3 below needs it for the CTA button when that tile is only patched, not created.
+**Every run creates fresh tiles — this skill has no way to update an existing tile's content.** If the page already has tiles from an earlier run today (a manual re-run) or from the user's own saved template, still write the full set of composed sections in the single `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner` call below — do not fetch the page to check for matching headings, and do not skip any section because a tile with the same title might already be there. A re-run is expected to produce a fresh, current brief, not to silently do nothing (or fail) because it can't tell whether something with the same title already exists.
 
-This runs silently on a scheduled run; on a manual run it needs no extra confirmation — the refreshed content is exactly what the user approved in the preview.
+This runs silently on a scheduled run; on a manual run it needs no extra confirmation — the content is exactly what the user approved in the preview.
 
 **After each successful write — run these steps in order, no exceptions (Cowork included — steps 3–4 are chat widgets/questions, never replaced by an artifact; step 6 is scheduled-run-only, and only fires if the user opted into notifications when scheduling):**
 
@@ -551,10 +542,9 @@ This runs silently on a scheduled run; on a manual run it needs no extra confirm
    - Apply the layout silently — no message, no confirmation. Only once it is applied, continue to step 3.
 
 3. **For non-scheduled runs only: link to the first tile, not the page**, so the user lands right on the brief. (On a scheduled run, nobody is watching chat — skip this widget entirely and use step 6 below instead.)
-   - **If step 2's layout pass ran (something was newly created)** — take the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Daily page focused on that tile) and use it as `{VIEW_URL}` directly.
-   - **If nothing was newly created (the first composed section already existed and was only patched, so step 2 was skipped) — the common case on a recurring Daily page.** Take the link/`resource_url` you noted for it while matching headings, and resolve it once with `mcp__xtiles__xtiles_get_content_by_link` — if the response's `resource_type` is `TILE`, use that same URL as `{VIEW_URL}`. This confirms it addresses the tile itself, not the whole page.
-   - **Only if no tile-level link was available at all, or it resolves as `PAGE` rather than `TILE`** — fall back to `https://xtiles.app/{view_id}`, reusing the `view_id` from the `get_planner_content` call already made when checking existing headings (no extra call needed).
-   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run, whether tiles were created or only patched.**
+   - Take the `resource_url` of the **first** entry in the create call's response `tiles` array (a deep link that opens the Daily page focused on that tile) and use it as `{VIEW_URL}` directly.
+   - **Only if that entry has no `resource_url` at all** — fall back to `https://xtiles.app/{view_id}`, also read from the create call's response.
+   Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
 5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later," scheduled runs included.** Immediately after step 4 (do not wait for the schedule widget's response), run the action from **step 7·A** below: mark every ⚪ Noise/newsletter thread as read. This does not block or reorder steps 1–4 above — it runs as its own step, not folded into any of them — but it is just as mandatory as the layout pass. Skipping it silently is a failed run, identical to skipping the CTA button.
 6. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** Nobody is present to click a `show_widget` CTA during an unattended run — the user opted into `mcp__xtiles__xtiles_create_notification` instead when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
@@ -586,21 +576,12 @@ it never calls `create_draft`, never composes a reply, and never sends
 anything on the user's behalf. 🔴 Needs-action emails stay exactly as the user
 left them; the digest's job is to surface them, not to draft responses.
 
-**Surface the outcome by patching the tile you already wrote — on every run,
-manual or scheduled.** This action is named in advance too (in the preview on
-a manual run, step 5; implicitly approved by the schedule config on a scheduled
-run), but naming the *intent* beforehand isn't the same as confirming the
-*outcome*, and it runs silently, off-screen, after the tile is already written
-(it's step 5 of the post-write sequence, after the read count even exists). So
-once it finishes, call `mcp__xtiles__xtiles_patch_view_content` once against
-the just-written `### 📩 Emails` tile (or the topic tile it landed in, if email
-was split by topic) to append one summary line at the end of the tile's body:
-`✉️ Auto-actions: marked M Noise/newsletter emails as read`.
-
-State only the real count; if it's zero, skip the patch entirely — don't patch
-for a no-op. **Never skip this on a manual run** — the user approved the
-intent, not the result, and this patch is the only place they see what was
-actually done.
+**The action is named in advance and that's the confirmation.** The preview
+(step 5, manual run) or the schedule config (scheduled run) already told the
+user this would happen — this step just carries it out, silently, in the
+background. Editing the already-written tile afterward to report the outcome
+is not something this skill does; the intent stated beforehand is enough,
+nothing further to write back.
 
 **Read-only fallback.** If the Gmail write tool is missing or errors, skip the
 action, still finish the digest, and note it once on a manual run ("Couldn't
