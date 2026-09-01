@@ -140,7 +140,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
    - **Only if that entry has no `resource_url` at all** — fall back to `https://xtiles.app/{view_id}`, also read from the create call's response.
    Call `show_widget` with the **CTA widget HTML** using that `{VIEW_URL}`. **Never leave `{VIEW_URL}` unresolved — the button must render on every non-scheduled run.**
 3. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 6's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
-   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 2 (which this step skips anyway).
+   - `url`: the **tile-focused deep link**, so clicking the notification scrolls straight to the digest instead of dropping the user at the top of the page. Read the `resource_url` of the **first** entry in the create call's response `tiles` array directly (step 2, which normally computes this as `{VIEW_URL}`, is skipped on a scheduled run — so read it fresh here from the same response). **Only if that entry has no `resource_url` at all** — fall back to the page URL, `https://xtiles.app/{view_id}`.
    - `text`: **always the fixed string `"Today's news brief is ready — catch up in 2 min."`, translated into the user's language — no customized/dynamic part.** Do not append a highlight, a headline, or any detail pulled from today's digest — this text never changes run to run beyond translation.
    - `agent_source`: `"Claude"`.
 
@@ -153,7 +153,7 @@ If the user schedules: the widget response also carries `notify:true`/`notify:fa
 - `schedule`: parse `cron: HH:MM` from the widget message and build `M H * * *` (the widget always schedules every day)
 - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-**If `notify:true`** — the digest that's already on the page right now (from step 5's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed notification string per step 5.3 above, `agent_source` is `"Claude"`.
+**If `notify:true`** — the digest that's already on the page right now (from step 5's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is `{VIEW_URL}` (the same tile-focused deep link already resolved back in step 5.2, so this notification scrolls straight to the tile too), `text` is the fixed notification string per step 5.3 above, `agent_source` is `"Claude"`.
 
 Confirm scheduling succeeded (mention ", and I'll notify you in xTiles each time" if `notify:true`), then **immediately continue to step 7 (Related workflows) in the same turn — this confirmation is not the end of the run.**
 

@@ -243,6 +243,7 @@ Then pull from selected connectors:
   - **Calendar (the other connected calendar tool), if also selected.** Call its `list_events`-equivalent for today and add its events to the same list.
   - **Dedup across the two.** Drop an event from the Calendar connector when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
   - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day was simply free.** The tool can't tell "nothing scheduled" from "no calendar linked." If Calendar also contributed nothing (or wasn't selected), note this once in the reflection instead of silently treating it as a free day. Skip the note if Calendar *did* contribute at least one event.
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts and an upgrade URL. Watch for it every time this tool is called. If present, extract the account count (**N**) and the upgrade URL, and surface it — never absorb it silently: as the `⚠️` line in the reflection tile (see step 7) **and** as the first thing shown in the step 6 preview, before any tile content. Wording (translate, keep N and the URL real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade]({url})."
   - From the merged list: separate meetings-with-others (attendees > 1) from solo work blocks.
 - **PM / issue tracker** *(any connected — Linear, Jira, Asana, monday, ClickUp,
   GitHub Issues)*: pull, **read-only**, two sets — (a) issues **completed today**
@@ -386,7 +387,10 @@ write it** / **Change something** / **Cancel**) *are* the approval step — do
 not also ask via `AskUserQuestion` afterward, that would be a second approval
 for the same decision. If the user picks "Change something," update only that
 section, then show the Preview widget again with the revised content — never
-fall back to a plain-text re-preview. On scheduled runs, skip this step
+fall back to a plain-text re-preview. **If step 4's multi-calendar Pro-plan
+disclosure applies**, it goes in first, above the reflection content — the
+user must see it before approving, not just inside the tile itself. See the
+widget's `.notice` element below. On scheduled runs, skip this step
 entirely and write directly.
 
 ---
@@ -467,7 +471,7 @@ between the title and the annotations):
   checkbox renders inside the tile's text but never becomes a real, trackable
   xTiles task; only `<task>` does (same rule `daily-brief` uses for its action
   items — see its "Action items are real tasks" section).
-- Append the final `⚠️ [unavailable connectors]` line only if a connector failed.
+- Append the final `⚠️ [unavailable connectors]` line only if a connector failed. **If the multi-calendar Pro-plan disclosure applies (see step 4), it is always the first `⚠️` line, ahead of the unavailable-connectors line** — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](url)`.
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
 **(a) CTA link → (b) Schedule offer → (c) Related workflows.** The offer to open the reflection in xTiles (the CTA) and the schedule offer are distinct moments — never drop either, and never collapse the schedule offer into the CTA or the related step. Losing or reordering any of these is a failed run. On a scheduled run, stop after the layout pass and the notification (step 5 below) — none of (a)–(c) are shown; nobody is watching chat during an unattended run.
@@ -483,7 +487,7 @@ between the title and the annotations):
 4. **For non-scheduled runs only:** immediately continue to **step 8 (Schedule)** — do not skip, do not ask
    first, and never substitute `AskUserQuestion` for the schedule widget.
 5. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
-   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
+   - `url`: the **tile-focused deep link**, so clicking the notification scrolls straight to the reflection instead of dropping the user at the top of the page. Read the `resource_url` of the **first** entry in the create call's response `tiles` array directly (step 3, which normally computes this as `{VIEW_URL}`, is skipped on a scheduled run — so read it fresh here from the same response). **Only if that entry has no `resource_url` at all** — fall back to the page URL, `https://xtiles.app/{view_id}`.
    - `text`: **always the fixed string `"Your Evening Reflection is ready — take 2 min to look back."`, translated into the user's language — no customized/dynamic part.** Do not append a highlight, a count, or any detail pulled from tonight's content — this text never changes run to run beyond translation.
    - `agent_source`: `"Claude"`.
 
@@ -509,7 +513,7 @@ every evening automatically? What time? (default: 9:00 PM)".
       This prompt fires each evening and triggers `evening-reflection` in
       scheduled-run mode — the full config must be embedded so the survey is skipped.
 
-      **If `notify:true`** — the reflection that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed notification string per step 7.5 above, `agent_source` is `"Claude"`.
+      **If `notify:true`** — the reflection that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is `{VIEW_URL}` (the same tile-focused deep link already resolved back in step 7.3, so this notification scrolls straight to the tile too), `text` is the fixed notification string per step 7.5 above, `agent_source` is `"Claude"`.
 
       Confirm: "Done — your reflection will write to xTiles every [weekday evening / evening] at [time]." (say "weekday evening" if `days:1-5`, "every evening" if `days:*`; append ", and I'll notify you in xTiles each time" if `notify:true`) **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 - If the user declines — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
@@ -768,6 +772,8 @@ h2{font-size:16px;font-weight:700}
 .item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
 .item-title{font-weight:600;color:#1a1a1a}
 .item-badge{display:inline-block;margin-right:4px}
+.notice{border-radius:12px;padding:12px 14px;background:#fff6e5;border:1px solid #f3d9a4;color:#7a5a00;font-size:12px;line-height:1.5}
+.notice a{color:#7a5a00;font-weight:600}
 .feedback{display:none;margin-bottom:12px}
 textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
@@ -787,6 +793,9 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
 
     <!--
     INJECTION PATTERN — Claude fills in #digest with the real, already-composed reflection:
+
+    If the multi-calendar Pro-plan disclosure applies (see step 4), inject this FIRST, above every .section — the user must see it before approving:
+    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="[upgrade url]">Upgrade</a></div>
 
     <div class="section">
       <div class="char-line">1–2 sharp sentences — the tone and essence of the day.</div>

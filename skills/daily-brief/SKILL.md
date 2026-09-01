@@ -303,6 +303,7 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Dedup across the two sources.** An event from the Calendar connector is a duplicate — and gets dropped — when an xTiles-calendar event already has the same start time and the same title (case-insensitive); this is the common case where the user's xTiles account is already synced to the same Google account they also connected directly. Keep every event that doesn't match one already in the list. Never show the same meeting twice.
   - For each surviving event extract: start/end time, title, participant names (first name + last name or company), the event description, and the meeting link (Google Meet, Zoom, or other video URL from event data).
   - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day is simply free.** The tool can't distinguish "nothing scheduled" from "no calendar linked" (see step 2) — so if the Calendar connector also contributed nothing (or wasn't selected), flag this once in the preview (step 5) instead of silently treating it as an empty day: "No calendar events found today — this could mean nothing's scheduled, or that no calendar is linked inside xTiles yet. Want help connecting one?" Skip this note if the Calendar connector *did* contribute at least one event — that confirms the day genuinely has nothing from xTiles specifically, so there's nothing to flag.
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts and an upgrade URL. Watch for it every time this tool is called. If present, extract the account count (**N**) and the upgrade URL, and surface it — never absorb it silently: as the `⚠️` line in the Workload tile (see below) **and** as the first thing shown in the step 5 preview, before any tile content. Wording (translate, keep N and the URL real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade]({url})."
 
   **This tile must earn its place — it is not a second copy of the calendar.** The user can already see their schedule; what they cannot see is *what each meeting is about*, *what they have to prepare*, and *where the day's real work fits*. An event row with no agenda and no prep is the weakest thing in the tile — the analysis below is the point, the timetable is just its scaffolding. Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
@@ -366,6 +367,7 @@ Each newsletter is its own line — never mixed into the Emails section.
 - No placeholder names, example events, or invented data — ever
 - In one line inside the widget, tell the user that after they approve you'll mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers that action (see step 7·A)
 - **If `carry_over_tasks: true` and step 4 found overdue open tasks**, list them in one line inside the widget before the approval: `🔁 Will carry over N task(s) to today: "[title 1]", "[title 2]"…` — so the approval in step 6 covers this too. If none were found, omit the line entirely (nothing to carry over is not worth mentioning).
+- **If step 4's multi-calendar Pro-plan disclosure applies**, it goes in first, above every `.section` card — the user must see it before approving, not just inside the Workload tile. See the widget's `.notice` element below.
 - After showing the widget, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -521,7 +523,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Each event on its own bold line: `**HH:MM–HH:MM · Title**` — append ` — Participants · [Link label](url)` if participants or meeting link exist
   - 📋 agenda goes on the next paragraph directly under its event — one sentence, from Granola / meeting notes / Gmail / the event description. Omit the line when no source yielded anything; never paraphrase the meeting title back as an agenda. When citing a source, weave the hyperlink into the agenda sentence itself — `Continues the pricing thread from [Monday's note](url)` — never append it as a separate line
   - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — the prep is for today's meeting, so its `dueDate` is today (the page's day) unless the source states an earlier real deadline
-  - All ⚠️ anomalies collected at the bottom, one per line
+  - All ⚠️ anomalies collected at the bottom, one per line. **If the multi-calendar Pro-plan disclosure applies (see step 4), it is always the first ⚠️ line, ahead of any other anomaly** — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](url)`.
   - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
   - **Never silently omit the tile if Calendar or Granola was a selected source** — same rule as every other section: an empty Workload tile reads as a connector failure, not a quiet day. If the merged event list is empty, still write the summary line (`**0 events · 0 h occupied**`) and the 🎯 focus recommendation, then a single line `No meetings scheduled today.` in place of the event list — this is also where a zero-result Granola fetch becomes visible, since Granola has no tile of its own. Only omit the tile entirely if neither Calendar nor Granola was selected at all.
 - This ensures the tile is scannable, not a wall of text
@@ -548,7 +550,7 @@ This runs silently on a scheduled run; on a manual run it needs no extra confirm
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip this step, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
 5. **Gmail follow-through — mandatory, silent, every run with Gmail connected; never skipped, never deferred, never left for "later," scheduled runs included.** Immediately after step 4 (do not wait for the schedule widget's response), run the action from **step 7·A** below: mark every ⚪ Noise/newsletter thread as read. This does not block or reorder steps 1–4 above — it runs as its own step, not folded into any of them — but it is just as mandatory as the layout pass. Skipping it silently is a failed run, identical to skipping the CTA button.
 6. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** Nobody is present to click a `show_widget` CTA during an unattended run — the user opted into `mcp__xtiles__xtiles_create_notification` instead when they scheduled this (see step 8's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
-   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — the tool requires a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
+   - `url`: the **tile-focused deep link**, so clicking the notification scrolls straight to the brief instead of dropping the user at the top of the page. Read the `resource_url` of the **first** entry in the create call's response `tiles` array directly (step 3, which normally computes this as `{VIEW_URL}`, is skipped on a scheduled run — so read it fresh here from the same response). **Only if that entry has no `resource_url` at all** — fall back to the page URL, `https://xtiles.app/{view_id}`.
    - `text`: **always the fixed string `"Your Daily Brief is ready — see what matters today in 2 min."`, translated into the user's language — no customized/dynamic part.** Do not append a highlight, a count, or any detail pulled from today's content — this text never changes run to run beyond translation.
    - `agent_source`: `"Claude"`.
 
@@ -607,7 +609,7 @@ In Claude Code (no Cowork): after writing, ask inline: "Want me to run this ever
 
   This prompt fires each morning and triggers `daily-brief` in scheduled-run mode — the full config must be embedded so the survey is skipped automatically.
 
-  **If `notify:true`** — the brief that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed notification string per step 7.6 below, `agent_source` is `"Claude"`.
+  **If `notify:true`** — the brief that's already on the page right now (from step 7's write) is also worth notifying about; don't make the user wait for tomorrow to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is `{VIEW_URL}` (the same tile-focused deep link already resolved back in step 7.3, so this notification scrolls straight to the tile too), `text` is the fixed notification string per step 7.6 below, `agent_source` is `"Claude"`.
 
   After scheduling succeeds, confirm: "Done — your Daily will be ready in xTiles every morning at [chosen time]." (append ", and I'll notify you in xTiles each time" if `notify:true`). **Do not show the CTA widget again here** — it was already shown once, right after the write in step 7; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 9 (Related workflows) in the same turn.**
 - If the user selects **"No, thanks"** — acknowledge briefly, then **immediately continue to step 9 (Related workflows) in the same turn.**
@@ -684,6 +686,8 @@ h2{font-size:16px;font-weight:700}
 .item{font-size:12px;color:#333;line-height:1.5;margin-bottom:6px}
 .item:last-child{margin-bottom:0}
 .item-title{font-weight:600;color:#1a1a1a}
+.notice{border-radius:12px;padding:12px 14px;background:#fff6e5;border:1px solid #f3d9a4;color:#7a5a00;font-size:12px;line-height:1.5}
+.notice a{color:#7a5a00;font-weight:600}
 .feedback{display:none;margin-bottom:12px}
 textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
@@ -703,6 +707,9 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
 
     <!--
     INJECTION PATTERN — Claude fills in #digest with one .section per selected tile, real content only:
+
+    If the multi-calendar Pro-plan disclosure applies (see step 4/Workload), inject this FIRST, above every .section — the user must see it before approving:
+    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="[upgrade url]">Upgrade</a></div>
 
     <div class="section">
       <div class="section-head">📩 Emails</div>

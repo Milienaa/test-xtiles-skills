@@ -126,6 +126,7 @@ For each connector that was selected or detected — call it now, before analysi
   - **Calendar (the Google Calendar connector), if also selected.** Call `mcp__claude_ai_Google_Calendar__list_events` for the same range and add its events to the same list.
   - **Dedup across the two.** Drop a Calendar-connector event when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
   - **If Calendar (xTiles) was selected and contributed zero events for the whole week, don't assume the week was simply quiet.** The tool can't tell "nothing scheduled" from "no calendar linked." If the Calendar connector also contributed nothing (or wasn't selected), note this once in the summary instead of silently showing an empty week. Skip the note if the Calendar connector *did* contribute at least one event.
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts and an upgrade URL. Watch for it every time this tool is called. If present, extract the account count (**N**) and the upgrade URL, and surface it — never absorb it silently: as an `⚠️` note in the Activities tile (see below) **and** as the first thing shown in the step 5 preview, before any tile content. Wording (translate, keep N and the URL real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade]({url})."
   - From the merged list: count meetings, identify recurring vs one-off, note people present
 - **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items, decisions, and attendees
 - **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — documents created or edited this week
@@ -160,7 +161,7 @@ Synthesise the collected data into **3 tiles**, each with bold `**[Title]**` sub
 
 `**⚡ Activity type**` — classify every action from the week into three types. Output as a **single percentage line, no bullets**: `Initiative 40% · Reactive 45% · Decisions 15%`
 
-`**📊 Productivity pattern**` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`
+`**📊 Productivity pattern**` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`. **If the multi-calendar Pro-plan disclosure applies (see step 3), it is always the first line under this subheading**, ahead of any observation — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](url)`.
 
 `**👥 Key interactions**` — top 5 people by interaction count this week. Format each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
 
@@ -173,7 +174,7 @@ Synthesise the collected data into **3 tiles**, each with bold `**[Title]**` sub
 `**Suggested priorities**` — suggested top 3 for next week. **Priority logic:**
 1. If a Goals tile was found — derive priorities from goal blockers and next steps toward those goals first
 2. Fill remaining slots (or all 3 if no goals) from "Open" by importance
-Format: `- [ ] [priority]` — one line each, specific and actionable. No assignee, no due date.
+Format: `<task>[priority]</task>` — one per line, blank line between each, specific and actionable. No `dueDate`/`priority` attribute (no assignee, no due date). **Never `- [ ]`** — a plain markdown checkbox renders inside the tile's text but never becomes a real, trackable xTiles task; only `<task>` does (same rule `daily-brief` uses for its action items — see its "Action items are real tasks" section).
 
 ---
 
@@ -193,6 +194,8 @@ three buttons (**Looks good — save it** / **Change something** / **Cancel**)
 *are* the approval step — do not also ask separately.
 
 Do not call the xTiles write tool until the user clicks "Looks good — save it". If the user asks for a change — update only that section, then show the Preview widget again with the revised content — never fall back to a plain-text re-preview.
+
+**If step 3's multi-calendar Pro-plan disclosure applies**, it goes in first, above every tile's content — the user must see it before approving, not just inside the Activities tile. See the widget's `.notice` element below.
 
 ---
 
@@ -259,7 +262,7 @@ Write all sections in a **single call**.
 
 `**🔄 Open**` — each item: `📌 [what needs to happen] — [source]`
 
-`**Suggested priorities**` — top 3, format `- [ ] [priority]`, one line each. Derive from goal blockers first (if Goals tile found), then from "Open".
+`**Suggested priorities**` — top 3, format `<task>[priority]</task>`, one per line. Derive from goal blockers first (if Goals tile found), then from "Open". **Never `- [ ]`** — see the "real tasks, not checkboxes" rule above.
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
 **(a) CTA link → (b) Schedule offer → (c) Slack sharing offer → (d) Related workflows.** Never fold the Slack offer into the schedule step and never propose Slack while asking about scheduling — they are two distinct, consecutive widgets. Losing or reordering any of these four is a failed run. On a scheduled run, stop after the layout pass and the notification (step 5 below) — none of (a)–(d) are shown; nobody is watching chat during an unattended run.
@@ -274,7 +277,7 @@ Write all sections in a **single call**.
    Call `show_widget` with the **CTA widget HTML** (see below) using that `{VIEW_URL}`. Translate the button label into the user's language. **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render on every non-scheduled run.**
 4. **For non-scheduled runs only**: Immediately call `show_widget` with the **Schedule widget HTML** (see below). Do not skip, do not ask first, and never substitute `AskUserQuestion` here — this is a Cowork chat widget, not a question.
 5. **Scheduled runs only, and only if the config's `notify:` flag is `true`.** The user opted into `mcp__xtiles__xtiles_create_notification` instead of a widget when they scheduled this (see step 7's notification toggle). If `notify:false` (or missing, for an older schedule) — skip this step entirely, silently, no notification:
-   - `url`: the **page** URL, `https://xtiles.app/{view_id}` — a page link, never the tile-specific `{VIEW_URL}` from step 3 (which this step skips anyway).
+   - `url`: the **tile-focused deep link**, so clicking the notification scrolls straight to the review instead of dropping the user at the top of the page. Read the `resource_url` of the **first** entry in the create call's response `tiles` array directly (step 3, which normally computes this as `{VIEW_URL}`, is skipped on a scheduled run — so read it fresh here from the same response). **Only if that entry has no `resource_url` at all** — fall back to the page URL, `https://xtiles.app/{view_id}`.
    - `text`: **always the fixed string `"Your Weekly Review is ready — recap your week in 2 min."`, translated into the user's language — no customized/dynamic part.** Do not append a highlight, a count, or any detail pulled from this week's content — this text never changes run to run beyond translation.
    - `agent_source`: `"Claude"`.
 
@@ -297,7 +300,7 @@ In Claude Code: after writing, ask inline: "Want me to run this automatically ev
   - `schedule`: cron from widget — default `0 16 * * 5` (Friday 4 PM). Widget sends a pre-built cron expression in the message (e.g. `cron: 00 16 * * 5`) — extract and use it directly as the `schedule` value.
   - `timezone`: from `mcp__xtiles__xtiles_get_user_timezone`
 
-  **If `notify:true`** — the review that's already on the page right now (from step 6's write) is also worth notifying about; don't make the user wait for next Friday to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is the page URL (`https://xtiles.app/{view_id}`), `text` is the fixed notification string per step 6.5 above, `agent_source` is `"Claude"`.
+  **If `notify:true`** — the review that's already on the page right now (from step 6's write) is also worth notifying about; don't make the user wait for next Friday to see it work. Call `mcp__xtiles__xtiles_create_notification` immediately, right here: `url` is `{VIEW_URL}` (the same tile-focused deep link already resolved back in step 6.3, so this notification scrolls straight to the tile too), `text` is the fixed notification string per step 6.5 above, `agent_source` is `"Claude"`.
 
   After scheduling: confirm "Done — your Weekly Review will run every Friday at 4 PM." (append ", and I'll notify you in xTiles each time" if `notify:true`). **Do not show the CTA widget again here** — it was already shown once, right after the write in step 6; repeating it after the schedule confirmation is redundant. **This confirmation is not the end of the run — immediately continue to step 8 (Slack sharing) in the same turn.**
 
@@ -449,11 +452,11 @@ Initiative 38% · Reactive 47% · Decisions 15%
 
 **Suggested priorities**
 
-- [ ] Merge review-fixes branch and send for review — blocks marketplace submission (goal)
+<task>Merge review-fixes branch and send for review — blocks marketplace submission (goal)</task>
 
-- [ ] Send EchoMe follow-up to Todd Savard — move or close by Wednesday
+<task>Send EchoMe follow-up to Todd Savard — move or close by Wednesday</task>
 
-- [ ] Finalise Sara Aratake influencer brief before Monday standup
+<task>Finalise Sara Aratake influencer brief before Monday standup</task>
 ```
 
 ---
@@ -637,6 +640,8 @@ h2{font-size:16px;font-weight:700}
 .item{font-size:12px;color:#333;line-height:1.5;margin-bottom:6px}
 .item:last-child{margin-bottom:0}
 .item-title{font-weight:600;color:#1a1a1a}
+.notice{border-radius:12px;padding:12px 14px;background:#fff6e5;border:1px solid #f3d9a4;color:#7a5a00;font-size:12px;line-height:1.5}
+.notice a{color:#7a5a00;font-weight:600}
 .feedback{display:none;margin-bottom:12px}
 textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
@@ -656,6 +661,9 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
 
     <!--
     INJECTION PATTERN — Claude fills in #digest with the real, already-assembled review:
+
+    If the multi-calendar Pro-plan disclosure applies (see step 3/Activities), inject this FIRST, above every .section — the user must see it before approving:
+    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="[upgrade url]">Upgrade</a></div>
 
     <div class="section">
       <div class="section-head">✅ Week recap</div>
