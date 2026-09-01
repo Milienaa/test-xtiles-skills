@@ -326,32 +326,7 @@ approval form state:
 `Change something` → collect the correction in a form, revise **only** that
 part, re-show the full preview, ask again. `Cancel` → stop without writing.
 
-**Existing digest — update in place, don't duplicate.** Before writing, read
-today's Daily and match the tiles you're about to write against the existing
-`###` headings — any `📰` news tile (`Today's News` or a per-topic one) and the
-`🕵️ Rumors & Leaks` tile — on the tiles that are there, not the shape you happen
-to be writing today. For every heading already on the page, **update that tile
-in place** with `xtiles_patch_view_content`: one search-and-replace of the tile's
-body (everything under its `###` heading and `@color` annotations, up to the next
-`###`), keeping the heading and `@color` annotations unchanged, so a saved
-template keeps its colour and position and only the stories are refreshed. Create
-only headings not yet on the page, and never duplicate a heading. On a scheduled
-run, do this silently.
-
-Only if `xtiles_patch_view_content` can't target the page — and today's news is
-already on the page — fall back to asking:
-
-```
-genui{"ask_user_input":{"questions":[
-  {"question":"Today already has a news digest. What should I do?","options":["Replace today's digest","Append another digest","Cancel"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
-```
-
-In that fallback, `Replace today's digest` uses a safe exact content-update
-capability and replaces the **whole digest** — every existing news tile plus the
-rumors tile — so no tile from the previous shape is left orphaned; otherwise
-offer Append or Cancel. On a scheduled run, update the existing tiles in place
-silently — never write a duplicate.
+**This skill has no way to update an existing tile's content, so every run creates a fresh set of tiles.** If today's Daily already has a `📰` news tile (or per-topic ones) or a `🕵️ Rumors & Leaks` tile — from a saved template or from an earlier run today — still write the full digest below: do not read the page to check for matching headings first, and do not skip any tile because a same-titled one might already exist. A re-run is expected to produce a fresh, current digest, not to silently do nothing. On a scheduled run, do this silently.
 
 ---
 

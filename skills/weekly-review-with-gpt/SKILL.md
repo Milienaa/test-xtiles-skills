@@ -302,29 +302,7 @@ reads, real connector failures. Directly above the approval form state:
 `Change something` → collect the change in a form, revise **only** that part,
 re-show the full preview, ask again. `Cancel` → stop without writing.
 
-**Existing review — update in place, don't duplicate the user's template.**
-Before writing, read the current Weekly page and match each of the three H3
-titles against the existing `###` headings. For every title already there,
-**update that tile in place** with `xtiles_patch_view_content`: one
-search-and-replace of the tile's body (everything under its `###` heading and
-`@color` annotations, up to the next `###`), keeping the heading and `@color`
-annotations unchanged, so a saved Weekly template keeps its colour and position
-and only the data is refreshed. Create only titles that aren't on the page yet,
-and never duplicate a title. On a scheduled run, do this silently.
-
-Only if `xtiles_patch_view_content` can't target the page — and all three titles
-already exist — fall back to asking:
-
-```
-genui{"ask_user_input":{"questions":[
-  {"question":"This week already has a review. What should I do?","options":["Replace the existing review","Append another review","Cancel"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
-```
-
-In that fallback, `Replace the existing review` uses whatever safe content-update
-capability exists; otherwise offer Append or Cancel. On a scheduled run, update
-the existing tiles in place silently — never leave a duplicated set of the three
-tiles on the page.
+**This skill has no way to update an existing tile's content, so every run creates a fresh set of three tiles.** If the Weekly page already has a review from an earlier run this week or from the user's own saved template, still write all three H3 sections in the create call below — do not read the page to check for matching headings first, and do not skip any of them because a same-titled tile might already exist. A re-run is expected to produce a fresh, current review, not to silently do nothing. On a scheduled run, do this silently.
 
 ---
 
