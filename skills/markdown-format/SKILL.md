@@ -2,7 +2,7 @@
 name: markdown-format
 description: >
   Reference guide for xTiles Markdown structure used by xtiles_create_project_from_markdown.
-  Not user-invocable — used internally by other skills.
+  Not user-invocable — used internally only by the create-project skill.
 user-invocable: false
 ---
 
@@ -10,6 +10,13 @@ user-invocable: false
 
 This document describes how `mcp__xtiles__xtiles_create_project_from_markdown` interprets
 Markdown heading levels to build project structure.
+
+**Scope — only for `xtiles_create_project_from_markdown`.** This file backs the
+`create-project` skill exclusively. The `reorganize` / `reorganize-with-gpt` skills
+call a different tool, `xtiles_create_view_from_markdown`, and define their own
+grid, sizing, and color rules inline in their own SKILL.md — including tile
+heights well past `h=12` for content-heavy tiles. Never apply this file's fixed
+`h=12` / allowed-widths rule to those skills' output.
 
 ## Conversion to MD Structure Rules
 
