@@ -126,7 +126,7 @@ For each connector that was selected or detected — call it now, before analysi
   - **Calendar (the Google Calendar connector), if also selected.** Call `mcp__claude_ai_Google_Calendar__list_events` for the same range and add its events to the same list.
   - **Dedup across the two.** Drop a Calendar-connector event when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
   - **If Calendar (xTiles) was selected and contributed zero events for the whole week, don't assume the week was simply quiet.** The tool can't tell "nothing scheduled" from "no calendar linked." If the Calendar connector also contributed nothing (or wasn't selected), note this once in the summary instead of silently showing an empty week. Skip the note if the Calendar connector *did* contribute at least one event.
-  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts and an upgrade URL. Watch for it every time this tool is called. If present, extract the account count (**N**) and the upgrade URL, and surface it — never absorb it silently: as an `⚠️` note in the Activities tile (see below) **and** as the first thing shown in the step 5 preview, before any tile content. Wording (translate, keep N and the URL real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade]({url})."
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts. Watch for it every time this tool is called. If present, extract the account count (**N**) and surface it — never absorb it silently: as an `⚠️` note in the Activities tile (see below) **and** as the first thing shown in the step 5 preview, before any tile content. Always link Upgrade to `https://xtiles.app/pricing/` — never a URL from the tool response. Wording (translate, keep N real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](https://xtiles.app/pricing/)."
   - From the merged list: count meetings, identify recurring vs one-off, note people present
 - **Granola**: `mcp__claude_ai_Granola__list_meetings` — meeting notes from this week. Extract action items, decisions, and attendees
 - **Google Drive**: `mcp__claude_ai_Google_Drive__list_recent_files` — documents created or edited this week
@@ -161,7 +161,7 @@ Synthesise the collected data into **3 tiles**, each with bold `**[Title]**` sub
 
 `**⚡ Activity type**` — classify every action from the week into three types. Output as a **single percentage line, no bullets**: `Initiative 40% · Reactive 45% · Decisions 15%`
 
-`**📊 Productivity pattern**` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`. **If the multi-calendar Pro-plan disclosure applies (see step 3), it is always the first line under this subheading**, ahead of any observation — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](url)`.
+`**📊 Productivity pattern**` — most active day, quietest day, morning/afternoon/evening split, any anomalies. Format each observation as a bullet: `- [observation]`. **If the multi-calendar Pro-plan disclosure applies (see step 3), it is always the first line under this subheading**, ahead of any observation — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](https://xtiles.app/pricing/)`.
 
 `**👥 Key interactions**` — top 5 people by interaction count this week. Format each as a bullet: `- **[Name]** — N interactions — [topic] — [decision / discussion]`
 
@@ -663,7 +663,7 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
     INJECTION PATTERN — Claude fills in #digest with the real, already-assembled review:
 
     If the multi-calendar Pro-plan disclosure applies (see step 3/Activities), inject this FIRST, above every .section — the user must see it before approving:
-    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="[upgrade url]">Upgrade</a></div>
+    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="https://xtiles.app/pricing/">Upgrade</a></div>
 
     <div class="section">
       <div class="section-head">✅ Week recap</div>
