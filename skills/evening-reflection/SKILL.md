@@ -243,7 +243,11 @@ Then pull from selected connectors:
   - **Calendar (the other connected calendar tool), if also selected.** Call its `list_events`-equivalent for today and add its events to the same list.
   - **Dedup across the two.** Drop an event from the Calendar connector when an xTiles-calendar event already has the same start time and the same title (case-insensitive) — never show the same meeting twice.
   - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day was simply free.** The tool can't tell "nothing scheduled" from "no calendar linked." If Calendar also contributed nothing (or wasn't selected), note this once in the reflection instead of silently treating it as a free day. Skip the note if Calendar *did* contribute at least one event.
-  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts. Watch for it every time this tool is called. If present, extract the account count (**N**) and surface it — never absorb it silently: as the `⚠️` line in the reflection tile (see step 7) **and** as the first thing shown in the step 6 preview, before any tile content. Always link Upgrade to `https://xtiles.app/pricing/` — never a URL from the tool response. Wording (translate, keep N real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](https://xtiles.app/pricing/)."
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts. Watch for it every time this tool is called. **The events returned are real and complete for the one readable account — use them normally, never disclaim them, and don't retry to fetch the other accounts.** If the message is present, extract the account count (**N**) and append this note after the calendar analysis — never before it, never in place of it: as the note in the reflection tile (see step 7) **and** as the first thing shown in the step 6 preview, before any tile content. Always link Upgrade to `https://xtiles.app/pricing/` — never a URL from the tool response. Wording (translate, keep N real):
+    ```
+    🔒 This shows 1 of your N calendars. Seeing all of them is available on the Pro plan.
+    Upgrade: https://xtiles.app/pricing/ — after you upgrade, ask me and I'll show them all.
+    ```
   - From the merged list: separate meetings-with-others (attendees > 1) from solo work blocks.
 - **PM / issue tracker** *(any connected — Linear, Jira, Asana, monday, ClickUp,
   GitHub Issues)*: pull, **read-only**, two sets — (a) issues **completed today**
@@ -471,7 +475,11 @@ between the title and the annotations):
   checkbox renders inside the tile's text but never becomes a real, trackable
   xTiles task; only `<task>` does (same rule `daily-brief` uses for its action
   items — see its "Action items are real tasks" section).
-- Append the final `⚠️ [unavailable connectors]` line only if a connector failed. **If the multi-calendar Pro-plan disclosure applies (see step 4), it is always the first `⚠️` line, ahead of the unavailable-connectors line** — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](https://xtiles.app/pricing/)`.
+- Append the final `⚠️ [unavailable connectors]` line only if a connector failed. **If the multi-calendar Pro-plan disclosure applies (see step 4), append it last, after the unavailable-connectors line and everything else in the tile** — never disclaim the content above it, it's real and complete for the shown account — e.g.:
+  ```
+  🔒 This shows 1 of your 3 calendars. Seeing all of them is available on the Pro plan.
+  Upgrade: https://xtiles.app/pricing/ — after you upgrade, ask me and I'll show them all.
+  ```
 
 **Terminal sequence — after a successful write, these come in this exact order, each as its own separate widget/question, none skipped, none merged into another:**
 **(a) CTA link → (b) Schedule offer → (c) Related workflows.** The offer to open the reflection in xTiles (the CTA) and the schedule offer are distinct moments — never drop either, and never collapse the schedule offer into the CTA or the related step. Losing or reordering any of these is a failed run. On a scheduled run, stop after the layout pass and the notification (step 5 below) — none of (a)–(c) are shown; nobody is watching chat during an unattended run.
@@ -795,7 +803,7 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
     INJECTION PATTERN — Claude fills in #digest with the real, already-composed reflection:
 
     If the multi-calendar Pro-plan disclosure applies (see step 4), inject this FIRST, above every .section — the user must see it before approving:
-    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="https://xtiles.app/pricing/">Upgrade</a></div>
+    <div class="notice">🔒 This shows 1 of your 3 calendars. Seeing all of them is available on the Pro plan.<br>Upgrade: <a href="https://xtiles.app/pricing/">https://xtiles.app/pricing/</a> — after you upgrade, ask me and I'll show them all.</div>
 
     <div class="section">
       <div class="char-line">1–2 sharp sentences — the tone and essence of the day.</div>

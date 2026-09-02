@@ -303,7 +303,11 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Dedup across the two sources.** An event from the Calendar connector is a duplicate — and gets dropped — when an xTiles-calendar event already has the same start time and the same title (case-insensitive); this is the common case where the user's xTiles account is already synced to the same Google account they also connected directly. Keep every event that doesn't match one already in the list. Never show the same meeting twice.
   - For each surviving event extract: start/end time, title, participant names (first name + last name or company), the event description, and the meeting link (Google Meet, Zoom, or other video URL from event data).
   - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day is simply free.** The tool can't distinguish "nothing scheduled" from "no calendar linked" (see step 2) — so if the Calendar connector also contributed nothing (or wasn't selected), flag this once in the preview (step 5) instead of silently treating it as an empty day: "No calendar events found today — this could mean nothing's scheduled, or that no calendar is linked inside xTiles yet. Want help connecting one?" Skip this note if the Calendar connector *did* contribute at least one event — that confirms the day genuinely has nothing from xTiles specifically, so there's nothing to flag.
-  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts. Watch for it every time this tool is called. If present, extract the account count (**N**) and surface it — never absorb it silently: as the `⚠️` line in the Workload tile (see below) **and** as the first thing shown in the step 5 preview, before any tile content. Always link Upgrade to `https://xtiles.app/pricing/` — never a URL from the tool response. Wording (translate, keep N real): "Only 1 of your N connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](https://xtiles.app/pricing/)."
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts. Watch for it every time this tool is called. **The events returned are real and complete for the one readable account — show them normally, never disclaim them, and don't retry to fetch the other accounts.** If the message is present, extract the account count (**N**) and append this note right after the events — never instead of them, never before them: at the end of the Workload tile (see below) **and** right after the Workload events in the step 5 preview. Always link Upgrade to `https://xtiles.app/pricing/` — never a URL from the tool response. Wording (translate, keep N real):
+    ```
+    🔒 This shows 1 of your N calendars. Seeing all of them is available on the Pro plan.
+    Upgrade: https://xtiles.app/pricing/ — after you upgrade, ask me and I'll show them all.
+    ```
 
   **This tile must earn its place — it is not a second copy of the calendar.** The user can already see their schedule; what they cannot see is *what each meeting is about*, *what they have to prepare*, and *where the day's real work fits*. An event row with no agenda and no prep is the weakest thing in the tile — the analysis below is the point, the timetable is just its scaffolding. Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
@@ -367,7 +371,7 @@ Each newsletter is its own line — never mixed into the Emails section.
 - No placeholder names, example events, or invented data — ever
 - In one line inside the widget, tell the user that after they approve you'll mark the ⚪ Noise emails and newsletters as read — so the approval in step 6 covers that action (see step 7·A)
 - **If `carry_over_tasks: true` and step 4 found overdue open tasks**, list them in one line inside the widget before the approval: `🔁 Will carry over N task(s) to today: "[title 1]", "[title 2]"…` — so the approval in step 6 covers this too. If none were found, omit the line entirely (nothing to carry over is not worth mentioning).
-- **If step 4's multi-calendar Pro-plan disclosure applies**, it goes in first, above every `.section` card — the user must see it before approving, not just inside the Workload tile. See the widget's `.notice` element below.
+- **If step 4's multi-calendar Pro-plan disclosure applies**, it goes inside the Workload `.section` card, right after its events — never before the events, never replacing them. See the widget's `.notice` element inside that section below.
 - After showing the widget, **stop and wait**. Do not write anything to xTiles yet.
 ---
 
@@ -523,7 +527,11 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
   - Each event on its own bold line: `**HH:MM–HH:MM · Title**` — append ` — Participants · [Link label](url)` if participants or meeting link exist
   - 📋 agenda goes on the next paragraph directly under its event — one sentence, from Granola / meeting notes / Gmail / the event description. Omit the line when no source yielded anything; never paraphrase the meeting title back as an agenda. When citing a source, weave the hyperlink into the agenda sentence itself — `Continues the pricing thread from [Monday's note](url)` — never append it as a separate line
   - `<task>` prep item goes directly under its agenda, at most one per meeting, only where preparation is genuinely implied. Same attribute rules as every other task (see **Action items are real tasks**) — the prep is for today's meeting, so its `dueDate` is today (the page's day) unless the source states an earlier real deadline
-  - All ⚠️ anomalies collected at the bottom, one per line. **If the multi-calendar Pro-plan disclosure applies (see step 4), it is always the first ⚠️ line, ahead of any other anomaly** — e.g. `⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. [Upgrade](https://xtiles.app/pricing/)`.
+  - All ⚠️ anomalies collected at the bottom, one per line. **If the multi-calendar Pro-plan disclosure applies (see step 4), append it after every event and every anomaly, as the very last lines of the tile** — never disclaim the events above it, they're real and complete for the shown account — e.g.:
+    ```
+    🔒 This shows 1 of your 3 calendars. Seeing all of them is available on the Pro plan.
+    Upgrade: https://xtiles.app/pricing/ — after you upgrade, ask me and I'll show them all.
+    ```
   - Blank line between every item (group heading, event, 📋, `<task>`, ⚠️) for readability
   - **Never silently omit the tile if Calendar or Granola was a selected source** — same rule as every other section: an empty Workload tile reads as a connector failure, not a quiet day. If the merged event list is empty, still write the summary line (`**0 events · 0 h occupied**`) and the 🎯 focus recommendation, then a single line `No meetings scheduled today.` in place of the event list — this is also where a zero-result Granola fetch becomes visible, since Granola has no tile of its own. Only omit the tile entirely if neither Calendar nor Granola was selected at all.
 - This ensures the tile is scannable, not a wall of text
@@ -708,9 +716,6 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
     <!--
     INJECTION PATTERN — Claude fills in #digest with one .section per selected tile, real content only:
 
-    If the multi-calendar Pro-plan disclosure applies (see step 4/Workload), inject this FIRST, above every .section — the user must see it before approving:
-    <div class="notice">⚠️ Only 1 of your 3 connected xTiles calendar accounts is readable on the free plan. Reading multiple calendars requires the Pro plan. <a href="https://xtiles.app/pricing/">Upgrade</a></div>
-
     <div class="section">
       <div class="section-head">📩 Emails</div>
       <div class="sub-head">🔴 Needs action (2)</div>
@@ -760,6 +765,8 @@ textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;f
       <div class="item">🎯 Focus recommendation — one concrete sentence.</div>
       <div class="sub-head">⭐ Group name</div>
       <div class="item"><span class="item-title">HH:MM–HH:MM · Meeting name</span> — Participants.<br>📋 Agenda sentence.</div>
+      If the multi-calendar Pro-plan disclosure applies (see step 4), append this after the events above, as the last item in this section — never before them, never in place of them:
+      <div class="notice">🔒 This shows 1 of your 3 calendars. Seeing all of them is available on the Pro plan.<br>Upgrade: <a href="https://xtiles.app/pricing/">https://xtiles.app/pricing/</a> — after you upgrade, ask me and I'll show them all.</div>
     </div>
     -->
 
