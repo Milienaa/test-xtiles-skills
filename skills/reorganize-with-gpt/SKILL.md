@@ -12,7 +12,8 @@ description: >
   point, a cohesive color pair, an emoji per tile title. The source
   page's content never changes — nothing is rewritten, shortened,
   merged, or paraphrased; the only generated text is tile titles pulled
-  from the page's own wording, plus a scaffold's hint lines on an
+  from the page's own wording, a short suffix on the new page's title
+  marking it as the reorganized copy, plus a scaffold's hint lines on an
   otherwise-empty page.
 
   One shot: no clarifying questions, ever. If the launch context is
@@ -47,7 +48,8 @@ allowed-tools: >
    bullet list, or wrap a standout line in a `>` quote — see step 3. This is
    presentation, not authorship: it never adds, drops, or reorders a word. The
    only actually generated *text* this workflow ever produces is a short tile
-   title pulled from that tile's own wording, and — on a genuinely empty
+   title pulled from that tile's own wording, a short suffix on the new page's
+   title marking it as the reorganized copy, and — on a genuinely empty
    source — a short scaffold hint line.
 2. **The source page is read-only.** This workflow only ever calls
    `xtiles_get_view_content` on the source `viewId`. Nothing else in this file
@@ -56,8 +58,9 @@ allowed-tools: >
    ever. If something required is missing, stop and say so (see CONTEXT); never
    guess and never ask.
 4. **Match the source page's language.** Every generated word (tile titles,
-   scaffold hints) is written in the same language as the source page's content.
-   Never mix languages, never default to English when the source isn't English.
+   the title suffix, scaffold hints) is written in the same language as the
+   source page's content. Never mix languages, never default to English when
+   the source isn't English.
 5. **Confirm with the tool's own link.** The final message always uses the
    `resource_url` returned by `xtiles_create_view_from_markdown` — never a
    hand-built URL.
@@ -134,6 +137,12 @@ Group the source content into thematic tiles. For each tile:
   wherever the source is already reasonably scannable — don't format for the
   sake of it.
 
+**Page title.** The new page reuses the source page's title, but never as an
+exact duplicate — append a short suffix marking it as the reorganized copy
+(the sense of "(Reorganized)"), translated into the source page's language
+like every other generated word. This keeps the new page distinguishable from
+the source in project listings and search.
+
 Identify the one tile that holds the page's actual point (its decision, goal,
 or summary) — this is the **primary tile**.
 
@@ -208,21 +217,23 @@ is the only chance to get it right.
 ### 4. Create the page
 
 Call `xtiles_create_view_from_markdown(projectId, markdown)` with the structure
-from step 3 as one `##`-titled page (reuse the source page's own title
-verbatim) containing the `###` tiles built above. This creates a brand-new page
+from step 3 as one `##`-titled page (reuse the source page's own title plus
+the reorganized-copy suffix from step 3) containing the `###` tiles built
+above. This creates a brand-new page
 in the same project — it never touches the source page.
 
-**Optional correction pass — layout only.** Call
-`xtiles_get_page_layout(new_view_id)` to see what actually landed on the new
-page. If the primary tile isn't visually dominant enough, or something
-overlaps or looks misplaced, fix it with `xtiles_set_page_layout` — always
-targeting the **new** view id, never the source `viewId`. This pass is
-optional polish, not a required step, and it's gated to team plans — if it's
-unavailable or errors, skip it silently and continue to step 6. **Do not
-attempt to call `xtiles_get_tile_styles` or `xtiles_set_tile_styles` — they do
-not exist in this environment.** If a color needs fixing, it was a
-creation-time mistake, not something to patch after the fact — there is no
-color-correction step in this workflow.
+**Layout check — always run it.** Call `xtiles_get_page_layout(new_view_id)`
+to see what actually landed on the new page — do this every run, don't skip
+it just because the plan from step 3 looks fine on paper. If the primary tile
+isn't visually dominant enough, or something overlaps or looks misplaced, fix
+it with `xtiles_set_page_layout` — always targeting the **new** view id,
+never the source `viewId`. The tool is gated to team plans — only skip the
+whole pass if `xtiles_get_page_layout` itself is unavailable or errors; in
+that case skip silently and continue to step 6. **Do not attempt to call
+`xtiles_get_tile_styles` or `xtiles_set_tile_styles` — they do not exist in
+this environment.** If a color needs fixing, it was a creation-time mistake,
+not something to patch after the fact — there is no color-correction step in
+this workflow.
 
 Skip to step 6.
 
@@ -278,8 +289,8 @@ hand-built one. Keep the reply a short, human summary, not a technical report:
 - Never rewrite, shorten, merge, or paraphrase source text, and never add or
   drop a word. Light structural markup (bold, bullets, quote) may be added on
   top of unchanged words per step 3. The only actually generated text is tile
-  titles (from the tile's own wording) and, on a genuinely empty page only,
-  short scaffold hint lines.
+  titles (from the tile's own wording), the new page's title suffix, and, on
+  a genuinely empty page only, short scaffold hint lines.
 - No clarifying questions, ever. Missing `viewId` is a stop condition, not a
   question. `projectId` is never a launch input — it always comes from
   `xtiles_get_view_content`'s own response (step 1), never from
@@ -289,9 +300,10 @@ hand-built one. Keep the reply a short, human summary, not a technical report:
   are not available in this environment. Color must be correct via
   `@color`/`@colorSize` at creation time; there is no fixing it afterward in
   this workflow.
-- `xtiles_set_page_layout` may only ever target the newly created page, never
-  the source `viewId` — and may be unavailable depending on the workspace's
-  plan; treat that as a silent skip, not a failure.
+- `xtiles_get_page_layout` / `xtiles_set_page_layout` may only ever target the
+  newly created page, never the source `viewId`. `xtiles_get_page_layout` is
+  always called (not optional polish) — only skip the layout pass if that
+  call itself is unavailable or errors (e.g. plan gating), and do so silently.
 - A tile holds at most 40 blocks — split content across more tiles instead of
   dropping or condensing it.
 - Confirm with the tool's own returned `resource_url`, never a constructed one.
