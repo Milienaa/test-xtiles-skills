@@ -130,8 +130,10 @@ Related**.
 - **Scheduled run** — the message carries an `evening-reflection config:` block
   or states it is automated. **Silent by contract**: no forms, no previews, no
   CTA, no schedule or related offer. Use the saved config, respect its
-  `autolog`, and finish after task reconciliation (when allowed), write, layout
-  and verification. Report only a failure.
+  `autolog` and `notify:` (default `false` if absent, for schedules created
+  before this setting existed), and finish after task reconciliation (when
+  allowed), write, layout, verification, then — only if `notify:true` — the
+  scheduled-run notification (Stage 9, step 5). Report only a failure.
 - **Specific manual run** — the user names sources or a tone. Infer only what is
   explicit and ask the **smallest** missing form. Slack consent is still
   required; both previews are still mandatory.
@@ -254,6 +256,20 @@ parallel where possible.
     `Calendar` contributed nothing too (or wasn't selected), don't assume the
     day was simply free — note the ambiguity once instead of silently showing
     an empty day.
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).**
+    `xtiles_list_calendar_events`'s response may itself carry a message that
+    reading multiple calendars requires the Pro plan (only one of several
+    connected accounts is readable, the rest withheld) — it states the real
+    count of connected accounts and an upgrade URL. Watch for it every call.
+    **The events returned are real and complete for the one readable account —
+    show them normally, never disclaim them, and don't retry to fetch the
+    other accounts.** If the message is present, extract the account count
+    (**N**) and the upgrade URL, and surface it — never absorb it silently: as
+    the last line inside `Day Characteristic` (or its own tile in split mode)
+    **and** as the first thing shown in the Stage 7 preview, before any
+    section content. Wording (translate, keep N and the URL real): "Only 1 of
+    your N connected xTiles calendar accounts is readable on the free plan.
+    Reading multiple calendars requires the Pro plan. [Upgrade](url)."
   - From the merged list: separate meetings with others from solo focus
     blocks.
 - **Granola / meeting notes**: decisions, action items and attendees from
@@ -359,7 +375,7 @@ whole reflection can be found and replaced as one set.
 
 **→ Tomorrow**
 
-- [ ] [Specific action with a person or object; maximum three]
+<task>[Specific action with a person or object; maximum three]</task>
 
 ⚠️ [Unavailable sources — only when a source actually failed]
 ```
@@ -391,7 +407,7 @@ whole reflection can be found and replaced as one set.
 @colorSize: LIGHTER
 @color: PATTENS_BLUE
 
-- [ ] [Specific action with a person or object; maximum three]
+<task>[Specific action with a person or object; maximum three]</task>
 ```
 
 Rules for this markdown:
@@ -413,6 +429,13 @@ Rules for this markdown:
 - Omit `Opportunities` entirely when there is nothing real to put in it.
 - **Never write an empty tile.** A heading with no content under it is a bug,
   not a placeholder.
+- **`Tomorrow` items are real tasks, never checkboxes.** Write each as
+  `<task>[action]</task>`, one per line — never `- [ ]`. A plain markdown
+  checkbox renders as text inside the tile but never becomes a trackable
+  xTiles task; only `<task>` does.
+
+**If Stage 5's multi-calendar Pro-plan disclosure applies**, show it first,
+above everything else in the preview.
 
 Directly above the approval form show: today's local date, the connected xTiles
 account name and email, and the destination — today's personal Daily planner.
@@ -483,18 +506,33 @@ After `Write to Daily` (or immediately on a scheduled run):
 On `Schedule it`:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
-  {"question":"What time?","options":["18:00","19:00","21:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+  {"question":"What time?","options":["18:00","19:00","21:00"],"type":"single_select","free_text_placeholder":"Another local time"},
+  {"question":"Notify me in xTiles each time it runs?","options":["Yes, notify me","No notification"],"type":"single_select","free_text_placeholder":"Something else"}
+]}}
 ```
 
 Resolve the next occurrence in the user's timezone and create the automation
 with an exact schedule. Its prompt must invoke this workflow and embed a
 complete `evening-reflection config:` JSON block — role, sources, content, tone,
 autolog, Slack scope and channels, language, personal-Daily target, the
-silent-run instruction, deduplication, the compact/split tile rule, and the
-layout requirement. **Never create a duplicate automation.**
+silent-run instruction, deduplication, the compact/split tile rule, the layout
+requirement, and `notify: {true/false}` taken straight from the third
+question above (if `true`, the embedded prompt must also instruct: call
+`xtiles_create_notification` at the very end of that scheduled run —
+mandatory, do not skip). **Never create a duplicate automation.**
+
+5. **If `notify:true`** — the reflection already written just now (this run)
+   is also worth notifying about; don't make the user wait until tomorrow
+   evening to see it work. Call `xtiles_create_notification` immediately,
+   right here: `url` is the same tile-focused deep link already resolved in
+   step 1 above, `text` is the fixed string "Your Evening Reflection is ready
+   — see today's wrap-up in 2 min." translated into the user's language (no
+   customized/dynamic part — this text never changes run to run beyond
+   translation), `agent_source` is "ChatGPT". Confirm scheduling with: "Done —
+   your Evening Reflection will run every [days] at [time]." (append ", and
+   I'll notify you in xTiles each time" when `notify:true`).
 
 ---
 
@@ -531,4 +569,5 @@ and stop.
 After a successful write, **every** terminal response repeats the same labelled
 link as its final line — after `No schedule`, after `Nothing else`, after any
 later correction. A successful manual run never ends without it. Scheduled runs
-end silently after write, layout and verification.
+end silently after write, layout and verification — and, only if the config's
+`notify:true`, after the notification in Stage 9.

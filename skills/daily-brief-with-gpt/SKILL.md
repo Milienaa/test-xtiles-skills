@@ -125,8 +125,11 @@ Classify before opening any form.
 
 - **Scheduled run** — the incoming message contains a config (`role:`, `tools:`,
   `daily_content:` …) or states it is an automated run. **No forms, no preview,
-  no approval, no CTA, no schedule, no related offer.** Parse the config, fetch,
-  write, run the layout pass, stop.
+  no approval, no CTA, no schedule, no related offer.** Parse the config,
+  including `carry_over_tasks:` and `notify:` if present (default `false` for
+  both, for older scheduled configs that predate these settings). Fetch,
+  write, run the layout pass, then — only if `notify:true` — send the
+  scheduled-run notification (Stage 8, step 4). Stop.
 - **Fast-track** — the user names a source and a specific ask ("show me today's
   Slack"). Infer only what is explicit, verify that connector, fetch, preview.
   If something essential is missing, show the **smallest** relevant form, not
@@ -171,6 +174,20 @@ merge into the same Workload tile (Stage 4).
 not. A source typed there is treated exactly like a listed one: detect its MCP
 tools, ask what it should contribute (Stage 2), carry it through fetch and
 write. Silently dropping a user-named source is the most common setup failure.
+
+**Carry over overdue tasks?** Add a third, single-select question to the same
+form (or its own follow-up form if the 10-option cap on the sources question
+already fills the slot): "Reschedule overdue tasks in My Planner?" with the
+context spelled out below it — "If My Planner has tasks still open from the
+last 2 days, I'll move them onto today's page — automatically, every morning
+this runs, not just once." — options `Yes, always` / `No, never` (default `No,
+never`; nothing is preselected per the form contract, but treat a skipped
+answer as `false`). Name the actual surface (**My Planner**), the actual
+window ("last 2 days"), state explicitly that matching tasks land on today's
+page, and that this repeats every morning going forward. Store the answer as
+`carry_over_tasks: {true/false}` in the config. This is about rescheduling
+existing open tasks, not the digest's own content — a separate question, not
+one of the source/content options.
 
 ---
 
@@ -299,7 +316,28 @@ last 24 h; and, with consent, `slack_search_public_and_private` with `to:me`.
 Group into Mentions, Action points, Topics, Decisions, Open questions. Every
 item carries the **message permalink** (`permalink`, or
 `https://slack.com/archives/{channel_id}/p{ts_without_dot}`) — never a channel
-homepage.
+homepage. **Action points is tasks-only** — every ⚡-flagged mention becomes a
+`<task>` (Stage 7's Action Points tile), never a separate poke-style bullet
+line too: the narrative already lives in Mentions, and a bullet here would
+just repeat it, or worse, repeat the task's own title verbatim.
+
+**Cross-source dedup (Slack ↔ Gmail) — run once, after both are fetched,
+before either is classified into tiles or turned into action items.** The
+same ask sometimes arrives twice — a Slack message and a follow-up (or
+lead-in) email about the same specific thing, from the same person, close
+together in time. When a Slack message and a Gmail email clearly describe the
+same underlying ask:
+- **Slack is primary** — it gets the full treatment in Mentions (and the
+  resulting task in Action Points) as usual.
+- **The matching email does not get its own 🔴/🟡 bucket entry or its own
+  action item/task.** Fold it into the Slack item instead: append a short
+  cross-reference to its Mentions line — `(also emailed — [Open email](url))`.
+  It never appears a second time in the Emails tile.
+- **Only one `<task>` per duplicated pair** — never derive a second task for
+  the email side of a duplicate.
+- **Don't over-merge.** Fold only when it's genuinely the same ask (same
+  person, same specific thing) — a Slack ping and an unrelated email from the
+  same person are two separate items, not a duplicate.
 
 **Calendar**: build one merged event list, then run the analysis below over it.
 
@@ -321,6 +359,20 @@ homepage.
   scheduled, or that no calendar is linked inside xTiles yet." Skip the note if
   the Calendar connector did contribute at least one event — that already
   confirms the day has genuinely nothing from xTiles specifically.
+- **Multiple connected xTiles calendars, free plan (mandatory disclosure).**
+  `xtiles_list_calendar_events`'s response may itself carry a message that
+  reading multiple calendars requires the Pro plan (only one of several
+  connected accounts is readable, the rest withheld) — it states the real
+  count of connected accounts and an upgrade URL. Watch for it every time this
+  tool is called. **The events returned are real and complete for the one
+  readable account — show them normally, never disclaim them, and don't retry
+  to fetch the other accounts.** If the message is present, extract the
+  account count (**N**) and the upgrade URL, and surface it — never absorb it
+  silently: at the end of the Workload tile (see below) **and** right after
+  the Workload events in the Stage 5 preview. Wording (translate, keep N and
+  the URL real): "🔒 This shows 1 of your N calendars. Seeing all of them is
+  available on the Pro plan. [Upgrade](url) — after you upgrade, ask me and
+  I'll show them all."
 
 Compute event count, hours occupied,
 longest free focus window, overlaps, back-to-back runs, events after 20:00,
@@ -338,6 +390,13 @@ reply becomes an action item.
 **Other selected sources**: summarize only actual records their read-only tool
 returns.
 
+**Overdue tasks, only if `carry_over_tasks: true`.** Call `xtiles_list_tasks`
+with `completed: "false"`, `due_date_after`: 2 days ago (00:00, user's
+timezone), `due_date_before`: today (00:00) — today's own tasks are already on
+the page and are never touched. Collect the matches as candidates to carry
+forward; do not reschedule anything yet — that happens only after approval, in
+Stage 7.
+
 **Derive action items.** Every 🔴 email, every ⚡ mention, and every meeting that
 genuinely needs preparation yields one verb-first action item. While deriving,
 capture whether the source stated a **real deadline** and whether it carries
@@ -353,6 +412,15 @@ Show the real brief in chat, selected sections only, with real names, counts and
 links. Render empty reads explicitly ("No unread emails", "No Slack updates
 today") and failures explicitly ("Could not fetch Calendar — connector error").
 Blank line between items. Newsletters stay separate from email.
+
+**If `carry_over_tasks: true` and Stage 4 found overdue open tasks**, list
+them in one line before the approval: `🔁 Will carry over N task(s) to today:
+"[title 1]", "[title 2]"…` — so Stage 6's approval covers this too. If none
+were found, omit the line entirely.
+
+**If Stage 4's multi-calendar Pro-plan disclosure applies**, show it right
+after the Workload section's events, before the approval form — never before
+the events, never replacing them.
 
 Before the approval form, call `xtiles_get_current_user` and show the
 destination email on the line above it — approval confirms that account.
@@ -379,6 +447,12 @@ emit this form again. `Cancel` → acknowledge and stop.
 Only after `Create it` (or immediately, on a scheduled run).
 
 1. `xtiles_get_user_timezone` → today's local date as `yyyy-MM-dd`.
+1a. **If `carry_over_tasks: true` and Stage 4 found overdue open tasks —
+   reschedule them first,** before the tile write below: call
+   `xtiles_update_task` once per task, setting `due_date` to today (the date
+   from step 1, user's timezone). Do not mark them complete and do not
+   recreate them — this moves the existing task forward, it never duplicates
+   it. If none were found, skip this silently.
 2. **This skill has no way to update an existing tile's content, so every run
    creates a fresh set of tiles.** If today's Daily already has tiles with the
    same headings — from a saved template or from an earlier run today — still
@@ -453,14 +527,22 @@ a morning's tasks should be `high`. Never `completed="true"`.
   `**[Publication](thread_url)** — one-line summary.` Omit the tile only when
   there are none.
 - **Slack → exactly three tiles**, never more:
-  - `### 📌 Slack — Action Points` — one poke-style line per ⚡ mention with its
-    permalink, then a `**Tasks**` block. Omit if there are none.
+  - `### 📌 Slack — Action Points` — **tasks only, no bullet list.** A separate
+    description line would just repeat Mentions (the narrative already lives
+    there) or, worse, repeat the task's own title verbatim — pure duplication
+    either way, no added value. The entire tile is a `**Tasks**` block with one
+    `<task>` per ⚡-flagged mention. Omit if there are none.
   - `### ⚡ Slack — Mentions` — `- **@Name** in [#channel](permalink) — what they
-    asked` (+ ` ⚡` if a reply is needed). Omit if there are none.
-  - `### 💬 Slack — Topics` — `**Channels:** #a (N) · #b (N)`, then one line per
-    topic, then a `**✅ Decisions**` block and a `**❓ Open**` block folded in
-    (never their own tiles). **Always create this tile** — if there is nothing,
-    write `No updates today.`; its absence reads as a connector failure.
+    asked` (+ ` ⚡` if a reply is needed, and `(also emailed — [Open email](url))`
+    when the cross-source dedup above folded a matching email in). Omit if
+    there are none.
+  - `### 💬 Slack — Topics` — **excluding any message already surfaced in
+    Mentions or Action Points** (a topic whose only messages are already
+    covered there is dropped entirely, not repeated here). `**Channels:** #a
+    (N) · #b (N)`, then one line per topic, then a `**✅ Decisions**` block and
+    a `**❓ Open**` block folded in (never their own tiles). **Always create
+    this tile** — if there is nothing, write `No updates today.`; its absence
+    reads as a connector failure.
 - **`### 📅 Workload`** — never `### 📅 Calendar`. The name is the promise: an
   analysis of the day, not a reprint of the schedule.
   - Bold summary line first: `**N events · ~X h occupied · longest focus window
@@ -473,7 +555,10 @@ a morning's tasks should be `high`. Never `completed="true"`.
   - Group events into 2–4 groups derived from the actual day (⭐ Important ·
     🤝 Client & external · 🔁 Recurring · 🧑‍🤝‍🧑 1:1s). **Fewer than 4 events →
     no groups**, list flat.
-  - ⚠️ anomalies collected at the bottom, one per line.
+  - ⚠️ anomalies collected at the bottom, one per line. **If the multi-calendar
+    Pro-plan disclosure applies (see Stage 4), append it after every event and
+    every anomaly, as the very last lines of the tile** — never disclaim the
+    events above it, they're real and complete for the shown account.
   - Omit the tile if the merged event list is empty. Always one tile, even when
     both the xTiles calendar and the Calendar connector contributed events —
     never split them into two.
@@ -501,27 +586,43 @@ a morning's tasks should be `high`. Never `completed="true"`.
 3. Schedule form:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Run this automatically every morning?","options":["Schedule it","No schedule"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+]}}
 ```
 
-On `Schedule it`, one follow-up form for cadence and time:
+On `Schedule it`, one follow-up form for cadence, time, and notification:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
-  {"question":"What time?","options":["08:00","09:00","10:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+  {"question":"What time?","options":["08:00","09:00","10:00"],"type":"single_select","free_text_placeholder":"Another local time"},
+  {"question":"Notify me in xTiles each time it runs?","options":["Yes, notify me","No notification"],"type":"single_select","free_text_placeholder":"Something else"}
+]}}
 ```
 
 Resolve the timezone with `xtiles_get_user_timezone`, then create the automation
 with an exact schedule whose prompt calls this skill and embeds the **full
 config** — role, sources, selected content, Slack consent, channels,
-newsletters, language — plus the instruction to run silently, use the last 24
-hours, append only absent sections, and run the layout pass. Do not schedule
-until every selected connector has passed its read-only check. Confirm the
-chosen time and timezone afterwards.
+newsletters, language, `carry_over_tasks: {true/false}`, and `notify:
+{true/false}` (straight from the third question above; if `true`, the
+embedded prompt must also instruct: call `xtiles_create_notification` at the
+very end of that scheduled run — mandatory, do not skip) — plus the
+instruction to run silently, use the last 24 hours, append only absent
+sections, and run the layout pass. Do not schedule until every selected
+connector has passed its read-only check.
+
+4. **If `notify:true`** — the brief that's already on the page right now
+   (from step 1's write) is also worth notifying about; don't make the user
+   wait for tomorrow to see it work. Call `xtiles_create_notification`
+   immediately, right here: `url` is the same tile-focused deep link already
+   resolved in step 2 above, `text` is the fixed string "Your Daily Brief is
+   ready — see what matters today in 2 min." translated into the user's
+   language (no customized/dynamic part — this text never changes run to run
+   beyond translation), `agent_source` is "ChatGPT".
+
+Confirm the chosen time and timezone afterwards (append ", and I'll notify you
+in xTiles each time" when `notify:true`).
 
 ---
 
@@ -558,4 +659,5 @@ and stop.
 After a successful write, **every** terminal response repeats the same labelled
 CTA link as its final line — after `No schedule`, after `Nothing else`, after a
 later correction, after a connector clarification. A successful manual run never
-ends without it. Scheduled runs end silently after the layout pass.
+ends without it. Scheduled runs end silently after the layout pass — and, only
+if the config's `notify:true`, after the notification in Stage 8.
