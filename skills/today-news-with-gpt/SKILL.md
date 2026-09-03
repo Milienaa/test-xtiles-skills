@@ -126,9 +126,11 @@ CTA → Schedule → Related**.
 
 - **Scheduled run** — the message carries a `today-news config:` block or states
   it is automated. **Silent by contract**: no forms, no preview, no approval, no
-  CTA, no schedule or related offer. Parse topics, language, verification mode
-  and rumors flag; search, deduplicate, write only missing tiles, lay out,
-  verify, stop. Report only a failure.
+  CTA, no schedule or related offer. Parse topics, language, verification mode,
+  rumors flag, and `notify:` (default `false` if absent, for schedules created
+  before this setting existed); search, deduplicate, write only missing tiles,
+  lay out, verify, then — only if `notify:true` — send the scheduled-run
+  notification (Stage 7, step 5). Report only a failure.
 - **Specific manual run** — the user names topics. Use **those exact topics**,
   default to verified news only with standard source checks, and skip the rest
   of setup unless they also ask to personalize. Preview and approval still
@@ -176,28 +178,57 @@ Default window: meaningful developments published or materially updated in the
 **last 24 hours**. Expand to 48 hours only when a topic is quiet, and **label
 that wider window in the preview**.
 
+**Resolve "now" first — before running any search.** Stage 2's
+`xtiles_get_user_timezone` call already gave the current date/time in the
+user's timezone; that is the anchor for every freshness check below — never
+guess "today" from the query text or from a search result's own "today"/
+"breaking" language, and never fall back to training knowledge of what date it
+is. This matters most on a **scheduled run**, where there is no live
+conversation to infer the date from.
+
 Per topic:
 
 1. Search broadly enough to identify the main developments, then open the top
-   relevant sources.
+   relevant sources — fetch a few extra beyond what you expect to keep, since
+   the date check below will drop some.
 2. Prefer **primary and authoritative** sources: official announcements,
    filings, regulators, company or project posts, research papers, first-party
    documentation. For breaking general news, reputable original reporting. For
    technical claims, only official documentation or primary research.
-3. Extract headline, publisher, event date, publication date, URL, and a
-   factual two- or three-sentence summary.
-4. Drop pure opinion with no new event, press-release rewrites with no added
-   evidence, SEO aggregators, duplicate URLs, and stale stories.
-5. Deduplicate the same event across outlets — keep the strongest primary or
-   original-reporting link; corroborating sources are for verification only.
-6. On `Cross-check every story`, corroborate each material claim with a second
+3. Extract headline, publisher, and **the article's own published/updated
+   date** (not the site's homepage date, not a relative phrase like
+   "recently" — find the actual dateline or byline date), plus a factual
+   two- or three-sentence summary and the URL.
+4. **Date check — mandatory per story, before anything else filters it out:**
+   1. Compare the extracted published/updated date against "now" from above.
+      **Keep only stories inside the last 24 hours** (this matches the
+      skill's own declared scope — do not quietly widen it to 48h "to get
+      more results"; the window only expands per-topic, deliberately, per the
+      rule above).
+   2. **A search engine returning a story is not evidence it's fresh** — sites
+      get re-crawled, re-shared, and re-indexed constantly; old articles
+      resurface in results looking current. The query's "today"/"last 24
+      hours" is a *hint* to the search engine, never a guarantee — the
+      extracted date is the only thing that counts.
+   3. **If the date is genuinely ambiguous or can't be found on the page** —
+      drop the story. Never include it "just in case" and never assume it's
+      fresh because it ranked highly.
+   4. Deduplicate the same event across outlets — keep the strongest primary
+      or original-reporting link; corroborating sources are for verification
+      only. Also drop pure opinion with no new event, press-release rewrites
+      with no added evidence, and SEO aggregators.
+5. On `Cross-check every story`, corroborate each material claim with a second
    independent source where one exists. Mark `✅ verified` when corroborated and
    `⚠️ could not corroborate` when it cannot be confirmed. **Aggregators
    repeating each other is not corroboration.**
 
 **Rumors** — only when explicitly enabled. Run a separate search for credible
 leaks, insider reporting, relevant Reddit posts, or first-party social posts.
-At most one or two claims per topic. Every item stays explicitly unverified even
+At most one or two claims per topic. Same date discipline as News above:
+extract **the post/article's own date**, check it against "now," keep only
+the last **7 days** (this section's own declared window), and drop anything
+whose date is ambiguous or missing — a rumor with no date is not more
+forgivable than a stale headline. Every item stays explicitly unverified even
 when plausible. **Never mix rumors into the News tile.**
 
 ### Cross-day deduplication
@@ -378,10 +409,11 @@ part, re-show the full preview, ask again. `Cancel` → stop without writing.
 On `Schedule it`:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
-  {"question":"What time?","options":["07:00","08:00","09:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+  {"question":"What time?","options":["07:00","08:00","09:00"],"type":"single_select","free_text_placeholder":"Another local time"},
+  {"question":"Notify me in xTiles each time it runs?","options":["Yes, notify me","No notification"],"type":"single_select","free_text_placeholder":"Something else"}
+]}}
 ```
 
 Resolve the next occurrence in the user's timezone and create the automation
@@ -389,8 +421,22 @@ with `timing_mode: exact_schedule`, a VEVENT `DTSTART` and the matching RRULE.
 Its prompt must invoke this workflow and embed a complete `today-news config:`
 JSON block — topics, language, verification mode, rumors flag, personal-Daily
 target, the silent-run instruction, the 24-hour window, cross-day deduplication,
-the single-tile / per-topic split rule, and the layout requirement. **Never
-create a duplicate automation.**
+the single-tile / per-topic split rule, the layout requirement, and `notify:
+{true/false}` taken straight from the third question above (if `true`, the
+embedded prompt must also instruct: call `xtiles_create_notification` at the
+very end of that scheduled run — mandatory, do not skip). **Never create a
+duplicate automation.**
+
+5. **If `notify:true`** — the digest already written just now (this run) is
+   also worth notifying about; don't make the user wait until tomorrow to see
+   it work. Call `xtiles_create_notification` immediately, right here: `url`
+   is the same tile-focused deep link already resolved in step 1 above,
+   `text` is the fixed string "Your Today News digest is ready — catch up in
+   2 min." translated into the user's language (no customized/dynamic part —
+   this text never changes run to run beyond translation), `agent_source` is
+   "ChatGPT". Confirm scheduling with: "Done — your Today News digest will run
+   every [days] at [time]." (append ", and I'll notify you in xTiles each
+   time" when `notify:true`).
 
 ---
 
@@ -427,4 +473,5 @@ and stop.
 After a successful write, **every** terminal response repeats the same labelled
 link as its final line — after `No schedule`, after `Nothing else`, after any
 later correction. A successful manual run never ends without it. Scheduled runs
-end silently after search, write, layout and verification.
+end silently after search, write, layout and verification — and, only if the
+config's `notify:true`, after the notification in Stage 7.

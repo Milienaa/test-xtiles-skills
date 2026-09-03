@@ -123,9 +123,11 @@ Related**.
 - **Scheduled run** — the message carries a `weekly-review config:` block or
   states it is automated. **Silent by contract**: no forms, no preview, no
   approval, no CTA, no schedule, no sharing, no related offer. Parse the saved
-  role, sources, Slack scope, channels, language and target; fetch,
-  deduplicate, write only missing tiles, lay out, verify, stop. Report only a
-  failure.
+  role, sources, Slack scope, channels, language, target, and `notify:`
+  (default `false` if absent, for schedules created before this setting
+  existed); fetch, deduplicate, write only missing tiles, lay out, verify,
+  then — only if `notify:true` — send the scheduled-run notification (Stage 8,
+  step 5). Report only a failure.
 - **Specific manual run** — the user names sources. Use only those, ask the
   **smallest** missing form (Slack consent included when applicable). Preview
   and approval still mandatory.
@@ -225,6 +227,21 @@ The week is **Monday 00:00 → the current local time** in the user's timezone.
   - Dedup: drop a `Calendar` event when an xTiles-calendar event already has
     the same start time and the same title (case-insensitive) — never show the
     same meeting twice.
+  - **Multiple connected xTiles calendars, free plan (mandatory disclosure).**
+    `xtiles_list_calendar_events`'s response may itself carry a message that
+    reading multiple calendars requires the Pro plan (only one of several
+    connected accounts is readable, the rest withheld) — it states the real
+    count of connected accounts and an upgrade URL. Watch for it every call.
+    **The events returned are real and complete for the one readable account —
+    show them normally, never disclaim them, and don't retry to fetch the
+    other accounts.** If the message is present, extract the account count
+    (**N**) and the upgrade URL, and surface it — never absorb it silently: as
+    the first line of the `**📊 Productivity pattern**` subheading in the
+    Activities tile (Stage 5) **and** as the first thing shown in the Stage 6
+    preview, before any tile content. Wording (translate, keep N and the URL
+    real): "Only 1 of your N connected xTiles calendar accounts is readable on
+    the free plan. Reading multiple calendars requires the Pro plan.
+    [Upgrade](url)."
   - If `Calendar (xTiles)` was selected and contributed zero events for the
     whole week, and `Calendar` contributed nothing too (or wasn't selected),
     don't assume the week was simply quiet — note the ambiguity once instead of
@@ -246,39 +263,48 @@ translate a failure into "No activity."**
 Deduplicate the same event across planner pages and connectors, keeping the
 strongest source link. One line per item.
 
+**Subheadings inside a tile are bold text, never a heading level** — xTiles
+tiles support only the tile's own `###` title; `####`/`#####` do not render as
+headings inside the tile body, only as literal text. Every subheading below
+must be written `**[emoji] Title**`.
+
 ### `### ✅ Week recap`
 
-- `##### ✅ Accomplishments` — first line is the week-over-week comparison:
+- `**✅ Accomplishments**` — first line is the week-over-week comparison:
   `↑ More than last week (N vs M)`, `↓ Less than last week (N vs M)`, or
   `≈ Similar to last week (N vs M)`. Then numbered concrete outcomes with source
   attribution.
-- `##### 🎯 Goals` — only when weekly goals were found. Preserve each goal name
+- `**🎯 Goals**` — only when weekly goals were found. Preserve each goal name
   and assess it as `✅ Clear progress`, `🔄 Some progress`, `⬜ No movement`, or
   `🚫 Blocked`, each with one grounded explanation.
-- `##### 💡 Decisions` — numbered decisions with sources. Omit when empty.
+- `**💡 Decisions**` — numbered decisions with sources. Omit when empty.
 
 ### `### 🔍 Activities`
 
-- `##### 🗂️ Dominant topics` — top five semantic topics, each with the number of
+- `**🗂️ Dominant topics**` — top five semantic topics, each with the number of
   active days and a one-line summary.
-- `##### ⚡ Activity type` — one percentage line summing to 100:
+- `**⚡ Activity type**` — one percentage line summing to 100:
   `Initiative N% · Reactive N% · Decisions N%`.
-- `##### 📊 Productivity pattern` — grounded observations about active and quiet
+- `**📊 Productivity pattern**` — grounded observations about active and quiet
   days and time-of-day distribution. **Never infer precise times when the
-  sources carry no timestamps.**
-- `##### 👥 Key interactions` — up to five people by meaningful interaction
+  sources carry no timestamps.** If the multi-calendar Pro-plan disclosure from
+  Stage 4 applies, it is always the first line here, ahead of any observation.
+- `**👥 Key interactions**` — up to five people by meaningful interaction
   count, the topic, and whether a decision occurred. Omit when identity cannot
   be grounded.
 
 ### `### → Next week`
 
-- `##### 🔄 Open` — unresolved tasks, threads, promises and decisions, each with
+- `**🔄 Open**` — unresolved tasks, threads, promises and decisions, each with
   a source.
-- `##### Suggested priorities` — **exactly three** checkbox actions when there
-  is enough data. Goal blockers first, then important open work. Specific, with
-  no invented assignee or date.
+- `**Suggested priorities**` — **exactly three** items when there is enough
+  data, each written as `<task>[priority]</task>`, one per line, blank line
+  between each — no `dueDate`/`priority` attribute, no assignee. Goal blockers
+  first, then important open work. **Never `- [ ]`** — a plain markdown
+  checkbox renders as text but never becomes a real, trackable xTiles task;
+  only `<task>` does.
 
-Omit an empty H5 subsection, but **always create all three H3 tiles**. Real
+Omit an empty subsection, but **always create all three H3 tiles**. Real
 empty-state text goes inside a required tile only when the whole category has no
 data.
 
@@ -289,6 +315,9 @@ data.
 Show the complete review exactly as it will appear — real links, real empty
 reads, real connector failures. Directly above the approval form state:
 
+- **If Stage 4's multi-calendar Pro-plan disclosure applies**, it goes in
+  first, above every tile's content — the user must see it before approving,
+  not just inside the Activities tile.
 - the current local week range;
 - the connected xTiles account name and email;
 - the destination — the personal Weekly planner.
@@ -375,10 +404,11 @@ re-show the full preview, ask again. `Cancel` → stop without writing.
 On `Schedule it`:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which day?","options":["Friday","Thursday","Sunday"],"type":"single_select","free_text_placeholder":"Another day"},
-  {"question":"What time?","options":["16:00","17:00","18:00"],"type":"single_select","free_text_placeholder":"Another local time"}
-]}}
+  {"question":"What time?","options":["16:00","17:00","18:00"],"type":"single_select","free_text_placeholder":"Another local time"},
+  {"question":"Notify me in xTiles each time it runs?","options":["Yes, notify me","No notification"],"type":"single_select","free_text_placeholder":"Something else"}
+]}}
 ```
 
 Resolve the timezone and the next occurrence, then create the automation with
@@ -386,8 +416,22 @@ Resolve the timezone and the next occurrence, then create the automation with
 `RRULE:FREQ=WEEKLY;BYDAY=<chosen day>`. Its prompt must invoke this workflow and
 embed a complete `weekly-review config:` JSON block — role, sources, Slack scope
 and channels, language, personal-Weekly destination, the silent-run instruction,
-deduplication, and the layout requirement. **Never create a duplicate
+deduplication, the layout requirement, and `notify: {true/false}` taken
+straight from the third question above (if `true`, the embedded prompt must
+also instruct: call `xtiles_create_notification` at the very end of that
+scheduled run — mandatory, do not skip). **Never create a duplicate
 automation.**
+
+5. **If `notify:true`** — the review already written just now (this run) is
+   also worth notifying about; don't make the user wait a week to see it work.
+   Call `xtiles_create_notification` immediately, right here: `url` is the same
+   tile-focused deep link already resolved in step 1 above, `text` is the fixed
+   string "Your Weekly Review is ready — see what moved this week in 2 min."
+   translated into the user's language (no customized/dynamic part — this text
+   never changes run to run beyond translation), `agent_source` is "ChatGPT".
+   Confirm scheduling with: "Done — your Weekly Review will run every
+   [day] at [time]." (append ", and I'll notify you in xTiles each time" when
+   `notify:true`).
 
 ---
 
@@ -447,4 +491,5 @@ and stop.
 After a successful write, **every** terminal response repeats the same labelled
 link as its final line — after `No schedule`, after `Keep it personal`, after
 `Nothing else`, after any later correction. A successful manual run never ends
-without it. Scheduled runs end silently after write, layout and verification.
+without it. Scheduled runs end silently after write, layout and verification —
+and, only if the config's `notify:true`, after the notification in Stage 8.
