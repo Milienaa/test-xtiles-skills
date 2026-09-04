@@ -97,6 +97,14 @@ text generated later (tile titles, scaffold hints) has to match it. **Capture
 `project_id` from this same response** — this is the `projectId` used in every
 `xtiles_create_view_from_markdown` / `xtiles_get_project_content` call below.
 
+**Take a block inventory — this is the conservation target.** As you read,
+count every block by type: paragraphs, list items, checkboxes / `<task>` items,
+images (`![alt](url)`), tables, quotes, code blocks. Write these counts down
+(mentally or in your plan). **Every single block must reappear on the new page,
+verbatim, exactly once** — the same number of images, the same number of tasks,
+the same list items. This inventory is what step 4 verifies against; nothing is
+"reorganized away".
+
 **If the response describes a collection (database) page** — a schema of
 attributes/columns instead of a markdown body — this workflow does not apply.
 Stop and tell the user Reorganize works on canvas pages, not database/collection
@@ -121,6 +129,12 @@ Group the source content into thematic tiles. For each tile:
   *which* tile a block sits under is fine, touching its wording is not. A tile
   holds at most 40 blocks — if a group's content would exceed that, split it
   into more tiles rather than dropping or condensing anything.
+- **Tasks and images are first-class blocks — never lost.** Every checkbox /
+  `<task>...</task>` item and every image (`![alt](url)`) from the source is
+  carried onto exactly one tile, verbatim — copy the task line as a task and the
+  image as the same `![alt](url)` block. Never turn an image into a text caption,
+  never summarize a task away, never drop either to make a tile fit. If carrying
+  them would exceed the 40-block cap, split into more tiles.
 - **Don't restate the title inside the body.** When a tile's title is pulled
   from a heading/label the source itself used for that section, that heading
   line becomes the tile's `###` title and stops there — it is not also
@@ -176,6 +190,15 @@ Give the primary tile a wider `w` than the rest. The importer may still
 normalize positions on its side (e.g. shifting everything so the topmost tile
 starts at row 0) — that's expected, not an error.
 
+**Pack the grid with no gaps.** Lay tiles left-to-right, top-to-bottom in reading
+order. Within a row, the tiles' widths should fill the full 48 columns (no empty
+horizontal band); start the next row at the bottom edge of the tallest tile in
+the row above (`y = that row's y + its max h`), with no empty rows between. Two
+tiles per row is a good default; a single wide tile (often the primary) can take
+a full-width row. Don't leave a lone half-width tile with 24 empty columns beside
+it when it could be widened or paired — the finished page should read as a filled
+grid, not scattered tiles with holes.
+
 **Color — plan it now, apply it with a tool, not markdown.** This variant has
 `xtiles_get_tile_styles` / `xtiles_set_tile_styles` available, so color is set
 by calling those tools right after creation (step 4), not with inline
@@ -213,6 +236,15 @@ needs it to call `xtiles_set_tile_styles`.
 
 ### 4. Create the page, then apply color
 
+**Conservation gate — check the markdown before you send it.** This workflow has
+no tool to patch content into a page after creation, so the new page can only be
+as complete as the markdown you pass here. Before calling the creation tool,
+verify the assembled markdown contains **every block from the step 1 inventory** —
+the same number of images (`![alt](url)`), the same number of tasks/checkboxes,
+and the same list items and paragraphs. If the draft is short even one block, add
+the missing block to the tile it belongs to before creating. Never send a draft
+that lost content to gain tidiness.
+
 Call `xtiles_create_view_from_markdown(projectId, markdown)` with the structure
 from step 3 as one `##`-titled page (reuse the source page's own title plus
 the reorganized-copy suffix from step 3) containing the `###` tiles built
@@ -232,14 +264,25 @@ unavailable (e.g. plan gating) or the call errors**, the page still exists
 without palette colors — don't block on it; note this plainly in the step 6
 confirmation instead of failing the run.
 
+**Completeness read-back — verify what actually landed.** Call
+`xtiles_get_view_content(new_view_id)` and compare against the step 1 inventory:
+same number of images, same number of tasks/checkboxes, same list items and
+paragraphs. If the read-back shows a block was dropped by the importer despite a
+complete draft, say so plainly in the step 6 reply (name what's missing) — this
+variant has no content-patch tool, so don't silently pretend the page is
+complete. Getting the same content across matters more than the styling.
+
 **Layout check — always run it.** Call `xtiles_get_page_layout(new_view_id)`
 to see what actually landed on the new page — do this every run, don't skip
-it just because the plan from step 3 looks fine on paper. If the primary tile
-didn't end up visually dominant, or anything overlaps or looks misplaced, fix
-it with `xtiles_set_page_layout` — always targeting the **new** view id,
-never the source `viewId`. The tool is gated to team plans — only skip the
-whole pass if `xtiles_get_page_layout` itself is unavailable or errors; in
-that case skip silently and continue to step 6.
+it just because the plan from step 3 looks fine on paper. Fix with
+`xtiles_set_page_layout` — always targeting the **new** view id, never the
+source `viewId` — when: the primary tile isn't visually dominant; anything
+overlaps; **or there are gaps** — an empty horizontal band beside a tile (widen
+it or its neighbor to fill the 48 columns) or an empty row between tiles (pull
+the lower tiles up so rows are contiguous). The page should read as a filled
+grid. The tool is gated to team plans — only skip the whole pass if
+`xtiles_get_page_layout` itself is unavailable or errors; in that case skip
+silently and continue to step 6.
 
 Skip to step 6.
 
@@ -269,8 +312,11 @@ markdown)`, as a new page.
 
 ### 6. Confirm
 
-Reply with the exact `resource_url` the creation tool returned — never a
-hand-built one. Keep the reply a short, human summary, not a technical report:
+**Always post the link — the run is not finished without it.** The reply's first
+line is a clickable link to the new page, using the exact `resource_url` the
+creation tool returned (never a hand-built one). Never end the run without this
+link in chat. Keep the rest of the reply a short, human summary, not a technical
+report:
 
 - Say plainly this is a new page in the same project and the original is untouched.
 - List what landed on the page, one line per tile: its emoji + title with a few
