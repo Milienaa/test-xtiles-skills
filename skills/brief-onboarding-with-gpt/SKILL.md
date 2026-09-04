@@ -152,8 +152,10 @@ Two ways this skill starts:
 - **Recurring run.** The incoming message instead carries the **full config
   this skill itself wrote at the end of a previous run** (Stage 8) —
   `role:`, `tools:` (the already-resolved set),
-  `skipped:` (connectors that weren't connected last time, if any), and
-  `notify:`. Its presence (specifically `tools:` alongside `role:`) is the
+  `skipped:` (connectors that weren't connected last time, if any),
+  `news_categories:` (only present if the resolved set was empty last time
+  — see Stage 2), and `notify:`. Its presence (specifically `tools:`
+  alongside `role:`) is the
   signal — there is no separate scheduled-run skill to hand off to. This
   runs silently — no intro sentence, nobody is watching chat. **First,
   silently re-probe every connector in `skipped:`** (same lightweight probe
@@ -287,12 +289,20 @@ Check the resolved set:
   start, every named connector's probe failed, or the user skipped
   everything in the form — don't ship an empty run. Build a News tile
   instead, right here, before Stage 3:
-  1. From `role:`, infer 2–4 topic categories this person would plausibly
-     care about right now (the same judgment `today-news-with-gpt` uses —
-     e.g. a Product Manager cares about product/UX trends, competitor
-     moves, and AI tooling news). If the role doesn't narrow it down,
-     default to broadly useful categories: industry news, productivity/
-     tools, and a general "worth knowing" pick.
+  1. **If the incoming config already carries `news_categories:`** (a
+     recurring run that fell back before) — use those exact categories,
+     don't re-derive them; they were chosen deliberately for this person
+     and should stay stable run to run. **Otherwise** (first time this
+     fallback triggers), infer 2–4 topic categories from `role:` that this
+     person would plausibly care about right now (the same judgment
+     `today-news-with-gpt` uses — e.g. a Product Manager cares about
+     product/UX trends, competitor moves, and AI tooling news). If the
+     role doesn't narrow it down, default to broadly useful categories:
+     industry news, productivity/tools, and a general "worth knowing"
+     pick. **Whichever way they were obtained, this exact category list is
+     what carries forward into `news_categories:` in Stage 8** if the user
+     schedules a recurring run — spell it out explicitly there, don't
+     leave the next run to silently reinvent it.
   2. Use whatever web-search and page-fetch capability this surface
      exposes to find real, current items from the last 24–48 hours per
      category, verified against reputable sources. **Never invent an
@@ -617,8 +627,15 @@ automation with an exact schedule whose prompt calls **this same skill**
 assembled from this run's resolved state:
 
 ```
-Run brief-onboarding-with-gpt — role: {role} · tools: {resolved connector set} · skipped: {connectors whose probe failed or that the user skipped, or "none"} · notify: {true/false} (if true, call xtiles_create_notification at the very end of that run — mandatory, do not skip) · schedule: daily-{HH:MM} days:{days}
+Run brief-onboarding-with-gpt — role: {role} · tools: {resolved connector set} · skipped: {connectors whose probe failed or that the user skipped, or "none"} · news_categories: {the exact categories Stage 2 used this run — only include this field at all if the resolved set was empty} · notify: {true/false} (if true, call xtiles_create_notification at the very end of that run — mandatory, do not skip) · schedule: daily-{HH:MM} days:{days}
 ```
+
+**`news_categories:` is the one field that's conditional — include it only
+when the resolved set is empty this run (the News fallback fired).** When
+there's at least one real connector, omit it entirely. When it does apply,
+this is important enough to spell out explicitly, not leave for tomorrow's
+run to silently reinvent — it's what makes a connector-less recurring
+digest actually consistent day to day.
 
 **No `daily_content:` field** — Stage 3 always re-derives each connector's
 content fresh from what it actually returns that day, so a snapshot from
