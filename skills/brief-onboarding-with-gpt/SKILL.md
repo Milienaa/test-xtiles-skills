@@ -210,7 +210,12 @@ name the same way:
    zero failures, treat it exactly like an empty resolved set and go to
    Stage 2.
 6. **Otherwise** (something failed to connect, or there's an extra
-   candidate to offer), emit one form:
+   candidate to offer), the one introductory sentence before this form
+   (per the Form protocol, rule 1) must **name what's already connected**
+   — e.g. "Gmail and Slack are already connected — want to connect
+   Calendar too, add anything else, or just skip and see your preview?"
+   Never let the form appear with no context about what's already fine.
+   Then emit one form:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -442,9 +447,14 @@ this same skill invoked again, not a different one** (see Stage 8).
    `markdown` without `projectId`/`viewId`. If it demands either, report
    that the personal Daily write is unavailable and stop.
 4. **Layout pass — mandatory, silent, never asked about.** Take `view_id`
-   and the ordered `tile_ids` from the write response, call
-   `xtiles_get_workflow` with id `tile-layout` and follow it. Hints: default
-   2 tiles per row; give a heavy tile its own full-width row.
+   and the ordered `tile_ids` from the write response (never re-derive
+   them), call `xtiles_get_workflow` with id `tile-layout` and follow it
+   exactly, **passing `tile_ids` as its "added tiles" and the markdown just
+   written as their content** — those are required inputs the workflow
+   itself expects, not optional context. Hints: default 2 tiles per row;
+   give a heavy tile its own full-width row. This workflow is the one that
+   actually calls `get_page_layout`/`set_page_layout` — skipping the input
+   handoff here is why it can silently do nothing.
 
 ### Tile format
 
@@ -628,6 +638,16 @@ translated into the user's language (no dynamic part), `agent_source` is
 
 Confirm the chosen time and timezone afterwards (append ", and I'll notify
 you in xTiles each time" when `notify:true`).
+
+**If the scheduling capability genuinely isn't available in this
+environment — this is not a dead end.** Say so in one plain line ("I can't
+set up automatic scheduling here — but your Daily is ready, and I'll build
+a fresh one anytime you ask.") and, if `notify:true` was requested, still
+send today's notification per the paragraph above — that part never
+depended on the schedule actually being created. **Then continue to
+Stage 9 in the same turn, exactly as after `No schedule`.** A missing
+scheduling capability skips the schedule itself, never the mandatory
+closing stage.
 
 ---
 

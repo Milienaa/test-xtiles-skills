@@ -31,6 +31,8 @@ allowed-tools: >
   mcp__xtiles__xtiles_create_notification,
   mcp__xtiles__xtiles_get_user_timezone,
   mcp__xtiles__xtiles_get_workflow,
+  mcp__xtiles__xtiles_get_page_layout,
+  mcp__xtiles__xtiles_set_page_layout,
   WebSearch,
   WebFetch,
   mcp__mcp-registry__suggest_connectors,
@@ -74,9 +76,12 @@ Two ways this skill starts:
 3. For an unfamiliar connector name, look for MCP tools whose namespace matches it (e.g. a connector called `{Name}` would expose `mcp__claude_ai_{Name}__*` tools) and use the least invasive read call available. If no matching tool exists at all, treat it as not connected — it becomes a candidate to connect natively (see **How to connect connectors**) or to skip.
 4. **If `other` is in `used_connectors`** — it's a signal the user's real stack is bigger than what they listed. Beyond probing the named connectors, look at what other connector tools this session actually has available (its own tool/capability list) and quickly probe any that weren't named. Anything that responds successfully becomes an **Add {name}** candidate in the widget below — distinct from **Connect {name}**, since it's already usable and just needs opting in, no auth flow required.
 5. **If `used_connectors` is non-empty and every named connector's probe succeeds, and step 4 above found no extra candidates to offer — skip straight to step 3** (a no-op there, since the resolved set isn't empty) **and then step 4.** No widget, no question. This is the best-case path. **If `used_connectors` was empty from the very start, this is not that case** — zero probes is not zero failures, treat it exactly like an empty resolved set and go to step 3.
-6. **Otherwise** (something failed to connect, or there's an extra candidate to offer), show one widget (**Connector check widget**, below): each connector whose probe failed gets a **Connect** action and a **Skip** toggle, Gmail and Calendar first; each extra candidate from point 4 gets an **Add** toggle; a single **Continue** always proceeds with whatever is resolved at that moment. **Never require every connector to be resolved before continuing.**
-7. When the user clicks **Connect**, run **How to connect connectors**, then return to the same widget with that card now showing connected — never restart the whole check. Clicking **Add** needs no connect flow at all — it's already usable, just fold it straight into the resolved set.
-8. The **resolved set** = every connector whose probe succeeded, plus any the user just connected or added, minus anything skipped. **Track the skipped list too** — carried forward as `skipped:` into the schedule config in step 8, so a future recurring run can quietly notice if one of them gets connected later (see step 1) without ever asking again. `xTiles` itself is required, not optional — if it's not connected, this skill isn't reachable at all; connect it first.
+6. **Otherwise** (something failed to connect, or there's an extra candidate to offer):
+   - **Immediately call `mcp__mcp-registry__suggest_connectors`**, passing the names of every connector whose probe failed. This renders real, native connect buttons directly in the Cowork UI, right away — the platform already knows how to offer a connect flow the instant it's asked to; **never gate that behind a custom "Connect" button of our own that the user has to click first just to unlock the real one.** Do this proactively, in the same turn, before or alongside the widget below.
+   - **In that same turn**, show the **Connector check widget** (below) alongside it. It has two things the native buttons don't: an explicit **"✓ Already connected"** list (so the user isn't left guessing what's already fine — Gmail and Calendar first if present), and an explicit, visible **Skip** control on every still-missing connector — a real button/toggle labeled "Skip," never just "leave it unselected and hope that reads as skip." Any extra candidate from point 4 gets an **Add** toggle instead. A single **Continue** always proceeds with whatever's resolved at that moment. **Never require every connector to be resolved before continuing.**
+   - Say, in one line before showing either: "I've also opened the connect flow for {missing connectors} above — connect what you want there, or skip below and hit Continue."
+7. When the user connects something through the native buttons from `suggest_connectors`, follow **How to connect connectors**'s Done-widget step to confirm and resume — never restart the whole check. Clicking **Skip** just marks that connector done-for-this-run, no further nagging. Clicking **Add** needs no connect flow at all — it's already usable, just fold it straight into the resolved set.
+8. **On Continue, re-probe anything still marked "not yet connected" that wasn't explicitly skipped** — cheap, and it's the only way to catch a connection the user just made through the native buttons from `suggest_connectors`, since that flow doesn't report back into our widget directly. The **resolved set** = every connector whose probe succeeded (original pass or this re-probe), plus any added, minus anything explicitly skipped. **Track the skipped list too** — carried forward as `skipped:` into the schedule config in step 8, so a future recurring run can quietly notice if one of them gets connected later (see step 1) without ever asking again. `xTiles` itself is required, not optional — if it's not connected, this skill isn't reachable at all; connect it first.
 9. In Claude Code (no Cowork), do the same thing as plain text: name which of the connectors mentioned actually responded, mention any extra connectors found via point 4, offer "connect"/"add"/"skip" as appropriate, and an explicit "or say 'skip all' to continue now."
 
 **When to ask — and when never to ask again automatically.** This widget fires **at most once per run**, right after the intro line in step 1, and only on a first run. It is not a recurring nag:
@@ -262,7 +267,7 @@ Same idea for Slack — a quiet day gets one `### 💬 Slack` tile with a `**Men
 **After each successful write — run in order, no exceptions:**
 
 1. Write `✅ Daily created.`
-2. **Layout pass — mandatory, silent, never asked about.** Read `view_id` and `tile_ids` from the write response, call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout`, pass the tiles and their markdown, with hints: 1–4 tiles, default 2 per row, give a heavy tile its own full-width row.
+2. **Layout pass — mandatory, silent, never asked about.** Read `view_id` and `tile_ids` from the write response (never re-derive them). Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly, **passing `tile_ids` as its "added tiles" and the markdown just written as their content** — those are required inputs the workflow itself expects, not optional context — plus these **layout hints**: 1–4 tiles, default 2 per row, give a heavy tile its own full-width row. This workflow is the one that actually calls `xtiles_get_page_layout`/`xtiles_set_page_layout` — skipping the input handoff here is why it can silently do nothing.
 3. **Non-scheduled runs only:** call `show_widget` with the **CTA widget HTML**, using the `resource_url` of the first tile in the write response (fall back to the page URL only if that's missing).
 4. **Non-scheduled runs only:** immediately call `show_widget` with the **Schedule widget HTML**. Never substitute `AskUserQuestion` here.
 5. **If Gmail is in the resolved set — mandatory, silent, every run:** mark every ⚪ Noise and newsletter thread as read with `mcp__claude_ai_Gmail__unlabel_thread` (remove `UNREAD`). Never touch 🔴 or 🟡 threads, and never draft or send anything on the user's behalf — this only marks threads read.
@@ -285,6 +290,7 @@ In Claude Code (no Cowork): ask inline after writing — "Want me to run this ev
   - **If `notify:true`** — the digest already on the page right now is worth notifying about too; call `mcp__xtiles__xtiles_create_notification` immediately with the same fixed text as step 7's item 6.
   - Confirm: "Done — your Daily will be ready in xTiles every morning at [time]." (append ", and I'll notify you in xTiles each time" if `notify:true`). Don't show the CTA widget again. **Continue to step 9 in the same turn.**
 - If **"No, thanks"** — acknowledge briefly, **continue to step 9 in the same turn.**
+- **If `anthropic-skills:schedule` or `mcp__scheduled-tasks__create-scheduled-tasks` genuinely isn't available in this environment — this is not a dead end.** Say so in one plain line ("I can't set up automatic scheduling in this environment — but your Daily is ready, and I'll build a fresh one anytime you ask.") and, if `notify:true` was requested, still send today's notification per the bullet above — that part never depended on the schedule actually being created. **Then continue to step 9 in the same turn, exactly as if the user had said "No, thanks."** A missing scheduling tool skips the schedule itself, never the mandatory closing step.
 
 ### 9. Related workflows
 
@@ -430,7 +436,7 @@ function doneIt(){var b=document.getElementById('btn-done');b.disabled=true;b.st
 
 ## Connector check widget HTML
 
-Show via `show_widget` in step 2, **only when at least one probe failed, or step 2's point 4 found an extra candidate** — nothing to show when every named connector is already connected and there's nothing extra to offer. Build the card lists dynamically: `#missing` from connectors whose probe failed (Gmail and Calendar first, if present), `#extras` from anything found via the `other` self-check (step 2, point 4) — omit either group's heading entirely when it has nothing in it.
+Show via `show_widget` in step 2, **only when at least one probe failed, or step 2's point 4 found an extra candidate** — nothing to show when every named connector is already connected and there's nothing extra to offer. Show it **alongside** the native connect buttons from `mcp__mcp-registry__suggest_connectors` (called in the same turn, per step 2 point 6) — this widget never offers its own "Connect" action, it only shows what's already connected and lets the user explicitly skip what isn't. Build the lists dynamically: `#connected` from every connector whose probe succeeded, `#missing` from connectors whose probe failed (Gmail and Calendar first, if present), `#extras` from anything found via the `other` self-check (step 2, point 4) — omit any section's heading entirely when it has nothing in it.
 
 ```html
 <style>
@@ -441,6 +447,14 @@ h2{font-size:17px;font-weight:700;margin-bottom:4px}
 .sub{font-size:12px;color:#888;margin-bottom:18px;line-height:1.5}
 .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#888;margin:14px 0 8px}
 .sec-title:first-of-type{margin-top:0}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{padding:6px 12px;border-radius:20px;background:#eaf7ee;color:#1a7a3c;font-size:13px;font-weight:600}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;border:1.5px solid #e0e0e0;font-size:13px;transition:all .15s}
+.row.skipped{opacity:.5}
+.row.skipped span{text-decoration:line-through}
+.skip-btn{padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:#555;transition:all .15s}
+.row.skipped .skip-btn{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
 .cards{display:flex;flex-wrap:wrap;gap:8px}
 .card{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
 .card:hover{border-color:#aaa}
@@ -451,15 +465,24 @@ h2{font-size:17px;font-weight:700;margin-bottom:4px}
 .btn-p:hover{opacity:.9}
 </style>
 <div class="wrap">
-  <h2>A couple of connectors would make this richer</h2>
-  <p class="sub">Tap any you'd like to connect or add now — or just hit Continue to see your preview with what's already available.</p>
+  <h2>Here's what's connected so far</h2>
+  <p class="sub">I've also opened the connect flow above for anything missing — connect what you want there, or hit Skip below and Continue.</p>
+
+  <!-- inject only if at least one probe succeeded -->
+  <div class="sec-title">✓ Already connected</div>
+  <div class="tags" id="connected">
+    <!-- inject: one per connector whose probe succeeded, plain info tag, e.g.
+    <div class="tag">Gmail</div>
+    <div class="tag">Slack</div>
+    -->
+  </div>
 
   <!-- inject only if at least one probe failed -->
-  <div class="sec-title">Connect</div>
-  <div class="cards" id="missing">
-    <!-- inject: one per connector whose probe failed, e.g.
-    <div class="card" data-kind="connect" data-v="Gmail" onclick="tog(this)">Connect Gmail</div>
-    <div class="card" data-kind="connect" data-v="Calendar" onclick="tog(this)">Connect Calendar</div>
+  <div class="sec-title">Not yet connected</div>
+  <div class="rows" id="missing">
+    <!-- inject: one row per connector whose probe failed, e.g.
+    <div class="row" data-v="Calendar"><span>Calendar</span><button class="skip-btn" onclick="tog(this)">Skip</button></div>
+    <div class="row" data-v="Figma"><span>Figma</span><button class="skip-btn" onclick="tog(this)">Skip</button></div>
     -->
   </div>
 
@@ -467,7 +490,7 @@ h2{font-size:17px;font-weight:700;margin-bottom:4px}
   <div class="sec-title">Also add to my Daily?</div>
   <div class="cards" id="extras">
     <!-- inject: one per extra candidate found via the `other` self-check, e.g.
-    <div class="card" data-kind="add" data-v="Linear" onclick="tog(this)">Add Linear</div>
+    <div class="card" data-kind="add" data-v="Linear" onclick="togAdd(this)">Add Linear</div>
     -->
   </div>
 
@@ -476,14 +499,18 @@ h2{font-size:17px;font-weight:700;margin-bottom:4px}
   </div>
 </div>
 <script>
-function tog(el){el.classList.toggle('sel')}
+function tog(btn){
+  var row=btn.closest('.row');
+  row.classList.toggle('skipped');
+  btn.textContent=row.classList.contains('skipped')?'Skipped':'Skip';
+}
+function togAdd(el){el.classList.toggle('sel')}
 function submit(){
   var b=document.getElementById('btn-continue');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';b.textContent='⏳…';
-  var connect=[],add=[];
-  document.querySelectorAll('.card.sel').forEach(function(el){
-    (el.dataset.kind==='add'?add:connect).push(el.dataset.v);
-  });
-  sendPrompt('Connector check — connect: '+(connect.join(', ')||'none')+' · add: '+(add.join(', ')||'none')+' · continue');
+  var skip=[],add=[];
+  document.querySelectorAll('#missing .row.skipped').forEach(function(el){skip.push(el.dataset.v)});
+  document.querySelectorAll('#extras .card.sel').forEach(function(el){add.push(el.dataset.v)});
+  sendPrompt('Connector check — skip: '+(skip.join(', ')||'none')+' · add: '+(add.join(', ')||'none')+' · continue');
 }
 </script>
 ```
@@ -583,7 +610,8 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 - **Never show a role/tools survey.** `role:` and `used_connectors:` are always already in the incoming message.
 - **Never trust the questionnaire alone for connection status.** Probe live, every time (step 2).
-- **Never block on a connector.** Every card in the Connector check widget can be left unselected, and Continue always works.
+- **Never block on a connector.** Every missing connector has an explicit, visible **Skip** button in the Connector check widget — never an implicit "leave it unselected" — and Continue always works regardless.
+- **Never gate the real connect flow behind a custom button of our own.** Call `mcp__mcp-registry__suggest_connectors` proactively the moment there's something missing (step 2, point 6) — the native connect buttons render immediately, in the same turn as the widget, not after an extra click.
 - **Never end a run with nothing in it.** Zero usable connectors triggers the News fallback (step 3) — never ship an empty digest. **Step 3 is a mandatory checkpoint on every path, first run or recurring** — never route directly from step 1 or step 2 to step 4 and skip it, even when it turns out to be a no-op.
 - **If `other` was named, actively look for extra connectors beyond what was listed** (step 2, point 4) — offer them as **Add**, not **Connect**, since they're already usable. This is what "other" is for; don't let it go unanswered.
 - **Never output the preview as plain text in chat.** Always write to xTiles directly, or connect it first.
@@ -601,3 +629,4 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - **Never force one connector's grouping onto another.** Email's urgency split, Slack's mentions/topics split, and Calendar's schedule-shape are three genuinely different structures because the data is genuinely different — decide the shape from what a connector actually returns, every time (step 4).
 - **Never treat "how many tiles" as fixed per connector either.** A quiet day keeps Email or Slack in one combined tile; real volume is what earns a split into several — decide that from the actual pull, every time, not from what a connector "usually" gets.
 - **The Connector-check widget asks at most once, right after the first message, on a first run only.** Never repeat it automatically on a recurring run — silently re-probe `skipped:` instead, and only mention a newly-connected tool once, briefly, if it succeeds.
+- **A missing scheduling tool is not a dead end.** If `anthropic-skills:schedule` or `mcp__scheduled-tasks__create-scheduled-tasks` isn't available, say so in one line and still continue straight to step 9 (Related workflows) — the tiles are already written either way, and the run is not complete without the closing question.
