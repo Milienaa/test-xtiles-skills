@@ -1,18 +1,24 @@
-﻿---
+---
 name: brief-onboarding-with-gpt
 description: >
-  ChatGPT Work version of the xTiles onboarding preview — use this variant in
+  ChatGPT Work version of the xTiles onboarding brief — use this variant in
   ChatGPT; in Claude use `brief-onboarding` instead.
 
   Use immediately after a user finishes the xTiles onboarding questionnaire —
-  builds their first Daily planner **preview** from their role and the tools
-  they said they use, so they see the value of the service before doing
-  anything themselves. This same skill also serves every **recurring** run
-  once the user schedules it.
+  builds and writes their first Daily planner brief directly from their role
+  and the tools they said they use, so they see real value before doing
+  anything themselves — no preview, no approval form. This same skill also
+  serves every **recurring** run once the user schedules it.
 
   Entry data on a first run (already known, never re-asked with a form):
   `role:` — the role from the questionnaire; `used_connectors:` — the tools
-  the user said they use there (may include a custom name, or `other`).
+  the user said they use there (may include a custom name, or `other`);
+  `additional:` — optional, often absent; the only value recognized today is
+  `News`, meaning the user explicitly asked for a news tile regardless of
+  connector state. These may arrive as labeled fields or as an equivalent
+  natural bullet list (e.g. "Role: Marketing · My connectors: Notion, Google
+  Calendar, Gmail, Other · Additional: News") — parse whichever shape carries
+  these semantic slots, never re-derive them from a form.
   **Connection status is never handed to this skill as data — it determines
   that itself**, with a lightweight live probe per named connector. Gmail and
   Calendar are probed first, as the highest-value connectors.
@@ -26,42 +32,54 @@ description: >
 
   Triggers: "start onboarding preview", "show me what my Daily could look
   like", "onboarding welcome digest", "first-run preview",
-  "run brief-onboarding-with-gpt".
+  "run brief-onboarding-with-gpt", "Set workflow of Onboarding Brief
+  (brief-onboarding) on xTiles MCP".
 
   Only the Daily period is supported.
 ---
 
-# xTiles Onboarding — First & Recurring Daily Preview (GPT)
+# xTiles Onboarding — First & Recurring Daily Brief (GPT)
 
 One Daily planner page that turns the user's role and the tools they said
 they use — already captured by the onboarding questionnaire — into a real
-preview of their morning brief. **Period is always Daily** — never ask which
-period. This same skill also serves every recurring run once scheduled —
-there is no separate daily-digest skill to hand off to.
+brief, written directly, no preview or approval step in between. **Period is
+always Daily** — never ask which period. This same skill also serves every
+recurring run once scheduled — there is no separate daily-digest skill to
+hand off to.
 
-## Seven principles
+## Principles
 
 1. **Never re-ask what onboarding already answered.** Role and the tools the
-   user said they use come in as `role:` and `used_connectors:` — never show
-   a role/tools form.
+   user said they use come in as `role:` and `used_connectors:` (plus an
+   optional `additional:`) — never show a role/tools form.
 2. **Never trust a name as proof of connection.** Whether something is
    actually connected is never handed to this skill as data — it's
    determined live, per connector, with a lightweight probe (Stage 1). A
    tool the user *said* they use may not be connected yet, or may have been
    connected since.
-3. **Never block on a connector.** The one form this skill shows for
-   connectors always has a way to proceed with nothing resolved at all.
-4. **Never end a run with nothing to show.** If zero connectors end up
-   usable, don't ship an empty digest — research and build a News tile
-   instead (Stage 2), so the user gets real value from the very first run.
-5. **Forms first, xTiles last; real data only.** Nothing is written until
-   the user has seen a real preview and approved it. Never invent a person,
+3. **Never block on a connector.** The forms this skill shows for
+   connectors always have a way to proceed with nothing resolved at all.
+4. **Never end a run with nothing to show.** An empty resolved set, or an
+   explicit `additional: news` request, always produces a real Today News
+   tile (Stage 2) — never an empty digest.
+5. **No preview, no approval form.** Nothing is shown for sign-off — once
+   Stage 3's fetch completes, write directly. Never invent a person,
    message, meeting, link, or count.
-6. **Personal planner only.** The single allowed write is
+6. **A distinct tool is always a distinct tile, never merged by category.**
+   Two calendars, or Gmail and Reclaim, never share a tile just because
+   they're both "scheduling" or "inbox" — see Stage 3.
+7. **Personal planner only.** The single allowed write is
    `xtiles_create_tiles_from_markdown_in_my_planner` with `period: "day"`.
    Never create a project, a view, or a standalone page.
-7. **Every write is followed by the layout pass**, then the CTA link. A run
-   that ends with text in chat instead of tiles in xTiles is a failed run.
+8. **Never surface a third-party connector's own preview in chat.** Read
+   what Todoist, Reclaim, or any other connector returns purely as data to
+   build your own xTiles tile — never let its raw response render as its
+   own card, and avoid calls whose only purpose is to produce one.
+9. **Never recreate a task that's already open.** Check `xtiles_list_tasks`
+   before writing any `<task>` (Stage 4) and drop anything that duplicates
+   an already-open task from yesterday or today.
+10. **Every write is followed by the layout pass**, then the CTA link. A run
+    that ends with text in chat instead of tiles in xTiles is a failed run.
 
 Match the language of the incoming onboarding message, and adapt if the user
 switches. Every label in this file (`Needs action`, `FYI`, `Noise`, `Open
@@ -100,7 +118,9 @@ code points or JSON as visible text.
 
 **Interactive-form contract — follow exactly whenever user input is required:**
 
-1. Output exactly one short introductory sentence.
+1. Output exactly one short introductory message (may be a few short labeled
+   lines, e.g. a ✅/🔌/📰 status block — see Stage 1 — but never a long
+   preamble).
 2. Immediately after it, emit the form directly in the assistant message:
    U+E200 + `genui` + U+E202 + valid JSON payload + U+E201.
 3. Use the literal Private-Use-Area characters, **not** the string `U+E200`
@@ -127,13 +147,14 @@ Also: never substitute another surface (`show_widget`, `sendPrompt`,
 `AskUserQuestion`, or Claude scheduling tools). An empty answer (`Не
 вибрано`, `Не выбрано`, `Not selected`, blank) → one sentence saying what is
 required, then re-emit **the same** form; never infer consent. **The one
-exception is Stage 1's Connector check form** — an empty answer there means
-"skip all" and must never be re-emitted (see Stage 1). Free text is kept
+exception is Stage 1's Connector check form(s)** — an empty answer there
+means "skip all" and must never be re-emitted (see Stage 1). Free text is kept
 **verbatim** for any "Other …" value. Carry the accumulated config through
 every stage.
 
-The chain: **Entry + Connector check (if needed) → preview → Approval →
-write + layout → CTA → Schedule → Related**.
+**The chain: Entry + Connector check (if needed) → Today News (if
+triggered) → Silent fetch → write + layout → CTA → Schedule → Related.**
+There is no preview form and no approval form anywhere in this chain.
 
 ---
 
@@ -141,40 +162,43 @@ write + layout → CTA → Schedule → Related**.
 
 Two ways this skill starts:
 
-- **First run.** The incoming message carries `role:` and `used_connectors:`
-  only — no resolved connector list yet. Always right after the onboarding
-  questionnaire. **Before anything else, send one short, plain-language
-  sentence of context** — e.g. "Setting up your first Daily preview for a
-  {role}, based on the tools you said you use." — before any silent probing
-  and before Stage 1's form, if one turns out to be needed. Never let the
-  very first thing the user sees be a bare form with no context. Then start
-  at Stage 1.
+- **First run.** The incoming message carries `role:` and `used_connectors:`,
+  and optionally `additional:` — no resolved connector list yet. Always
+  right after the onboarding questionnaire. **Before anything else, send one
+  short, plain-language sentence of context** — e.g. "Setting up your first
+  Daily for a {role}, based on the tools you said you use." — before any
+  silent probing and before Stage 1's form, if one turns out to be needed.
+  Never let the very first thing the user sees be a bare form with no
+  context. Then start at Stage 1.
 - **Recurring run.** The incoming message instead carries the **full config
-  this skill itself wrote at the end of a previous run** (Stage 8) —
+  this skill itself wrote at the end of a previous run** (Stage 6) —
   `role:`, `tools:` (the already-resolved set),
   `skipped:` (connectors that weren't connected last time, if any),
-  `news_categories:` (only present if the resolved set was empty last time
-  — see Stage 2), and `notify:`. Its presence (specifically `tools:`
-  alongside `role:`) is the
+  `news_categories:` (only present if a Today News tile was produced last run
+  — fallback or explicit request), `additional:` (carried forward only when
+  `news` was explicitly requested, so a future recurring run keeps building
+  the tile even once other connectors are resolved), and `notify:`. Its
+  presence (specifically `tools:` alongside `role:`) is the
   signal — there is no separate scheduled-run skill to hand off to. This
   runs silently — no intro sentence, nobody is watching chat. **First,
   silently re-probe every connector in `skipped:`** (same lightweight probe
   as Stage 1, no form): if one now succeeds, fold it into today's resolved
-  set and mention it once, briefly, in today's preview or notification
-  ("Gmail just connected — added to today's brief"). This is the only
-  re-check that ever happens on a recurring run. Then go to **Stage 2**
-  (a mandatory checkpoint — it triggers the News fallback only if the
-  resolved set is still empty, otherwise it's a no-op) **and then Stage 3
-  (Silent fetch)**, using the resulting resolved set.
+  set and mention it once, briefly, in today's notification ("Gmail just
+  connected — added to today's brief"). This is the only re-check that ever
+  happens on a recurring run. Then go to **Stage 2**
+  (a mandatory checkpoint — it triggers Today News only if the resolved set
+  is still empty or `additional: news` carried forward, otherwise it's a
+  no-op) **and then Stage 3 (Silent fetch)**, using the resulting resolved
+  set.
 
   **What actually runs after the write on a recurring run — spelled out
   exactly, nothing implied:** the layout pass always runs; Gmail
-  follow-through (Stage 7's item 3) always runs if Gmail is in the resolved
+  follow-through (Stage 5's item 3) always runs if Gmail is in the resolved
   set, whether or not anyone is watching chat — it's inbox hygiene, not a
   chat-visible action; and — only if `notify:true` — the notification
-  (Stage 8) fires. **The approval form, the CTA, the schedule form, and the
-  related-workflows question never fire on a recurring run** — those, and
-  only those, are what "silent" excludes.
+  (Stage 6) fires. **The Schedule form and the related-workflows question
+  never fire on a recurring run** — those, and only those, are what
+  "silent" excludes.
 
 ---
 
@@ -201,43 +225,66 @@ name the same way:
    stack is bigger than what they listed. Beyond probing the named
    connectors, check what other connector capabilities this session
    actually has available and quickly probe any that weren't named.
-   Anything that responds successfully becomes an **Add {name}** candidate
-   in the form below — distinct from **Connect {name}**, since it's already
-   usable and just needs opting in, no auth flow required.
+   Anything that responds successfully becomes an **extra candidate** below
+   — distinct from a missing named connector, since it's already usable and
+   just needs opting in, no auth flow required.
 5. **If `used_connectors` is non-empty and every named connector's probe
    succeeds, and point 4 above found no extra candidates to offer — skip
-   straight to Stage 2** (a no-op there, since the resolved set isn't
-   empty) **and then Stage 3.** No form at all. **If `used_connectors` was
-   empty from the very start, this is not that case** — zero probes is not
-   zero failures, treat it exactly like an empty resolved set and go to
+   straight to Stage 2** (a no-op there, unless `additional: news` was
+   requested) **and then Stage 3.** No form at all. **If `used_connectors`
+   was empty from the very start, this is not that case** — zero probes is
+   not zero failures, treat it exactly like an empty resolved set and go to
    Stage 2.
 6. **Otherwise** (something failed to connect, or there's an extra
-   candidate to offer), the one introductory sentence before this form
-   (per the Form protocol, rule 1) must **name what's already connected**
-   — e.g. "Gmail and Slack are already connected — want to connect
-   Calendar too, add anything else, or just skip and see your preview?"
-   Never let the form appear with no context about what's already fine.
-   Then emit one form:
+   candidate to offer):
+   - **Cap the active connect offer at 2 connectors.** Pick the two
+     highest-priority failed probes (Gmail/Calendar first, then the rest in
+     the order named). Any further missing connector beyond these two is
+     **not** offered a connect option this run — mention it in text only, as
+     something the user can connect themselves later by just asking.
+   - The introductory message before the form below must be a short status
+     block naming what's already fine, what's being offered, and whether
+     Today News will run — e.g.:
+     ```
+     Checking what's already connected…
+     ✅ Gmail and Google Calendar are set
+     🔌 Notion isn't connected — I suggest connecting it below
+     📰 I'll add News to the brief as its own tile
+     ```
+     Omit any line with nothing to say. Translate into the user's language.
+   - Then emit one form offering only the capped connect options plus the
+     fixed skip-all option:
 
 ```
-genui{"ask_user_input":{"questions":[
-  {"question":"Want to connect or add anything before I build your preview?","options":["Connect Gmail","Connect Calendar","Add {extra candidate}","Skip all — show my preview now"],"type":"multi_select","free_text_placeholder":"Name another connector"}
-]}}
+genui{"ask_user_input":{"questions":[
+  {"question":"Want to connect anything before I build your brief?","options":["Connect Gmail","Connect Calendar","Skip all — show my brief now"],"type":"multi_select","free_text_placeholder":"Name another connector"}
+]}}
 ```
 
-Build the options dynamically: one `Connect {name}` per connector whose probe
-failed (Gmail and Calendar first), one `Add {name}` per extra candidate found
-in point 4, and always the fixed final option `Skip all — show my preview
-now`. **Cap at 9 dynamic options plus the fixed one = 10** (rule 9). **If
-more than 9 connectors need offering, keep the highest-priority ones here
-(Gmail and Calendar first, then the rest in the order named) and follow up
-immediately with a second `multi_select` form for the overflow** — per the
-Form protocol's own rule 10, never silently drop one.
+   Build the options dynamically: one `Connect {name}` per connector in the
+   **capped set of at most 2** (Gmail and Calendar first, if present), and
+   always the fixed final option `Skip all — show my brief now`.
 
-**This form is the one exception to the Form protocol's empty-answer rule.**
-An empty or all-unselected answer means the same as picking `Skip all` —
-proceed straight to Stage 3 with whatever probed successfully. **Never
-re-emit this form to demand a selection.**
+   - **If step 4 found extra candidates** (from `other`), emit a **second**,
+     separate form right after, matching this pattern:
+
+```
+genui{"ask_user_input":{"questions":[
+  {"question":"I also see {extra1} and {extra2} connected. What should I add to the brief?","options":["Add {extra1}","Add {extra2}","Add nothing"],"type":"multi_select","free_text_placeholder":"Something else"}
+]}}
+```
+
+   Build the options dynamically: one `Add {name}` per extra candidate found
+   in point 4, and always the fixed final option `Add nothing`. **Cap
+   at 9 dynamic options plus the fixed one = 10** (Form protocol rule 9) —
+   if more than 9 extra candidates exist, keep the highest-priority ones and
+   follow up with a further form for the overflow, per rule 10.
+
+**Both forms are exceptions to the Form protocol's empty-answer rule.**
+An empty or all-unselected answer on either means the same as picking the
+fixed "skip"/"nothing" option — proceed straight to Stage 3 with whatever
+probed successfully, or with no extras added. **Never re-emit either form to
+demand a selection.**
 
 For every `Connect {name}` picked, run the native connect flow for that
 connector (say its name explicitly first, then use whatever connect
@@ -245,21 +292,23 @@ capability the current surface exposes; confirm once finished) before
 continuing. Every `Add {name}` picked needs no connect flow at all — it's
 already usable, just fold it straight into the resolved set. If a connect
 attempt fails or stalls, drop that connector and continue — never block the
-run over it.
+run over it. A connector named beyond the 2-cap that was only mentioned in
+text is still tracked in `skipped:` below, so a future recurring run can
+quietly re-probe it (see Run modes) without ever asking again.
 
 **xTiles itself is required, not optional** — if it is not connected, this
 skill is not reachable at all; connect it first, outside this flow.
 
 **Resolved set** = every connector whose probe succeeded, plus any just
 connected or added, minus anything skipped. **Track the skipped list too** —
-carried forward as `skipped:` into the schedule config in Stage 8, so a
+carried forward as `skipped:` into the schedule config in Stage 6, so a
 future recurring run can quietly notice if one of them gets connected later
 (see Run modes) without ever asking again. Every later stage reads this set.
 
-**When to ask — and when never to ask again automatically.** This form
-fires **at most once per run**, right after the intro sentence, and only on
+**When to ask — and when never to ask again automatically.** These forms
+fire **at most once per run**, right after the intro sentence, and only on
 a first run. It is not a recurring nag:
-- On a **recurring run**, this form never appears at all — Run modes handles
+- On a **recurring run**, this stage never appears at all — Run modes handles
   it with a silent re-probe of `skipped:` instead.
 - The user can always trigger a fresh check by asking directly at any time
   ("connect my Slack now") — that re-enters this stage for just the named
@@ -267,7 +316,7 @@ a first run. It is not a recurring nag:
 
 **No content-preference questions, ever.** Every connector in the resolved
 set contributes its own default content (Stage 3) — the user can still ask
-to change anything at the preview/approval step.
+to change anything after the write.
 
 **Two worked examples of the probe — not an exhaustive list, the pattern is
 the same for anything else the user names:**
@@ -276,46 +325,63 @@ the same for anything else the user names:**
 
 ---
 
-## Stage 2 — Fallback check: a News tile when nothing is usable
+## Stage 2 — Today News: a standalone tile, by request or fallback
 
 **This is a mandatory checkpoint, not an optional detour — every path from
 Stage 1 or Run modes passes through here, on a first run and on a recurring
 run alike. It is never valid to route straight from Stage 1 or Run modes to
 Stage 3.**
 
-Check the resolved set:
-- **Non-empty** — nothing to do here. Continue straight to Stage 3.
-- **Empty** — whether because `used_connectors` was empty from the very
-  start, every named connector's probe failed, or the user skipped
-  everything in the form — don't ship an empty run. Build a News tile
-  instead, right here, before Stage 3:
-  1. **If the incoming config already carries `news_categories:`** (a
-     recurring run that fell back before) — use those exact categories,
-     don't re-derive them; they were chosen deliberately for this person
-     and should stay stable run to run. **Otherwise** (first time this
-     fallback triggers), infer 2–4 topic categories from `role:` that this
-     person would plausibly care about right now (the same judgment
-     `today-news-with-gpt` uses — e.g. a Product Manager cares about
-     product/UX trends, competitor moves, and AI tooling news). If the
-     role doesn't narrow it down, default to broadly useful categories:
-     industry news, productivity/tools, and a general "worth knowing"
-     pick. **Whichever way they were obtained, this exact category list is
-     what carries forward into `news_categories:` in Stage 8** if the user
-     schedules a recurring run — spell it out explicitly there, don't
-     leave the next run to silently reinvent it.
-  2. Use whatever web-search and page-fetch capability this surface
-     exposes to find real, current items from the last 24–48 hours per
-     category, verified against reputable sources. **Never invent an
-     item, a date, or a link.** If a category genuinely yields nothing,
-     drop that category rather than force it; if literally every category
-     comes back empty, say so plainly in the preview instead of writing an
-     empty tile.
-  3. Build **one** tile, `### 📰 News for you`, with one labeled
-     sub-section per category and 2–3 real items each — one line per item,
-     source linked inline.
-  4. This is a fallback, not a permanent feature — the moment even one
-     connector is usable (this run or a future one), skip it entirely and
-     go back to normal per-connector tiles.
+This stage produces a `### 📰 Today News` tile in **two independent
+situations** — check both, every run:
+
+- **Fallback.** The resolved set is empty — whether because `used_connectors`
+  was empty from the very start, every named connector's probe failed, or
+  the user skipped everything in Stage 1. A run must never ship nothing.
+- **Explicit request.** The incoming config's `additional:` field includes
+  `News` — an optional field, often absent. When requested, build this tile
+  **even if other connectors are also resolved** — unlike the fallback
+  case, it does not step aside the moment real per-connector tiles exist.
+
+If **neither** applies, skip this stage entirely and continue to Stage 3.
+
+When either applies:
+
+1. **If the incoming config already carries `news_categories:`** (a
+   recurring run that already built this tile before) — use those exact
+   categories, don't re-derive them; they were chosen deliberately for this
+   person and should stay stable run to run. **Otherwise** (first time this
+   tile is built), infer 2–4 topic categories from `role:` that this person
+   would plausibly care about right now (the same judgment
+   `today-news-with-gpt` uses — e.g. a Product Manager cares about
+   product/UX trends, competitor moves, and AI tooling news). If the
+   role doesn't narrow it down, default to broadly useful categories:
+   industry news, productivity/tools, and a general "worth knowing"
+   pick. **Whichever way they were obtained, this exact category list is
+   what carries forward into `news_categories:` in Stage 6** if the user
+   schedules a recurring run.
+2. **Sourcing — mail first, then web.** If Gmail is in the resolved set,
+   first check there: search recent (last 24–48h) mail that itself carries
+   real news — subscribed news digests/newsletters, alert-style mail,
+   publications — relevant to the chosen categories. If genuine, current
+   items turn up this way, use them. **Only if Gmail isn't in the resolved
+   set, or that search turns up nothing usable**, fall back to whatever
+   web-search and page-fetch capability this surface exposes: find real,
+   current items from the last 24–48 hours per category, verified against
+   reputable sources. **Never invent an item, a date, or a link.** If a
+   category genuinely yields nothing either way, drop that category rather
+   than force it; if literally every category comes back empty, say so
+   plainly rather than writing an empty tile.
+3. Build **one** tile, `### 📰 Today News`, with one labeled sub-section per
+   category and 2–3 real items each — one line per item, source linked
+   inline.
+4. **Persistence.** The category list carries forward into `news_categories:`
+   in Stage 6, regardless of which trigger produced it. If this run's tile
+   came from an explicit `additional: news` request, also carry
+   `additional: news` forward — that's what tells a future recurring run to
+   keep building it even once other connectors are resolved. **The fallback
+   case has no such persistence flag** — the moment even one connector is
+   usable in a later run, the fallback tile stops appearing on its own.
 
 ---
 
@@ -323,8 +389,8 @@ Check the resolved set:
 
 No messages while fetching. Record a connector **error** separately from an
 empty **result** — they render differently. Pull fresh data from every
-connector in the resolved set, and — if Stage 2 triggered — research the
-News tile instead.
+connector in the resolved set, and — if Stage 2 triggered — research (or
+read mail for) the Today News tile too.
 
 **There is no single grouping that fits every connector — the right shape
 follows the nature of the data itself, never a template repeated for each
@@ -339,10 +405,26 @@ split into several thin, mostly-empty tiles just because a connector
 "usually" gets split, and never cram a genuinely large volume into one
 dense tile either — let what was actually pulled decide, each time.
 
+**A distinct tool is always a distinct tile, never merged by category.**
+Two calendars (e.g. a work Google Calendar and a personal one, or Calendar
+alongside Reclaim) each get their own `### 📅` tile — never combined into
+one "Calendar" or "Scheduling" section just because they're the same kind
+of tool. Gmail and Reclaim never share a tile either, even though both are
+"inbox-adjacent." The only place multiple sources ever land in one tile is
+when they're genuinely the *same* connector's own data split by volume
+(Email's three buckets, Slack's two) — never across two different
+connectors.
+
+**Never surface a third-party connector's own rendered preview in chat.**
+Read what Todoist, Reclaim, or any other connector returns purely as data to
+build your own tile from — never let its raw response render as its own
+card in the conversation, and avoid calls whose only purpose is to produce
+one.
+
 - **Email arrives as a firehose that needs triage — the natural question is
   "do I have to act on this."** That's why it splits by urgency: 🔴 needs a
   concrete next step, 🟡 informational only, ⚪ automated noise. **With
-  real volume in each bucket**, this becomes three tiles (Stage 6):
+  real volume in each bucket**, this becomes three tiles (Stage 4):
   `### 📩 Email — Action Points` (🔴, plus real `<task>`s), `### 📩 Email —
   Key People` (🟡, grouped by *sender* — a completely different axis from
   urgency), `### 📩 Email — Noise` (⚪, one rollup line, never itemized).
@@ -365,17 +447,17 @@ dense tile either — let what was actually pulled decide, each time.
   someone's schedule, and a single day only ever needs one tile.** The
   natural shape is chronological and forward-looking: what does today look
   like, where's the free time, what's worth preparing for. One
-  `### 📅 Workload` tile — never a second copy of the schedule the user
-  can already see, and never split by volume the way Email or Slack might
-  be. Compute event count, hours occupied, and the longest free focus
-  window; write one concrete 🎯 focus-recommendation sentence; for each
-  event, a one-sentence agenda (from the event description or the most
-  recent related email/meeting note — never invented) and, only where
-  genuinely implied, one prep `<task>`. Collect anomalies at the bottom,
-  never inline.
+  `### 📅 Workload` tile per calendar connector — never a second copy of
+  the schedule the user can already see, and never split by volume the way
+  Email or Slack might be. Compute event count, hours occupied, and the
+  longest free focus window; write one concrete 🎯 focus-recommendation
+  sentence; for each event, a one-sentence agenda (from the event
+  description or the most recent related email/meeting note — never
+  invented) and, only where genuinely implied, one prep `<task>`. Collect
+  anomalies at the bottom, never inline.
 
 **Apply the same kind of thinking to anything else in the resolved set** —
-Linear, Google Drive, or a connector this file has never heard of.
+Linear, Google Drive, Reclaim, or a connector this file has never heard of.
 Read what it actually returns, decide the natural axis (urgency, person,
 project, time, or something else entirely), and only split it into more
 than one tile when there's genuinely enough volume on that axis to earn
@@ -409,54 +491,36 @@ urgency sets `priority`. Absent either, the task takes the page's day as its
 
 Use only real data. Never invent names, events, messages, or links. If a
 connector call fails outright, record that as a failure, surfaced explicitly
-in the preview — never silently written as "no data."
+in the write (Stage 4) — never silently written as "no data."
 
 ---
 
-## Stage 4 — Preview
+## Stage 4 — Write + layout
 
-Show the real preview in chat, one section per tile that will actually be
-written, with real names, counts and links. Render empty reads explicitly
-("No unread emails", "No updates today") and failures explicitly ("Could not
-fetch Calendar — connector error"). Blank line between items.
-
-Before the approval form, call `xtiles_get_current_user` and show the
-destination email on the line above it — approval confirms that account.
-
-Then **stop and wait**. Nothing is written yet.
-
----
-
-## Stage 5 — Approval
-
-```
-genui{"ask_user_input":{"questions":[
-  {"question":"Create this Daily in xTiles?","options":["Create it","Change something","Cancel"],"type":"single_select","free_text_placeholder":"Say what to change"}
-]}}
-```
-
-`Change something` → ask what, update **only** that part, re-show the
-preview, emit this form again. `Cancel` → acknowledge and stop.
-
----
-
-## Stage 6 — Write + layout
-
-Only after `Create it` (or immediately, on a recurring run — see Run modes).
+**Write immediately once Stage 3's fetch completes — first run or recurring
+alike. There is no preview and no approval form anywhere in this skill.**
 **This skill always runs manually, once per morning — a recurring run is
-this same skill invoked again, not a different one** (see Stage 8).
+this same skill invoked again, not a different one** (see Stage 6).
 
 1. `xtiles_get_user_timezone` → today's local date as `yyyy-MM-dd`.
-2. **This skill has no way to update an existing tile's content, so every
+2. **Before finalizing the task list — dedup against already-open tasks.**
+   Call `xtiles_list_tasks` for tasks that are **not completed**, due
+   yesterday or today, and drop any action item about to be written whose
+   text duplicates one that's already open. Never recreate the same
+   unfinished task twice across two runs.
+3. **Resolve the assignee once per run.** Call `xtiles_get_current_user` and
+   reuse that email for the `assignee` attribute on **every** `<task>`
+   written this run — first or recurring, no exceptions.
+4. **This skill has no way to update an existing tile's content, so every
    run creates a fresh set of tiles.** Write all the approved sections in
    the create call below regardless of what's already on the page — a
    re-run is expected to produce a fresh, current brief.
-3. **One** call to `xtiles_create_tiles_from_markdown_in_my_planner` with
+5. **One** call to `xtiles_create_tiles_from_markdown_in_my_planner` with
    `period: "day"`, today's `date`, and all sections in a single markdown
    string. Inspect the schema first: it must accept `date`, `period`,
    `markdown` without `projectId`/`viewId`. If it demands either, report
    that the personal Daily write is unavailable and stop.
-4. **Layout pass — mandatory, silent, never asked about.** Take `view_id`
+6. **Layout pass — mandatory, silent, never asked about.** Take `view_id`
    and the ordered `tile_ids` from the write response (never re-derive
    them), call `xtiles_get_workflow` with id `tile-layout` and follow it
    exactly, **passing `tile_ids` as its "added tiles" and the markdown just
@@ -495,15 +559,18 @@ never a semantic name, never the same colour twice in a row.
 ```
 **Action items**
 
-<task dueDate="2026-08-11">Restore the Google ad account</task>
+<task dueDate="2026-08-11" assignee="user@example.com">Restore the Google ad account</task>
 
-<task priority="high" dueDate="2026-08-10">Sign the Acme contract</task>
+<task priority="high" dueDate="2026-08-10" assignee="user@example.com">Sign the Acme contract</task>
 ```
 
 One `<task>` per line, blank line between, never nested in a list item.
 `dueDate` always set, defaulting to today; a later real deadline from the
 source overrides it. `priority` only when the source signals it — at most a
-third of a morning's tasks should be `high`. Never `completed="true"`.
+third of a morning's tasks should be `high`. `assignee` — always the current
+xTiles user's own email, resolved via `xtiles_get_current_user`, on every
+task, every run. Never `completed="true"`. Never a task that duplicates an
+already-open one — checked against `xtiles_list_tasks` before this call.
 
 **Worked tile examples, in full markdown — the same two connectors as
 Stage 3's Email and Calendar, each shown in its split (high-volume) case.
@@ -521,7 +588,7 @@ follow the data), never a layout copied from these:**
 
 **Action items**
 
-<task dueDate="2026-08-11">Restore the Google ad account</task>
+<task dueDate="2026-08-11" assignee="user@example.com">Restore the Google ad account</task>
 ```
 
 ```
@@ -537,15 +604,15 @@ follow the data), never a layout copied from these:**
 
 📋 [Agenda — one sentence, from a real source]
 
-<task dueDate="2026-08-11">[Prep task, only if genuinely implied]</task>
+<task dueDate="2026-08-11" assignee="user@example.com">[Prep task, only if genuinely implied]</task>
 ```
 
 `### 📩 Email — Key People` (🟡, grouped by sender) and `### 📩 Email —
 Noise` (⚪, one rollup line) follow the same pattern as Action Points,
 scoped to their own bucket. `### 📧 Newsletters` (if any found) is one line
-per publication: `**[Publication](url)** — one-line summary.` `### 📰 News
-for you` (the Stage 2 fallback, if it ran) is one labeled sub-section per
-category with 2–3 linked items each.
+per publication: `**[Publication](url)** — one-line summary.` `### 📰 Today
+News` (Stage 2, whether by fallback or explicit request) is one labeled
+sub-section per category with 2–3 linked items each.
 
 **The combined (low-volume) case** uses the exact same blocks, just inside
 one tile instead of several:
@@ -563,7 +630,7 @@ one tile instead of several:
 
 **Action items**
 
-<task dueDate="2026-08-11">Restore the Google ad account</task>
+<task dueDate="2026-08-11" assignee="user@example.com">Restore the Google ad account</task>
 
 🟡 **Key people**
 
@@ -582,7 +649,7 @@ instead of two separate tiles.
 
 ---
 
-## Stage 7 — CTA and Gmail follow-through
+## Stage 5 — CTA and Gmail follow-through
 
 1. Confirm in one line: `✅ Daily created.`
 2. **CTA** — link to the **first created tile**, not the page: use the
@@ -598,27 +665,35 @@ instead of two separate tiles.
 
 ---
 
-## Stage 8 — Schedule
+## Stage 6 — Schedule
 
 **A schedule set up here re-invokes this same skill,
 `brief-onboarding-with-gpt`, every morning — there is no separate
 daily-digest skill.** The whole point of resolving everything once is that
 the recurring run can skip straight past Stages 1–2.
 
+Before the schedule form, send one line adapting this to the actual resolved
+connectors, translated into the user's language:
+
+> I'll automatically pull signals from {resolved connectors, e.g. Gmail and
+> Calendar} and write your Daily to xTiles — no need to ask each time. And
+> if your current connectors aren't enough, just ask me to add more in chat
+> and I'll improve your future brief.
+
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Run this automatically every morning?","options":["Schedule it","No schedule"],"type":"single_select","free_text_placeholder":"Another cadence"}
-]}}
+]}}
 ```
 
 On `Schedule it`, one follow-up form for cadence, time, and notification:
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Which days?","options":["Weekdays","Every day"],"type":"single_select","free_text_placeholder":"Specific days"},
   {"question":"What time?","options":["08:00","09:00","10:00"],"type":"single_select","free_text_placeholder":"Another local time"},
   {"question":"Notify me in xTiles each time it runs?","options":["Yes, notify me","No notification"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Resolve the timezone with `xtiles_get_user_timezone`, then create the
@@ -627,15 +702,14 @@ automation with an exact schedule whose prompt calls **this same skill**
 assembled from this run's resolved state:
 
 ```
-Run brief-onboarding-with-gpt — role: {role} · tools: {resolved connector set} · skipped: {connectors whose probe failed or that the user skipped, or "none"} · news_categories: {the exact categories Stage 2 used this run — only include this field at all if the resolved set was empty} · notify: {true/false} (if true, call xtiles_create_notification at the very end of that run — mandatory, do not skip) · schedule: daily-{HH:MM} days:{days}
+Run brief-onboarding-with-gpt — role: {role} · tools: {resolved connector set} · skipped: {connectors whose probe failed or that the user skipped, or "none"} · news_categories: {the exact categories Stage 2 used this run — only include this field at all if Stage 2 ran} · additional: {"news" if this run's Today News tile came from an explicit request, otherwise omit} · notify: {true/false} (if true, call xtiles_create_notification at the very end of that run — mandatory, do not skip) · schedule: daily-{HH:MM} days:{days}
 ```
 
-**`news_categories:` is the one field that's conditional — include it only
-when the resolved set is empty this run (the News fallback fired).** When
-there's at least one real connector, omit it entirely. When it does apply,
-this is important enough to spell out explicitly, not leave for tomorrow's
-run to silently reinvent — it's what makes a connector-less recurring
-digest actually consistent day to day.
+**`news_categories:` and `additional:` are conditional** — include
+`news_categories:` only when Stage 2 ran this pass (fallback or explicit
+request); include `additional: news` only when the request was explicit, so
+a future recurring run keeps building the tile even once other connectors
+are resolved. When there's no Today News tile this run, omit both entirely.
 
 **No `daily_content:` field** — Stage 3 always re-derives each connector's
 content fresh from what it actually returns that day, so a snapshot from
@@ -648,7 +722,7 @@ placeholder unresolved.
 
 **If `notify:true`** — the digest already on the page right now is worth
 notifying about too. Call `xtiles_create_notification` immediately: `url` is
-the same tile-focused deep link resolved in Stage 7, `text` is the fixed
+the same tile-focused deep link resolved in Stage 5, `text` is the fixed
 string "Your Daily Digest is ready — see what matters today in 2 min."
 translated into the user's language (no dynamic part), `agent_source` is
 "ChatGPT".
@@ -662,22 +736,22 @@ set up automatic scheduling here — but your Daily is ready, and I'll build
 a fresh one anytime you ask.") and, if `notify:true` was requested, still
 send today's notification per the paragraph above — that part never
 depended on the schedule actually being created. **Then continue to
-Stage 9 in the same turn, exactly as after `No schedule`.** A missing
+Stage 7 in the same turn, exactly as after `No schedule`.** A missing
 scheduling capability skips the schedule itself, never the mandatory
 closing stage.
 
 ---
 
-## Stage 9 — Related workflows
+## Stage 7 — Related workflows
 
 Offer the other three workflows, each with a one-line description of what it
 does — never a bare list of names. Never offer `brief-onboarding-with-gpt`
-itself here — its own digest and schedule are already handled in Stage 8.
+itself here — its own digest and schedule are already handled in Stage 6.
 
 ```
-genui{"ask_user_input":{"questions":[
+genui{"ask_user_input":{"questions":[
   {"question":"Want to set up anything else on xTiles?","options":["🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
-]}}
+]}}
 ```
 
 Treat the selection as a direct invocation: **in the same turn**, call
@@ -702,6 +776,6 @@ After a successful write, **every** terminal response repeats the same
 labelled CTA link as its final line — after `No schedule`, after `Nothing
 else`, after a later correction, after a connector clarification. A
 successful manual run never ends without it. A recurring run ends silently
-after the layout pass and Gmail follow-through (Stage 7's item 3, if
+after the layout pass and Gmail follow-through (Stage 5's item 3, if
 applicable) — and, only if the config's `notify:true`, after the
-notification in Stage 8.
+notification in Stage 6.
