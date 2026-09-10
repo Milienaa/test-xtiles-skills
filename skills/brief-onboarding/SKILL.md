@@ -8,15 +8,29 @@ description: >
   serves every **recurring** run once the user schedules it — there is no
   separate daily-digest skill to hand off to.
 
-  Entry data on a first run (already known, never re-asked with a survey):
-  `role:` — the role from the questionnaire; `used_connectors:` — the tools
-  the user said they use there (may include a custom name, or `other`);
+  Entry data on a first run (already known, never re-asked with a survey).
+  **The real starting message never carries literal `role:`/`used_connectors:`/
+  `additional:` field labels** — it looks like: "Set workflow of Onboarding
+  Brief (brief-onboarding) on xTiles MCP with the following information:
+  Role: {role}. My connectors: {tools}. News_yes" (or `News_no`) — a bare
+  affirmative/negative News token, with no `"Additional:"` prefix before it
+  at all. Everywhere else in this file, these three semantic slots are
+  referred to by their internal names: `role:` (the role), `used_connectors:`
+  (the "My connectors:" list — may include a custom name, or `other`), and
+  `additional:` (present only when the News token is affirmative — see
+  below). A labeled-field variant or an equivalent natural bullet list (e.g.
+  "Role: Marketing · My connectors: Notion, Google Calendar, Gmail, Other ·
+  Additional: News") is just as valid — parse whichever shape actually
+  carries these semantic slots, never re-derive them from a survey.
+
   `additional:` — optional, often absent; the only value recognized today is
-  `News`, meaning the user explicitly asked for a news tile regardless of
-  connector state. These may arrive as labeled fields or as an equivalent
-  natural bullet list (e.g. "Role: Marketing · My connectors: Notion, Google
-  Calendar, Gmail, Other · Additional: News") — parse whichever shape carries
-  these semantic slots, never re-derive them from a survey.
+  News (case-insensitive and label-free on the way in — `News_yes`, `News`,
+  `news`, `NEWS`, "yes please" all match; always normalize it to lowercase
+  `news` in any config this skill itself writes back out, e.g. in step 6's
+  persisted `additional:`), meaning the user explicitly asked for a news
+  tile regardless of connector state. **A negative value (`News_no`, "no",
+  "Additional: none") is never treated as a News request just because the
+  substring "News" appears in it** — only an explicit affirmative counts.
   **Connection status is never handed to this skill as data — it determines
   that itself**, with a lightweight live probe per named connector (see step
   2). Gmail and Calendar are probed first, as the highest-value connectors.
@@ -27,8 +41,9 @@ description: >
   Brief (brief-onboarding) on xTiles MCP".
 
   Environment: this is the Claude / Cowork variant — every interactive moment
-  (Connector check, Schedule, Related workflows) uses `AskUserQuestion`. This
-  skill never uses `show_widget` or any HTML form. In ChatGPT Work, where
+  (Connector check, Schedule — which itself is up to two sequential
+  `AskUserQuestion` calls, see step 6 — and Related workflows) uses
+  `AskUserQuestion`. This skill never uses `show_widget` or any HTML form. In ChatGPT Work, where
   every question is an inline `ask_user_input` / `genui` surface, use
   `brief-onboarding-with-gpt` instead.
 
@@ -47,7 +62,8 @@ allowed-tools: >
   WebFetch,
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
-  mcp__scheduled-tasks__create-scheduled-tasks
+  mcp__scheduled-tasks__create-scheduled-tasks,
+  AskUserQuestion
 ---
 
 # xTiles Onboarding — First & Recurring Daily Brief
@@ -60,7 +76,7 @@ allowed-tools: >
 4. **Never end a run with nothing to show.** An empty resolved set, or an explicit `additional: news` request, always produces a real Today News tile (step 3) — never an empty digest.
 5. **Real data, not placeholders.** Pull from connectors (or the web/inbox, for Today News) before writing so the user sees live content, never invented names, events, or messages.
 6. **A distinct tool is always a distinct tile, never merged by category.** Two calendars, or Gmail and Reclaim, never share a tile just because they're both "scheduling" or "inbox" — see step 4.
-7. **No preview, no approval gate.** Once step 4's fetch completes, write directly to xTiles — first run or recurring alike. The only interactive moments left in this skill are the Connector check (step 2), the Schedule question (step 6), and the Related-workflows question (step 7).
+7. **No preview, no approval gate.** Once step 4's fetch completes, write directly to xTiles — first run or recurring alike. The only interactive moments left in this skill are the Connector check (step 2), the Schedule questions (step 6 — up to two sequential `AskUserQuestion` calls: "Run this every morning?"/"Notify me?" and, if scheduling was chosen, "Add anything to your Daily Brief before I schedule it?"), and the Related-workflows question (step 7). **"No approval gate" applies only to writing the brief itself (step 4 → step 5) — it never means racing past an interactive question.** Every `AskUserQuestion` call in steps 2, 6, and 7 must actually wait for the user's answer before the next step runs; never assume a default and continue in the same turn just because content-generation itself doesn't need approval.
 8. **Never surface a third-party connector's own preview in chat.** Read what Todoist, Reclaim, or any other connector returns purely as data to build your own xTiles tile — never let its raw response render as its own card in the conversation, and avoid calls whose only purpose is to produce one.
 9. **Never recreate a task that's already open.** Check `xtiles_list_tasks` before writing any `<task>` (step 5) and drop anything that duplicates an already-open task from yesterday or today.
 10. **Every write is followed by the layout pass.** The moment tiles are created, re-lay them out into a justified grid via the shared `tile-layout` workflow — automatically, before the CTA, never skipped.
@@ -76,7 +92,7 @@ allowed-tools: >
 
 Two ways this skill starts:
 
-- **First run.** The incoming message carries `role:` and `used_connectors:`, and optionally `additional:` — no resolved connector list yet. This is always right after the onboarding questionnaire. **Before anything else, send one short, plain-language line of context** — e.g. "Setting up your first Daily for a {role}, based on the tools you said you use." — before any silent probing and before the Connector-check question, if one turns out to be needed. Never let the very first thing the user sees be a bare question with no context. Then go to **step 2**.
+- **First run.** The incoming message carries `role:` and `used_connectors:`, and optionally `additional:` — no resolved connector list yet. This is always right after the onboarding questionnaire. **Before anything else, send one short, plain-language line of context** — e.g. "Setting up your first Daily Brief for a {role}, based on the tools you said you use." — before any silent probing and before the Connector-check question, if one turns out to be needed. Never let the very first thing the user sees be a bare question with no context. Then go to **step 2**.
 - **Recurring run.** The incoming message instead carries the **full config this skill itself wrote at the end of a previous run** (step 6) — `role:`, `tools:` (the already-resolved set), `skipped:` (connectors that weren't connected last time, if any), `news_categories:` (only present if a Today News tile was produced last run — fallback or explicit request), `additional:` (carried forward only when `news` was explicitly requested, so a future recurring run keeps building the tile even once other connectors are resolved), and `notify:`. Its presence (specifically `tools:` alongside `role:`) is the signal — there is no separate scheduled-run skill to hand off to. This runs silently — no intro line, nobody is watching chat. **First, silently re-probe every connector in `skipped:`** (same lightweight probe as step 2, no question shown): if one now succeeds, fold it into today's resolved set and mention it once, briefly, in today's notification ("Gmail just connected — added to today's brief"). This is the only re-check that ever happens on a recurring run. Then **go to step 3** (a mandatory checkpoint — it triggers Today News only if the resolved set is still empty or `additional: news` carried forward, otherwise it's a no-op) **and then step 4 (Silent data fetch)**, using the resulting resolved set.
 
   **What actually runs after the write on a recurring run — spelled out exactly, nothing implied:** the layout pass always runs; Gmail follow-through (step 5's item 4) always runs if Gmail is in the resolved set, whether or not anyone is watching chat — it's inbox hygiene, not a chat-visible action; and — only if `notify:true` — the notification (step 6) fires. **The Schedule question and the related-workflows question never fire on a recurring run** — those, and only those, are what "silent" excludes.
@@ -88,21 +104,31 @@ Two ways this skill starts:
 1. For each connector in `used_connectors`, make one lightweight, read-only probe call using whatever MCP tool that connector exposes (a minimal list/search call, never a write). A response with no auth error means it's connected right now; an auth error or a missing tool means it isn't. **This probe result — not the questionnaire answer — is the only source of truth for "connected."**
 2. **Gmail and Calendar are probed first**, since they tend to carry the richest everyday signal. Everything else follows.
 3. For an unfamiliar connector name, look for MCP tools whose namespace matches it (e.g. a connector called `{Name}` would expose `mcp__claude_ai_{Name}__*` tools) and use the least invasive read call available. If no matching tool exists at all, treat it as not connected — it becomes a candidate to connect natively or to skip.
+
+   **Known connector bundles — probe, offer, and connect once per bundle, never once per name:**
+
+   | Named tool(s) the user may list | Underlying connector / MCP namespace |
+   |---|---|
+   | Outlook Mail, Outlook Calendar, Teams | Microsoft 365 |
+
+   If two or more of the user's named connectors fall in the same row, they share **one** probe, **one** `suggest_connectors` call, **one** slot of the 2-connector cap (point 6), **one** line in the status message, and **one** `"Skip {bundle}"` option — never a separate one per named tool. Connecting or skipping the bundle resolves every named tool listed in that row at once. **Record it in `tools:`/`skipped:` (step 6) by the bundle's own name (e.g. `Microsoft 365`), never by the individual names the user happened to type** — that's what a future recurring run's silent re-probe (step 1) keys off of.
 4. **If `other` is in `used_connectors`** — it's a signal the user's real stack is bigger than what they listed. Beyond probing the named connectors, look at what other connector tools this session actually has available (its own tool/capability list) and quickly probe any that weren't named. Anything that responds successfully becomes an **extra candidate** below — distinct from a missing named connector, since it's already usable and just needs opting in, no auth flow required.
-5. **If `used_connectors` is non-empty and every named connector's probe succeeds, and step 4 above found no extra candidates to offer — skip straight to step 3** (a no-op there, unless `additional: news` was requested) **and then step 4.** No question at all. **If `used_connectors` was empty from the very start, this is not that case** — zero probes is not zero failures, treat it exactly like an empty resolved set and go to step 3.
+5. **If `used_connectors` is non-empty and every named connector's probe succeeds, and step 4 above found no extra candidates to offer** — there is nothing to ask, but **still send the status message** (point 6's format below, ✅ line only, no 🔌 line) so the user sees confirmation of what's already connected before the flow moves on; then go straight to step 3 (a no-op there, unless `additional: news` was requested) **and then step 4.** No question at all — a status line is not a question and needs no answer. **If `used_connectors` was empty from the very start, this is not that case** — zero probes is not zero failures, treat it exactly like an empty resolved set and go to step 3 (skip the status line too — there's nothing to confirm).
+
+   **Checkpoint before moving on: does the status line you're about to send contain a 🔌 line?** A pure ✅-only (and optionally 📰) line means this point 5 applies — no question, continue straight to step 3. **The instant a 🔌 line is needed, this is point 6 instead, and the `AskUserQuestion` below is mandatory** — never let a status line you're already halfway through writing carry you past a question it should have triggered.
 6. **Otherwise** (something failed to connect, or there's an extra candidate to offer):
-   - **Cap the active connect offer at 2 connectors.** Pick the two highest-priority failed probes (Gmail/Calendar first, then the rest in the order named) and **immediately call `mcp__mcp-registry__suggest_connectors`** for just those two — this renders real, native connect buttons directly in the Cowork UI right away. Any further missing connector beyond these two is **not** given a button this run — mention it in text only, as something the user can connect themselves later by just asking in chat.
-   - **In that same turn**, send one short status message, built dynamically, e.g.:
+   - **Cap the active connect offer at 2 connectors.** Pick the two highest-priority failed probes (Gmail/Calendar first, then the rest in the order named — a bundle from the table in point 3 counts as one item here regardless of how many of its names were listed) and **immediately call `mcp__mcp-registry__suggest_connectors`** for just those two — this renders real, native connect buttons directly in the Cowork UI right away. Any further missing connector beyond these two is **not** given a button this run — mention it in text only, as something the user can connect themselves later by just asking in chat.
+   - **In that same turn**, send one short status message, built dynamically — always sent, whether or not there's a question after it, e.g.:
      ```
      Checking what's already connected…
      ✅ Gmail and Google Calendar are set
-     🔌 Notion isn't connected — I've opened the connect form above
+     🔌 Notion isn't connected — tap the button above to connect it in one click
      📰 I'll add News to the brief as its own tile
      ```
-     — the ✅ line lists everything already connected (Gmail/Calendar first if present); the 🔌 line names the (at most 2) connectors just offered a connect form; if there are more missing beyond those 2, add one more line naming them and noting they can be connected later by asking; the 📰 line appears only if Today News (step 3) will run this pass (fallback or explicit request) — omit any line with nothing to say. Translate into the user's language.
+     — the ✅ line lists everything already connected (Gmail/Calendar first if present); the 🔌 line names the (at most 2) connectors/bundles just offered a connect button; if there are more missing beyond those 2, add one more line naming them and noting they can be connected later by asking; the 📰 line appears only if Today News (step 3) will run this pass (fallback or explicit request) — omit any line with nothing to say. Translate into the user's language.
    - **Immediately after**, ask via `AskUserQuestion` — one call, up to two questions:
-     - Always include a `multiSelect` question letting the user explicitly skip anything still pending: `"Skip anything?"` with one option per connector just offered a connect form (`"Skip {name}"`). Leaving all unselected means "still open, don't skip" — submitting the question (with any selection) is what resumes the flow, no separate confirmation needed.
-     - **Only if step 4 found extra candidates**, add a second `multiSelect` question: `"What should I add to the brief?"` with one option per extra candidate plus a fixed `"Add nothing"` — matching the pattern "I also see Todoist and Linear connected. What should I add to the brief?".
+     - Always include a `multiSelect` question letting the user explicitly skip anything still pending: `"Skip anything?"` with one option per connector just offered a connect button (`"Skip {name}"`). Leaving all unselected means "still open, don't skip" — but the flow must still literally wait for the `AskUserQuestion` tool call to return an answer; never proceed before that.
+     - **Only if step 4 found extra candidates**, add a second `multiSelect` question: `"What should I add to the brief?"` with one option per extra candidate plus a fixed `"No, that's enough"` — matching the pattern "I also see Todoist and Linear connected. What should I add to the brief?".
    - **Never gate the real connect flow behind a question the user has to answer first** — the native connect buttons from `suggest_connectors` are already live in the same turn as the question above.
 7. When the user connects something through the native buttons from `suggest_connectors`, that's picked up by the re-probe in point 8 below — never restart the whole check. Answering "Skip {name}" marks that connector done-for-this-run, no further nagging. Picking an "Add" option needs no connect flow at all — it's already usable, just fold it straight into the resolved set.
 8. **On the AskUserQuestion response, re-probe every connector still marked "not yet connected" that wasn't explicitly skipped** — cheap, and it's the only way to catch a connection the user just made through the native buttons from `suggest_connectors`, since that flow doesn't report back directly. This includes connectors beyond the 2-cap that were only mentioned in text. The **resolved set** = every connector whose probe succeeded (original pass or this re-probe), plus any added, minus anything explicitly skipped. **Track the skipped list too** — carried forward as `skipped:` into the schedule config in step 6, so a future recurring run can quietly notice if one of them gets connected later (see step 1) without ever asking again. `xTiles` itself is required, not optional — if it's not connected, this skill isn't reachable at all; connect it first.
@@ -179,7 +205,7 @@ Tool: `mcp__xtiles__xtiles_create_tiles_from_markdown_in_my_planner`
 
 **Write content tiles only** — no date/header tile, no meta or self-tuning tiles.
 
-**Before finalizing the task list — dedup against already-open tasks.** Call `mcp__xtiles__xtiles_list_tasks` for tasks that are **not completed**, due yesterday or today, and drop any action item about to be written whose text duplicates one that's already open. Never recreate the same unfinished task twice across two runs.
+**Before finalizing the task list — dedup against already-open tasks.** Call `mcp__xtiles__xtiles_list_tasks` for tasks that are **not completed** — regardless of due date, not just yesterday/today — and drop any action item about to be written whose text duplicates one that's already open. **A task with a real future deadline (dueDate set days out) is still open today and must be included in this check** — narrowing the window to "due yesterday or today" would let it silently duplicate on a later run once its own due date has passed. Never recreate the same unfinished task twice across two runs.
 
 **Resolve the assignee once per run.** Call `mcp__xtiles__xtiles_get_current_user` and reuse that email for the `assignee` attribute on **every** `<task>` written this run — first or recurring, no exceptions.
 
@@ -285,11 +311,11 @@ Same idea for Slack — a quiet day gets one `### 💬 Slack` tile with a `**Men
 
 **After the write — run in order, no exceptions:**
 
-1. Write `✅ Daily created. [Open in xTiles →]({resource_url})` — a plain markdown hyperlink to the `resource_url` of the first tile in the write response (fall back to the page URL only if that's missing). No widget, no button.
-2. **Layout pass — mandatory, silent, never asked about.** Read `view_id` and `tile_ids` from the write response (never re-derive them). Call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly, **passing `tile_ids` as its "added tiles" and the markdown just written as their content** — those are required inputs the workflow itself expects, not optional context — plus these **layout hints**: 1–4 tiles, default 2 per row, give a heavy tile its own full-width row. This workflow is the one that actually calls `xtiles_get_page_layout`/`xtiles_set_page_layout` — skipping the input handoff here is why it can silently do nothing.
+1. Write `✅ Your Daily Brief is ready — built just now from real data. [Open in xTiles →]({resource_url})` — a plain markdown hyperlink to the `resource_url` of the first tile in the write response (fall back to the page URL only if that's missing). No widget, no button. **Manual (first) runs only — never sent on a silent recurring run** (step 1's recurring path has no chat audience).
+2. **Layout pass — mandatory, silent, never asked about.** Read `view_id` and `tile_ids` from the write response (never re-derive them). **If either is genuinely missing from that response** — don't block or retry the write; skip this layout pass for this run only (the tiles remain written and usable, just unarranged) and continue to the next item below. This is the one case where the layout pass is allowed to not run. Otherwise, call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly, **passing `tile_ids` as its "added tiles" and the markdown just written as their content** — those are required inputs the workflow itself expects, not optional context — plus these **layout hints**: default 2 tiles per row, give a heavy tile its own full-width row — this holds regardless of tile count; a rich run (e.g. split Email + Slack + Calendar + Notion + News) can easily produce 5+ tiles, and the workflow should still lay all of them out, just across more rows of the same 2-per-row grid. This workflow is the one that actually calls `xtiles_get_page_layout`/`xtiles_set_page_layout` — skipping the input handoff here is why it can silently do nothing.
 3. **Non-scheduled runs only:** immediately ask the Schedule question — see step 6. Never a widget.
 4. **If Gmail is in the resolved set — mandatory, silent, every run:** mark every ⚪ Noise and newsletter thread as read with `mcp__claude_ai_Gmail__unlabel_thread` (remove `UNREAD`). Never touch 🔴 or 🟡 threads, and never draft or send anything on the user's behalf — this only marks threads read.
-5. **Recurring runs only, and only if the config's `notify:` is `true`:** call `mcp__xtiles__xtiles_create_notification` — `url` the tile-focused deep link, `text` the fixed string `"Your Daily Digest is ready — see what matters today in 2 min."` translated into the user's language (never customized beyond translation), `agent_source` `"Claude"`.
+5. **Recurring runs only, and only if the config's `notify:` is `true`:** call `mcp__xtiles__xtiles_create_notification` — `url` the tile-focused deep link, `text` the fixed string `"Your Daily Brief is ready — see what matters today in 2 min."` translated into the user's language, with exactly one allowed addendum: if step 1 just silently reconnected something from `skipped:`, append `" {Name} just connected — added to today's brief."` for that one run only — never customized any other way.
 
 ### 6. Schedule (optional)
 
@@ -297,16 +323,18 @@ The Schedule question is asked right after the write (step 5). **A schedule set 
 
 Before asking, say one line adapting this to the actual resolved connectors, translated into the user's language:
 
-> I'll automatically pull signals from {resolved connectors, e.g. Gmail and Calendar} and write your Daily to xTiles — no need to ask each time. And if your current connectors aren't enough, just ask me to add more in chat and I'll improve your future brief.
+> I'll automatically pull signals from {resolved connectors, e.g. Gmail and Calendar} and write your Daily Brief to xTiles — no need to ask each time.
 
 Then ask via `AskUserQuestion` (one call, two questions):
 
 - `"Run this every morning?"` (single_select): `"Yes, 9:00 on weekdays"`, `"Yes, 9:00 every day"`, `"No, thanks"` — the user can also pick "Other" for a custom time/cadence.
-- `"Notify me in xTiles each time it's ready?"` (single_select): `"Yes, notify me"`, `"No notifications"`.
+- `"Notify me in xTiles each time it's ready?"` (single_select): `"Yes, notify me"`, `"No, thanks"`.
 
 In Claude Code (no Cowork), ask the same two things as plain text if `AskUserQuestion` isn't available.
 
-- If scheduling was chosen (either preset or a parsed custom time/cadence) — invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`:
+- If scheduling was chosen (either preset or a parsed custom time/cadence):
+  - **First, before creating anything, ask one more `AskUserQuestion`** (`multiSelect`): `"Add anything to your Daily Brief before I schedule it?"` — one option per extra candidate found back in step 2 that the user didn't already opt into (`"Add {name}"`), plus a fixed `"No, that's enough"`. **This question always fires when scheduling is chosen, even with zero extra candidates — the sole option is then just `"No, that's enough"`. Never skip asking it just because there's nothing to add**, and the flow must literally wait for the answer before continuing. The user can also type a brand-new tool name via the built-in "Other" option. If they name a new tool, run it through the same probe/connect flow as step 2 for just that one connector (one `suggest_connectors` call, one re-probe) and fold the result into today's resolved set. **Fold every addition from this question into the resolved set before the config below is assembled** — the recurring config gets created once, already final, never scheduled first and patched afterward.
+  - **Then** invoke `anthropic-skills:schedule`, then `mcp__scheduled-tasks__create-scheduled-tasks`:
   - **`prompt`**: the full recurring-run config, assembled from this run's resolved state —
     ```
     Run brief-onboarding — role: {role} · tools: {resolved connector set} · skipped: {connectors whose probe failed or that the user skipped, or "none"} · news_categories: {the exact categories step 3 used this run — only include this field at all if step 3 ran} · additional: {"news" if this run's Today News tile came from an explicit request, otherwise omit} · notify: {true/false} (if true, call xtiles_create_notification at the very end of that run — mandatory, do not skip) · schedule: daily-{HH:MM} days:{days}
@@ -317,23 +345,27 @@ In Claude Code (no Cowork), ask the same two things as plain text if `AskUserQue
   - **`schedule`**: cron built from the answer the same way as any other scheduled task — `9:00 on weekdays` → `M H * * 1-5`, `9:00 every day` → `M H * * *`, a custom answer → parse it the same way. Default `0 9 * * 1-5`.
   - **`timezone`**: from `mcp__xtiles__xtiles_get_user_timezone`.
   - **If `notify:true`** — the digest already on the page right now is worth notifying about too; call `mcp__xtiles__xtiles_create_notification` immediately with the same fixed text as step 5's item 5.
-  - Confirm: "Done — your Daily will be ready in xTiles every morning at [time]." (append ", and I'll notify you in xTiles each time" if `notify:true`). **Continue to step 7 in the same turn.**
+  - Confirm: "Done — your Daily Brief will be ready in xTiles every morning at [time]." (append ", and I'll notify you in xTiles each time" if `notify:true`). **Continue to step 7 in the same turn.**
 - If **"No, thanks"** — acknowledge briefly, **continue to step 7 in the same turn.**
-- **If `anthropic-skills:schedule` or `mcp__scheduled-tasks__create-scheduled-tasks` genuinely isn't available in this environment — this is not a dead end.** Say so in one plain line ("I can't set up automatic scheduling in this environment — but your Daily is ready, and I'll build a fresh one anytime you ask.") and, if `notify:true` was requested, still send today's notification per the bullet above — that part never depended on the schedule actually being created. **Then continue to step 7 in the same turn, exactly as if the user had said "No, thanks."** A missing scheduling tool skips the schedule itself, never the mandatory closing step.
+- **If `anthropic-skills:schedule` or `mcp__scheduled-tasks__create-scheduled-tasks` genuinely isn't available here — this is not a dead end.** Say so in one plain line ("I can't set up automatic scheduling here just yet — but your Daily Brief is ready, and I'll build a fresh one anytime you ask.") and, if `notify:true` was requested, still send today's notification per the bullet above — that part never depended on the schedule actually being created. **Then continue to step 7 in the same turn, exactly as if the user had said "No, thanks."** A missing scheduling tool skips the schedule itself, never the mandatory closing step.
 
 ### 7. Related workflows
 
-**Mandatory closing step of every manual run** (skip only on a silent recurring run, which ends after step 5's notification). Ask via `AskUserQuestion` (single select): "Want to set up anything else on xTiles?"
-- 🌙 Evening Reflection — an end-of-day synthesis seeded for tomorrow
-- 📰 Today News — a daily news digest on topics you care about
-- 📊 Weekly Review — a weekly summary of what moved forward this week
-- Nothing else, thanks
+**Mandatory closing step of every manual run** (skip only on a silent recurring run, which ends after step 5's notification). **Branches on step 6's outcome — never the same question regardless of the answer:**
 
-On selection, send the exact matching phrase to hand off (never run it yourself):
-- Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
-- Today News → `Set workflow of Today News (today-news) on xTiles MCP`
-- Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
-- "Nothing else" — acknowledge briefly and stop.
+- **If step 6 ended in a schedule actually being created** — the user is in a "yes" mood; ask the full question via `AskUserQuestion` (single select): "Want to set up anything else?"
+  - 🌙 Evening Reflection — a quick end-of-day recap that sets tomorrow up for you
+  - 📰 Today News — a daily news digest on topics you care about (**omit this option entirely if step 3 already built a Today News tile this run** — offering it again reads as duplicating what they just got)
+  - 📊 Weekly Review — a recap of what moved forward this week
+  - Nothing else, thanks
+
+  On selection, send the exact matching phrase to hand off (never run it yourself):
+  - Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
+  - Today News → `Set workflow of Today News (today-news) on xTiles MCP`
+  - Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
+  - "Nothing else" — acknowledge briefly and stop.
+
+- **If step 6 ended in "No, thanks", or the scheduling tool was unavailable** — the user just declined one piece of automation; don't immediately ask them to consider another. No `AskUserQuestion` here. Send one short, low-pressure line instead and stop: "You can also set up Evening Reflection, Today News, or Weekly Review anytime — just ask."
 
 ---
 
@@ -346,7 +378,7 @@ Do not send the user to settings manually and do not give a URL to follow. Call 
 2. The `AskUserQuestion` shown alongside it (step 2) is what resumes the flow once the user is done — there is no separate confirmation step. The user clicks the connect button(s), the auth flow runs natively for each, and answering the question (even with nothing selected) continues from where the run left off.
 3. Re-probe as described in step 2, point 8, to pick up anything just connected.
 
-**Fallback when the registry is unavailable (free plans).** Explain that connecting more tools requires upgrading the plan / enabling connectors, and proceed with whatever's already usable — the run still produces a real brief.
+**Fallback when the registry is unavailable (free plans).** Say so in one reassuring line, e.g. "Connecting more tools needs a plan upgrade — for now, I'll build your Daily Brief from what's already connected, and it'll still be a real, useful one." — then proceed with whatever's already usable. Never let this read as a dead end.
 
 **This connect flow is always optional here.** Every connector offered in step 2 already has a skip path. Never let a stalled or failed connect attempt block the run — if it doesn't complete, drop that connector and continue.
 
@@ -357,17 +389,21 @@ Do not send the user to settings manually and do not give a URL to follow. Call 
 - **Never show a role/tools survey.** `role:`, `used_connectors:`, and `additional:` are always already in the incoming message.
 - **Never trust the questionnaire alone for connection status.** Probe live, every time (step 2).
 - **Never block on a connector.** Every missing connector has an explicit, visible way to skip it in the step 2 question — never an implicit "leave it unselected" — and answering always proceeds regardless.
+- **Named connectors that are really one bundled connector (e.g. Outlook Mail / Outlook Calendar / Teams under Microsoft 365 — table in step 2, point 3) are probed, offered, and resolved once, never once per name.**
+- **Always send the step 2 status line, even when nothing needs asking.** If every named connector already works, still confirm what's connected in one short line before moving on (step 2, point 5) — silence there is what makes the flow feel like it skipped past the user.
 - **Never gate the real connect flow behind a question the user has to answer first.** Call `mcp__mcp-registry__suggest_connectors` proactively the moment there's something missing (step 2, point 6) — the native connect buttons render immediately, in the same turn as the question.
 - **Never end a run with nothing in it.** Zero usable connectors, or an explicit `additional: news` request, triggers Today News (step 3) — never ship an empty digest. **Step 3 is a mandatory checkpoint on every path, first run or recurring** — never route directly from step 1 or step 2 to step 4 and skip it, even when it turns out to be a no-op.
 - **If `other` was named, actively look for extra connectors beyond what was listed** (step 2, point 4) — offer them as an "Add" option, not "Connect," since they're already usable. This is what "other" is for; don't let it go unanswered.
 - **Never wait for approval before writing.** Write directly to xTiles once step 4's fetch completes — first run or recurring alike. There is no preview and no approval gate anywhere in this skill.
+- **That "no approval gate" is about the write, not about the questions.** Every `AskUserQuestion` in steps 2, 6, and 7 must actually wait for the user's answer before the next step runs — don't let "no approval needed to generate the brief" bleed into skipping or auto-advancing past an interactive question.
+- **Before scheduling, ask once if the user wants to add anything else** (step 6) — fold any addition into the resolved set first, then create the recurring config once, already final.
 - **Never dump the brief's content as plain text in chat.** The tiles in xTiles are the only deliverable — chat only ever carries the short intro line, the Connector-check question, the write confirmation + link, the Schedule question, and the Related-workflows question.
 - **A distinct tool is always a distinct tile, never merged by category** (step 4) — two calendars, or Gmail and Reclaim, never share a tile.
 - **Never let a third-party connector's own preview render in chat** (step 4) — its data feeds your tile, it never appears as its own card.
 - **Check `xtiles_list_tasks` before writing any task** (step 5) — never recreate an already-open action item from yesterday or today.
 - **Every `<task>` carries `assignee`, always** (step 5) — the current xTiles user's own email, resolved via `xtiles_get_current_user`, every run, no exceptions.
 - Never put example names, events, or messages into a written tile — only real data.
-- **Every interactive moment** (the Connector check, Schedule, Related workflows) uses `AskUserQuestion` — this skill never uses `show_widget` or any HTML form.
+- **Every interactive moment** (the Connector check, Schedule — up to two sequential calls, step 6 — and Related workflows) uses `AskUserQuestion` — this skill never uses `show_widget` or any HTML form.
 - If context is missing — ask, don't guess.
 - Real data always beats placeholders.
 - Daily is the only period. If asked for Weekly or Monthly, say only Daily is supported and offer a Daily page instead.
