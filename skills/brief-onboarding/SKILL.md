@@ -8,29 +8,20 @@ description: >
   serves every **recurring** run once the user schedules it — there is no
   separate daily-digest skill to hand off to.
 
-  Entry data on a first run (already known, never re-asked with a survey).
-  **The real starting message never carries literal `role:`/`used_connectors:`/
-  `additional:` field labels** — it looks like: "Set workflow of Onboarding
-  Brief (brief-onboarding) on xTiles MCP with the following information:
-  Role: {role}. My connectors: {tools}. News_yes" (or `News_no`) — a bare
-  affirmative/negative News token, with no `"Additional:"` prefix before it
-  at all. Everywhere else in this file, these three semantic slots are
-  referred to by their internal names: `role:` (the role), `used_connectors:`
-  (the "My connectors:" list — may include a custom name, or `other`), and
-  `additional:` (present only when the News token is affirmative — see
-  below). A labeled-field variant or an equivalent natural bullet list (e.g.
-  "Role: Marketing · My connectors: Notion, Google Calendar, Gmail, Other ·
-  Additional: News") is just as valid — parse whichever shape actually
-  carries these semantic slots, never re-derive them from a survey.
+  Entry data on a first run (already known, never re-asked with a survey):
+  `role:` — the role; `used_connectors:` — the "My connectors:" list (may
+  include a custom name, or `other`); `additional:` — set only when News
+  was explicitly requested (`News`/`News_yes`, case-insensitive; normalize
+  to lowercase `news` when persisting it in step 6). A negative like
+  `News_no` never counts, even though it contains "News".
 
-  `additional:` — optional, often absent; the only value recognized today is
-  News (case-insensitive and label-free on the way in — `News_yes`, `News`,
-  `news`, `NEWS`, "yes please" all match; always normalize it to lowercase
-  `news` in any config this skill itself writes back out, e.g. in step 6's
-  persisted `additional:`), meaning the user explicitly asked for a news
-  tile regardless of connector state. **A negative value (`News_no`, "no",
-  "Additional: none") is never treated as a News request just because the
-  substring "News" appears in it** — only an explicit affirmative counts.
+  The real starting message carries none of these labels — it looks like:
+  "Role: {role}. My connectors: {tools}. News_yes" (or `News_no`). A
+  labeled-field variant or natural bullet list (e.g. "Role: Marketing · My
+  connectors: Notion, Google Calendar, Gmail, Other · Additional: News")
+  works the same way — parse whichever shape carries these three values,
+  never re-derive them from a survey.
+
   **Connection status is never handed to this skill as data — it determines
   that itself**, with a lightweight live probe per named connector (see step
   2). Gmail and Calendar are probed first, as the highest-value connectors.
