@@ -31,12 +31,16 @@ description: >
   "onboard a new xTiles user into the Planner", "Set workflow of Onboarding
   Brief (brief-onboarding) on xTiles MCP".
 
-  Environment: this is the Claude / Cowork variant — every interactive moment
-  (Connector check, Schedule — which itself is up to two sequential
+  Environment: this is the Claude / Cowork variant — every interactive
+  moment (Connector check, Schedule — which itself is up to two sequential
   `AskUserQuestion` calls, see step 6 — and Related workflows) uses
-  `AskUserQuestion`. This skill never uses `show_widget` or any HTML form. In ChatGPT Work, where
-  every question is an inline `ask_user_input` / `genui` surface, use
-  `brief-onboarding-with-gpt` instead.
+  `AskUserQuestion`, never an HTML form. **The one exception is the CTA
+  after the write (step 5) — a single non-interactive `show_widget` button
+  linking to the fresh brief** (see "CTA widget HTML" below); this is the
+  only `show_widget` call in this skill, it carries no choices to make, and
+  it never replaces an `AskUserQuestion` anywhere else in the flow. In
+  ChatGPT Work, where every question is an inline `ask_user_input` / `genui`
+  surface, use `brief-onboarding-with-gpt` instead.
 
   Environment triggers: "Brief Onboarding in Claude", "the Claude version",
   "Claude Onboarding Preview".
@@ -54,7 +58,8 @@ allowed-tools: >
   mcp__mcp-registry__suggest_connectors,
   anthropic-skills:schedule,
   mcp__scheduled-tasks__create-scheduled-tasks,
-  AskUserQuestion
+  AskUserQuestion,
+  show_widget
 ---
 
 # xTiles Onboarding — First & Recurring Daily Brief
@@ -71,7 +76,7 @@ allowed-tools: >
 8. **Never surface a third-party connector's own preview in chat.** Read what Todoist, Reclaim, or any other connector returns purely as data to build your own xTiles tile — never let its raw response render as its own card in the conversation, and avoid calls whose only purpose is to produce one.
 9. **Never recreate a task that's already open.** Check `xtiles_list_tasks` before writing any `<task>` (step 5) and drop anything that duplicates an already-open task from yesterday or today.
 10. **Every write is followed by the layout pass.** The moment tiles are created, re-lay them out into a justified grid via the shared `tile-layout` workflow — automatically, before the CTA, never skipped.
-11. **The only deliverable is tiles written to xTiles.** A run — first or recurring — is complete only when the tiles are in xTiles and the full post-write sequence has run: layout pass → Gmail follow-through (if applicable) → CTA link → schedule question → related-workflows question. **On a silent recurring run, only the layout pass, Gmail follow-through, and the opt-in notification still happen** — the CTA, schedule question, and related-workflows question are all skipped (see step 1 and step 7).
+11. **The only deliverable is tiles written to xTiles.** A run — first or recurring — is complete only when the tiles are in xTiles and the full post-write sequence has run: layout pass → Gmail follow-through (if applicable) → CTA button → schedule question → related-workflows question. **On a silent recurring run, only the layout pass, Gmail follow-through, and the opt-in notification still happen** — the CTA, schedule question, and related-workflows question are all skipped (see step 1 and step 7).
 
 ---
 
@@ -302,7 +307,7 @@ Same idea for Slack — a quiet day gets one `### 💬 Slack` tile with a `**Men
 
 **After the write — run in order, no exceptions:**
 
-1. Write `✅ Your Daily Brief is ready — built just now from real data. [Open in xTiles →]({resource_url})` — a plain markdown hyperlink to the `resource_url` of the first tile in the write response (fall back to the page URL only if that's missing). No widget, no button. **Manual (first) runs only — never sent on a silent recurring run** (step 1's recurring path has no chat audience).
+1. Write `✅ Your Daily Brief is ready — built just now from real data.` in chat, then immediately call `show_widget` with the **CTA widget HTML** (see below), replacing `{VIEW_URL}` with the `resource_url` of the **first** tile in the write response (fall back to the page URL, `https://xtiles.app/{view_id}`, only if that's missing). **Never leave `{VIEW_URL}` unresolved and never output a markdown link instead of the widget — the button must render every time this item runs.** **Manual (first) runs only — never sent on a silent recurring run** (step 1's recurring path has no chat audience).
 2. **Layout pass — mandatory, silent, never asked about.** Read `view_id` and `tile_ids` from the write response (never re-derive them). **If either is genuinely missing from that response** — don't block or retry the write; skip this layout pass for this run only (the tiles remain written and usable, just unarranged) and continue to the next item below. This is the one case where the layout pass is allowed to not run. Otherwise, call `mcp__xtiles__xtiles_get_workflow` with id `tile-layout` and follow it exactly, **passing `tile_ids` as its "added tiles" and the markdown just written as their content** — those are required inputs the workflow itself expects, not optional context — plus these **layout hints**: default 2 tiles per row, give a heavy tile its own full-width row — this holds regardless of tile count; a rich run (e.g. split Email + Slack + Calendar + Notion + News) can easily produce 5+ tiles, and the workflow should still lay all of them out, just across more rows of the same 2-per-row grid. This workflow is the one that actually calls `xtiles_get_page_layout`/`xtiles_set_page_layout` — skipping the input handoff here is why it can silently do nothing.
 3. **Non-scheduled runs only:** immediately ask the Schedule question — see step 6. Never a widget.
 4. **If Gmail is in the resolved set — mandatory, silent, every run:** mark every ⚪ Noise and newsletter thread as read with `mcp__claude_ai_Gmail__unlabel_thread` (remove `UNREAD`). Never touch 🔴 or 🟡 threads, and never draft or send anything on the user's behalf — this only marks threads read.
@@ -375,6 +380,23 @@ Do not send the user to settings manually and do not give a URL to follow. Call 
 
 ---
 
+## CTA widget HTML
+
+Show this via `show_widget` immediately after the write (step 5, item 1) — the one and only `show_widget` call in this skill. Replace `{VIEW_URL}` with the tile-level link resolved in step 5's write sequence (falling back to the page URL only if no tile-level link was available) before calling `show_widget`. Translate the button label into the user's language.
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow:hidden;height:auto}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:12px;background:transparent}
+.btn{display:block;width:100%;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;color:#fff;background:#1a1a1a;text-align:center;text-decoration:none;transition:background .15s}
+.btn:hover{background:#333}
+</style>
+<a class="btn" href="{VIEW_URL}" target="_blank">Open your Daily Brief in xTiles</a>
+```
+
+---
+
 ## How to behave
 
 - **Never show a role/tools survey.** `role:`, `used_connectors:`, and `additional:` are always already in the incoming message.
@@ -388,13 +410,13 @@ Do not send the user to settings manually and do not give a URL to follow. Call 
 - **Never wait for approval before writing.** Write directly to xTiles once step 4's fetch completes — first run or recurring alike. There is no preview and no approval gate anywhere in this skill.
 - **That "no approval gate" is about the write, not about the questions.** Every `AskUserQuestion` in steps 2, 6, and 7 must actually wait for the user's answer before the next step runs — don't let "no approval needed to generate the brief" bleed into skipping or auto-advancing past an interactive question.
 - **Before scheduling, ask once if the user wants to add anything else** (step 6) — fold any addition into the resolved set first, then create the recurring config once, already final.
-- **Never dump the brief's content as plain text in chat.** The tiles in xTiles are the only deliverable — chat only ever carries the short intro line, the Connector-check question, the write confirmation + link, the Schedule question, and the Related-workflows question.
+- **Never dump the brief's content as plain text in chat.** The tiles in xTiles are the only deliverable — chat only ever carries the short intro line, the Connector-check question, the write confirmation + CTA button, the Schedule question, and the Related-workflows question.
 - **A distinct tool is always a distinct tile, never merged by category** (step 4) — two calendars, or Gmail and Reclaim, never share a tile.
 - **Never let a third-party connector's own preview render in chat** (step 4) — its data feeds your tile, it never appears as its own card.
 - **Check `xtiles_list_tasks` before writing any task** (step 5) — never recreate an already-open action item from yesterday or today.
 - **Every `<task>` carries `assignee`, always** (step 5) — the current xTiles user's own email, resolved via `xtiles_get_current_user`, every run, no exceptions.
 - Never put example names, events, or messages into a written tile — only real data.
-- **Every interactive moment** (the Connector check, Schedule — up to two sequential calls, step 6 — and Related workflows) uses `AskUserQuestion` — this skill never uses `show_widget` or any HTML form.
+- **Every interactive moment** (the Connector check, Schedule — up to two sequential calls, step 6 — and Related workflows) uses `AskUserQuestion`, never `show_widget` or any HTML form. **The single exception is the CTA button after the write (step 5)** — non-interactive, no choices, the only `show_widget` call in this skill.
 - If context is missing — ask, don't guess.
 - Real data always beats placeholders.
 - Daily is the only period. If asked for Weekly or Monthly, say only Daily is supported and offer a Daily page instead.
