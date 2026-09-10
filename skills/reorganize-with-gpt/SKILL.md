@@ -124,6 +124,12 @@ Group the source content into thematic tiles. For each tile:
 
 - **Title** — a short phrase pulled from that tile's own wording, never
   invented. Prefix it with one fitting emoji.
+  - **Exception — an image-only tile gets no title.** If a tile's only real
+    content is an image (or images) — no other body text besides what would have
+    been the title — leave its `###` heading **empty**: emit the `###` line with
+    no text and no emoji after it, so the `###` still delimits the tile but no
+    title bar renders and the image stands alone. (A tile that has an image
+    **and** other text keeps a normal title.)
 - **Body** — the exact source blocks that belong to it, copied verbatim; moving
   *which* tile a block sits under is fine, touching its wording is not. A tile
   holds at most 40 blocks — if a group's content would exceed that, split it
@@ -161,22 +167,28 @@ Identify the one tile that holds the page's actual point (its decision, goal,
 or summary) — this is the **primary tile**.
 
 **Grid.** Canvas pages are a 48-column-wide grid; every tile needs `x + w ≤ 48`,
-minimum size 8 wide × 2 tall (default 16×12), and tiles may never overlap.
+**minimum size 8 wide × 12 tall** (which is also the default), and tiles may
+never overlap. **No tile is ever shorter than `h=12`** — 12 is the floor, not
+just a default.
 
-**Size tiles to their content, not the default.** The 8×2 floor and the 16×12
-default both exist only for a tile with a single short line to show — most
-content-bearing tiles need to grow past the *default*, not just past the
-floor. Scale `h` up with block count: a short paragraph can stay near the
-default, but a multi-row table or a list of several items needs roughly
-double that (`h=24` or more), and a long table or dense list needs more
-still. Never leave a table, image, or multi-item list resting at the 16×12
-default — that default is a starting point for a near-empty tile, not a
-target size for real content.
+**Size tiles to their content, not the floor.** The `h=12` minimum exists only
+for a tile with a single short line to show — most content-bearing tiles need to
+grow well past it. Scale `h` up with block count: a short paragraph can stay near
+`h=12`, but a multi-row table or a list of several items needs roughly double
+that (`h=24` or more), and a long table or dense list needs more still. Never
+leave a table, image, or multi-item list resting at `h=12` — that minimum is a
+starting point for a near-empty tile, not a target size for real content.
+
+**Tables show in full — never collapsed to a `… more` / `> more` link.** Size a
+table tile's `h` to its full row count (budget roughly 2 grid rows per table row,
+plus the header and tile chrome) so every row is visible at once. If a table
+would be truncated with a `… more` / `> more` affordance, the tile is too short —
+raise `h` until the whole table shows. Never leave a table cropped or collapsed.
 
 **Images get room to show in full.** A tile whose body includes an
 `![alt](url)` image block needs `w`/`h` sized so the image isn't cropped —
-give it at least `h=24`, more for a tall/portrait image. The 16×12 default
-crops most images and is never an acceptable resting size for an image tile.
+give it at least `h=24`, more for a tall/portrait image. `h=12` crops most
+images and is never an acceptable resting size for an image tile.
 
 **Position** with the inline directive, on its own line directly under the
 tile's `###` heading:
