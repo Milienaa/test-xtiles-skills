@@ -242,32 +242,7 @@ connected, stop and connect it first.
 
 ## Stage 3 — Channels and Newsletters
 
-**Channels** — only if `channel_updates` is selected and the user has not
-already named channels. Discover first, then ask:
-
-1. Search `general`, `all`, `team`, `company`, `announcements`, `product`.
-2. With consent, `slack_search_public_and_private` for `from:me` and `to:me`.
-   Per channel record **recency** of the user's last post/mention (primary
-   signal) and **frequency** (tiebreaker).
-3. Derive 2–3 role-relevant terms and search them, plus any interests the user
-   named.
-4. Drop duplicates and low-signal names (`random`, `fun`, `off-topic`, `bots`,
-   `test`, `hiring`, `onboarding`).
-5. Rank: recent personal activity → frequency → role/interest match → bare
-   presence in a universal channel. Put the strongest 5 first (max 2 general),
-   then list the rest.
-
-```
-genui{"ask_user_input":{"questions":[
-  {"question":"Which channels do you open first each morning?","options":["<discovered channels, strongest first>"],"type":"multi_select","free_text_placeholder":"Add another channel"}
-]}}
-```
-
-**Cap the options at 10 per question** (interactive-form contract, rule 9). If
-more than 10 channels remain after ranking, keep the strongest 10 in this
-question and offer the rest in a second `multi_select` form — never drop a
-discovered channel silently. Without consent, discover public channels only.
-Free-text channel names are kept exactly as typed.
+**Channels — no picker (metadata-first change).** The channel-discovery pass and the channel picker are removed — they were the cause of "not all my channels show up" and of replies to older threads being missed. Do not run discovery and do not emit a channel-select form. Stage 4 covers Slack from a time-windowed search across **every** channel the user belongs to (see Stage 4 — Slack). If the user volunteers specific channels, keep them as an optional priority filter for Stage 4; otherwise Stage 4 pulls from everywhere. `channel_updates` staying selected just means "include Slack" — it no longer triggers a picker.
 
 **Newsletters** — only if `newsletters` is selected. Search Gmail
 `from:(@substack.com OR @beehiiv.com OR @convertkit.com OR @mailchimp.com) newer_than:30d`,
@@ -292,11 +267,30 @@ user asks to change it.
 No messages while fetching. Record a connector **error** separately from an
 empty **result** — they render differently.
 
-**Gmail — important unread**: `search_threads` with
-`is:important in:inbox newer_than:1d`, then `get_thread` per hit for sender,
-subject and `threadId` (link:
-`https://mail.google.com/mail/u/0/#inbox/{threadId}`). Exclude newsletters here
-entirely. Classify into three buckets:
+**Metadata-first.** Every connector below follows the same shape: **one
+server-side, window-scoped list/search call → triage on the metadata it returns
+(sender, subject, title, timestamps, status, counts) → open full content
+(`get_thread`, `slack_read_thread`, transcripts, event descriptions) only for the
+handful of items that will land in a tile.** Never pull bodies to decide
+relevance; fire the selected connectors as parallel calls, then the capped reads.
+**Shared window:** `oldest` = the previous successful brief's timestamp (fallback
+`now − 26 h`), `latest` = now, resolved via `xtiles_get_user_timezone`.
+
+**Gmail — important unread (metadata-first).** Reading every unread body is the
+biggest waste in the old fetch — don't. Instead:
+1. **One tight server-side search.** `search_threads`, query
+   `is:unread in:inbox (is:important OR category:primary) -category:promotions -category:social -category:forums newer_than:2d`.
+   The result list already carries `from`, `subject`, `snippet`, `date`,
+   `threadId`, labels. Exclude newsletters here entirely.
+2. **Classify from that metadata alone** into the three buckets below — sender +
+   subject + snippet is enough to tell "reply needed" from "confirmation" from
+   "automated alert".
+3. **`get_thread` only for 🔴 Needs-action threads — hard cap 5** (highest
+   `is:important` first if more). This is the only place a body is read: to pin
+   the exact next step and confirm the `threadId` for the link
+   (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+4. **🟡 and ⚪ never get a `get_thread`.** 🟡 = one-liner from subject+snippet, no
+   link. ⚪ = count only, never enumerated.
 
 - 🔴 **Needs action** — the user must reply, decide, act, or log in.
 - 🟡 **FYI** — confirmations, payments, signed docs, status updates. One-liners,
@@ -307,12 +301,39 @@ Tone for 🔴/🟡: retell the email, don't copy the subject. Subject → action
 consequence, second person, people's names not addresses ("Google shut down your
 ad account yesterday — log in and appeal, the window is limited").
 
-**Gmail — newsletters**: `search_threads` on the selected senders plus the
-common newsletter domains, `is:unread newer_than:1d`. One factual line each plus
-its thread link.
+**Gmail — newsletters (metadata-first)**: `search_threads` on the selected
+senders plus the common newsletter domains, `newer_than:2d` (drop `is:unread` —
+a newsletter read on the phone still belongs in the digest). **Summarise each
+from `subject` + `snippet`**; `get_thread` only when the snippet is too thin to
+say what the issue is about — cap 3. `threadId` for the link comes from the list.
 
-**Slack**: `slack_read_channel` (top 50) per chosen channel, filtered to the
-last 24 h; and, with consent, `slack_search_public_and_private` with `to:me`.
+**Slack — metadata-first retrieval.** No channel iteration, no top-50-to-discard,
+no hard "last 24 h" filter. Coverage is a time-windowed search across every
+channel the user belongs to:
+1. **Window.** `oldest` = the previous successful brief's timestamp (fallback
+   `now − 26 h`), `latest` = now, resolved to Unix seconds via
+   `xtiles_get_user_timezone`. **Every call is filtered per message, not by the
+   parent thread's timestamp** — a reply inside the window to a month-old thread
+   *is* in scope.
+2. **Three windowed searches** — `slack_search_public_and_private`,
+   `sort=timestamp`, `sort_dir=asc`, `response_format=concise`,
+   `include_context=false`, `after`/`before` = window:
+   - `to:me` — @mentions + DMs (highest priority; feeds Mentions / Action Points).
+   - `after:<D> before:<D>` with `only_my_channels=true` — full activity stream
+     across **all** member channels; paginate with `cursor` until a result falls
+     before `oldest`. **Fallback** if this modifier-only query errors (undocumented,
+     20/page): take the ~8 busiest channels from the other two searches and
+     `slack_read_channel` each, window-bounded.
+   - `from:me` — threads the user replied in inside the window.
+3. **Deduplicate** by `channel + ts`, keeping `thread_ts`, `reply_count`,
+   `latest_reply`, reactions, `permalink`.
+4. **Expand threads — hard cap 8 reads**, ranked: (a) user @mentioned/participant;
+   (b) `reply_count` × recency of `latest_reply`; (c) reactions. Always expand a
+   team digest ("… Daily за …", "Update по…", "TL;DR", "підсумок"). `slack_read_thread`
+   per pick.
+5. **Never** read an inactive channel, pull top-N to discard, keyword-search "just
+   in case", or widen past the window.
+
 Group into Mentions, Action points, Topics, Decisions, Open questions. Every
 item carries the **message permalink** (`permalink`, or
 `https://slack.com/archives/{channel_id}/p{ts_without_dot}`) — never a channel
@@ -374,13 +395,34 @@ same underlying ask:
   available on the Pro plan. [Upgrade](url) — after you upgrade, ask me and
   I'll show them all."
 
-Compute event count, hours occupied,
-longest free focus window, overlaps, back-to-back runs, events after 20:00,
-missing agendas, likely duplicates. For each event: time, title, participants,
-meeting link. Find each meeting's agenda in this order — (1) a Granola/meeting
-note with matching title or participants, (2) the most recent Gmail thread with
-the organiser or attendees, (3) the event description. **If none yields
-anything, omit the agenda line** — never paraphrase the title back.
+**Metadata-first — `list_events` is already all metadata; no per-event body
+reads.** Drop `status: "cancelled"` and events the user `declined`; tag from
+metadata — `eventType: "focusTime"` → focus block (not a meeting),
+`eventType: "outOfOffice"` → note once, `responseStatus: "needsAction"`/`"tentative"`
+→ flag "unconfirmed". Compute event count, hours occupied, longest free focus
+window, overlaps, back-to-back runs, events after 20:00, likely duplicates. For
+each event pull from the list: time, title, participants, `responseStatus`,
+meeting link — **do not read the event `description` here.**
+
+**📋 Agenda cross-reference — only for meetings that plausibly need one**
+(external/client, decision meetings, anything with a doc attached or a non-empty
+description); **skip standups, recurring syncs, routine 1:1s** — each skipped
+meeting saves 1–2 calls. For the ones that qualify, find the agenda in this order
+— (1) a Granola/meeting note with matching title or participants, (2) the most
+recent Gmail thread with the organiser or attendees, (3) the event's own
+`description` (read it here). **If none yields anything, omit the agenda line** —
+never paraphrase the title back.
+
+**Granola (metadata-first), if selected**: `list_meetings` scoped to the window →
+triage on title/summary/attendees → read the full note/transcript **only** for
+meetings with a decision-shaped summary, **cap 3**. Granola has no tile of its
+own; it feeds the agenda above.
+
+**Catalog connectors — Linear · Google Drive · GitHub · Gamma · Figma, each only
+if selected (metadata-first, pure metadata — never a body/diff/file):** one
+"updated in window" list call each → one tile per connector, one line per item
+with its link. No pagination past the window; a zero-result selected connector
+still gets its one-line placeholder tile.
 
 **LinkedIn**: with its read-only tool, pull messages, mentions and notifications
 from the last 24 h, plus notable engagement on the user's recent posts. Keep the
