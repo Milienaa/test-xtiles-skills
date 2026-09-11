@@ -146,9 +146,11 @@ Also: never substitute another surface (`show_widget`, `sendPrompt`,
 `visualize`, HTML fragments, `window.openai.sendFollowUpMessage`,
 `AskUserQuestion`, or Claude scheduling tools). An empty answer (`Не
 вибрано`, `Не выбрано`, `Not selected`, blank) → one sentence saying what is
-required, then re-emit **the same** form; never infer consent. **The one
-exception is Stage 1's Connector check form(s)** — an empty answer there
-means "skip all" and must never be re-emitted (see Stage 1). Free text is kept
+required, then re-emit **the same** form; never infer consent. **The
+exceptions are Stage 1's Connector check form(s) and Stage 6's
+"Add anything before I schedule it?" form** — an empty answer on any of
+those means "skip all"/"no, that's enough" and must never be re-emitted
+(see Stage 1 and Stage 6). Free text is kept
 **verbatim** for any "Other …" value. Carry the accumulated config through
 every stage.
 
@@ -217,10 +219,33 @@ name the same way:
    source of truth for "connected."**
 2. **Gmail and Calendar are probed first**, since they tend to carry the
    richest everyday signal.
-3. For an unfamiliar connector name, look for a capability whose name
-   matches it and use the least invasive read call available. If none
-   exists, treat it as not connected — a candidate to connect natively or to
-   skip.
+3. For an unfamiliar connector name, **check the known-bundle table below
+   first** — only once it's confirmed the name isn't a known alias do you
+   fall back to looking for a capability whose name matches it directly, and
+   use the least invasive read call available. If no matching capability
+   exists at all *and* no bundle row covers it, treat it as not connected —
+   a candidate to connect natively or to skip. **Never report "no connector
+   available" for a name that appears in the table below** — that's a wrong
+   answer, not a missing one.
+
+   **Known connector bundles — probe, offer, and connect once per bundle,
+   never once per name:**
+
+   | Named tool(s) the user may list | Underlying connector |
+   |---|---|
+   | Jira, Confluence | Atlassian (Rovo) |
+
+   If two or more of the user's named connectors fall in the same row, they
+   share **one** probe, **one** connect option in the form, **one** line in
+   the status block, and **one** `Add`/`Connect` option — never a separate
+   one per named tool. Connecting or skipping the bundle resolves every
+   named tool listed in that row at once. **Record it in `tools:`/`skipped:`
+   (Stage 6) by the bundle's own name (e.g. `Atlassian`),
+   never by the individual names the user happened to type** — that's what a
+   future recurring run's silent re-probe (Run modes) keys off of. **This
+   table is illustrative, not exhaustive** — if the session has a matching
+   capability under a different name for something not listed here, that
+   still counts as a known connector, not an unsupported one.
 4. **If `other` is in `used_connectors`** — it's a signal the user's real
    stack is bigger than what they listed. Beyond probing the named
    connectors, check what other connector capabilities this session
@@ -237,23 +262,35 @@ name the same way:
    Stage 2.
 6. **Otherwise** (something failed to connect, or there's an extra
    candidate to offer):
-   - **Cap the active connect offer at 2 connectors.** Pick the two
-     highest-priority failed probes (Gmail/Calendar first, then the rest in
-     the order named). Any further missing connector beyond these two is
-     **not** offered a connect option this run — mention it in text only, as
-     something the user can connect themselves later by just asking.
-   - The introductory message before the form below must be a short status
-     block naming what's already fine, what's being offered, and whether
-     Today News will run — e.g.:
+   - **Offer every named connector whose probe failed**, in the same form —
+     no cap, no deferral. The form protocol already supports up to 10
+     options per question and splitting overflow into a follow-up form
+     (rule 10), so use that whenever there are more than 9.
+   - The introductory message before the form below must be a bold-badge
+     status block naming what's already fine, what's being offered, and
+     whether Today News will run — e.g.:
      ```
-     Checking what's already connected…
-     ✅ Gmail and Google Calendar are set
-     🔌 Notion isn't connected — I suggest connecting it below
-     📰 I'll add News to the brief as its own tile
+     **🔍 Checking what's connected…**
+     ✅ **Connected:** Gmail, Slack
+     🔌 **One click away:** Google Calendar, Todoist
+     🚫 **No native connector yet:** {name} — I'll skip that for this brief
+     📰 **Bonus:** News will be added as a separate tile
      ```
-     Omit any line with nothing to say. Translate into the user's language.
-   - Then emit one form offering only the capped connect options plus the
-     fixed skip-all option:
+     Bold both the intro line and every label, one status per line so it
+     scans as a list of badges, not a paragraph. The ✅ **Connected:** line
+     lists everything already connected. The 🔌 **One click away:** line
+     names **every** named connector whose probe failed but that maps to a
+     real capability (checked against the bundle table in point 3) — all of
+     them get an option in the form below. A 🚫
+     **No native connector yet:** line is reserved only for a name that,
+     after checking the bundle table, genuinely has no matching capability
+     at all — that one is **not** offered a form option, since there's
+     nothing to connect. The 📰 **Bonus:** line appears only if Today News
+     (Stage 2) will run this pass. Omit any line with nothing to say.
+     Translate into the user's language, keeping the same bold-label
+     structure.
+   - Then emit one form offering a `Connect {name}` option for **every**
+     connector on the 🔌 line, plus the fixed skip-all option:
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -261,9 +298,12 @@ genui{"ask_user_input":{"questions":[
 ]}}
 ```
 
-   Build the options dynamically: one `Connect {name}` per connector in the
-   **capped set of at most 2** (Gmail and Calendar first, if present), and
-   always the fixed final option `Skip all — show my brief now`.
+   Build the options dynamically: one `Connect {name}` per connector on the
+   🔌 line, and always the fixed final option `Skip all — show my brief
+   now`. **Cap at 9 dynamic options plus the fixed one = 10** (Form protocol
+   rule 9) — if more than 9 failed probes exist, keep the highest-priority
+   ones in this form and follow up with a further form for the overflow, per
+   rule 10.
 
    - **If step 4 found extra candidates** (from `other`), emit a **second**,
      separate form right after, matching this pattern:
@@ -292,9 +332,10 @@ capability the current surface exposes; confirm once finished) before
 continuing. Every `Add {name}` picked needs no connect flow at all — it's
 already usable, just fold it straight into the resolved set. If a connect
 attempt fails or stalls, drop that connector and continue — never block the
-run over it. A connector named beyond the 2-cap that was only mentioned in
-text is still tracked in `skipped:` below, so a future recurring run can
-quietly re-probe it (see Run modes) without ever asking again.
+run over it. Any name on the 🚫 **No native connector yet** line is still
+tracked in `skipped:` below, so a future recurring run can quietly re-probe
+it (see Run modes) the moment a matching capability ships, without ever
+asking again.
 
 **xTiles itself is required, not optional** — if it is not connected, this
 skill is not reachable at all; connect it first, outside this flow.
@@ -696,6 +737,45 @@ genui{"ask_user_input":{"questions":[
 ]}}
 ```
 
+**Before creating anything, run a fresh discovery pass** — regardless of
+whether `other` was in `used_connectors` — using the same technique as
+Stage 1 point 4: check this session's own available connector capabilities
+for anything that responds successfully and isn't already in the resolved
+set. **Never rely only on candidates found earlier in Stage 1** — this is a
+second, independent check run right before scheduling, specifically so this
+form always has something real to offer.
+
+Build one more `multi_select` form, `"Add anything to your Daily before I
+schedule it?"`, in this order:
+1. **Connected but unused** — one `Add {name}` option per connector the
+   discovery pass just found.
+2. **If that pass finds nothing** — don't leave the form with only "No,
+   that's enough." Propose 1–2 connectors that fit the user's role/interests
+   from `role:` (e.g. a designer → Figma, a support lead → Intercom, someone
+   tracking metrics → Amplitude) as `Connect {name}` options — genuine
+   suggestions, not confirmed-connected, so picking one runs the normal
+   connect flow for it rather than folding it in directly.
+3. Always end with the fixed option `No, that's enough`.
+
+```
+genui{"ask_user_input":{"questions":[
+  {"question":"Add anything to your Daily before I schedule it?","options":["Add {name}","No, that's enough"],"type":"multi_select","free_text_placeholder":"Another connector"}
+]}}
+```
+
+**This form always fires when scheduling is chosen — never skip it, and
+never let it resolve to a bare "No, that's enough" without first running
+both the discovery pass and the role-based fallback above.** An empty or
+all-unselected answer means the same as picking `No, that's enough` — this
+form is an exception to the Form protocol's empty-answer rule, same as
+Stage 1's forms; never re-emit it to demand a selection. For every `Add
+{name}` picked, fold it straight into the resolved set — no connect flow
+needed. For every `Connect {name}` suggestion picked, run the native connect
+flow for it first, then fold it in on success. **Fold every addition from
+this form into the resolved set before the config below is assembled** —
+the recurring config gets created once, already final, never scheduled
+first and patched afterward.
+
 Resolve the timezone with `xtiles_get_user_timezone`, then create the
 automation with an exact schedule whose prompt calls **this same skill**
 (`brief-onboarding-with-gpt`) and embeds the **full recurring-run config**,
@@ -747,12 +827,18 @@ closing stage.
 Offer the other three workflows, each with a one-line description of what it
 does — never a bare list of names. Never offer `brief-onboarding-with-gpt`
 itself here — its own digest and schedule are already handled in Stage 6.
+**Omit the Today News option entirely if Stage 2 already built a Today News
+tile this run** — offering it again reads as duplicating what the user just
+got.
 
 ```
 genui{"ask_user_input":{"questions":[
   {"question":"Want to set up anything else on xTiles?","options":["🌙 Evening Reflection — an end-of-day synthesis and a seed for tomorrow","📰 Today News — a daily topic-based news digest from the live web","📊 Weekly Review — what actually moved forward this week","Nothing else"],"type":"single_select","free_text_placeholder":"Something else"}
 ]}}
 ```
+
+Drop the Today News option from the options array above when it doesn't
+apply — never send it as a disabled or dead choice.
 
 Treat the selection as a direct invocation: **in the same turn**, call
 `xtiles_get_workflow` with the matching id and continue from its first
