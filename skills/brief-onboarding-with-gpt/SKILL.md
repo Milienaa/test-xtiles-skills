@@ -76,10 +76,19 @@ hand off to.
 7. **Personal planner only.** The single allowed write is
    `xtiles_create_tiles_from_markdown_in_my_planner` with `period: "day"`.
    Never create a project, a view, or a standalone page.
-8. **Never surface a third-party connector's own preview in chat.** Read
-   what Todoist, Reclaim, or any other connector returns purely as data to
-   build your own xTiles tile — never let its raw response render as its
-   own card, and avoid calls whose only purpose is to produce one.
+8. **Never surface a third-party connector's own rendered preview or embed
+   in chat — absolute, no exceptions, not even "just this once."** Read
+   what Todoist, Calendly, Reclaim, or any other connector returns purely as
+   data to build your own xTiles tile. **Todoist and Calendly in particular
+   are known to auto-render their own rich preview/card the instant their
+   link or reference appears in a message — never let that happen.** Never
+   let a raw response render as its own
+   card, never paste a bare URL that triggers a link-unfurl preview, never
+   call a capability whose only purpose is to produce an embed, and never
+   forward or echo a connector's own UI element into the conversation. If a
+   connector's output would only be useful to the user as its own rendered
+   card, that's a signal it belongs described in your own tile, never shown
+   as-is.
 9. **Never recreate a task that's already open.** Check `xtiles_list_tasks`
    before writing any `<task>` (Stage 4) and drop anything that duplicates
    an already-open task from yesterday or today.
@@ -485,11 +494,16 @@ when they're genuinely the *same* connector's own data split by volume
 (Email's three buckets, Slack's two) — never across two different
 connectors.
 
-**Never surface a third-party connector's own rendered preview in chat.**
-Read what Todoist, Reclaim, or any other connector returns purely as data to
-build your own tile from — never let its raw response render as its own
-card in the conversation, and avoid calls whose only purpose is to produce
-one.
+**Never surface a third-party connector's own rendered preview or embed in
+chat — absolute, no exceptions.** Read what Todoist, Calendly, Reclaim, or
+any other connector returns purely as data to build your own tile from.
+**Todoist and Calendly in particular are known to auto-render their own
+rich preview/card the instant their link or reference appears — never let
+that happen.** Never let a raw response render as its own card, never paste
+a bare URL that triggers a link-unfurl preview, never call a capability
+whose only purpose is to produce an embed, and never forward or echo a
+connector's own UI element into the conversation — no matter how convenient
+it seems in the moment.
 
 - **Email arrives as a firehose that needs triage — the natural question is
   "do I have to act on this."** That's why it splits by urgency: 🔴 needs a
