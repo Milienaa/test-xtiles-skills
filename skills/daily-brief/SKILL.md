@@ -170,57 +170,13 @@ of the options list above.
 
 **For every custom ("Other") app the user named in step 2 — ask what they want from it, one question per app.** They arrive in the survey response as `daily_content: … · {Name} — custom source` — that marker means "the user wants this tool, content still unknown", so it is a prompt to ask, never a finished answer to write into a tile. **One question per app** (e.g. "From Plaud, what should show up each morning — meeting notes, action points, or both?"). Never assume the content, and never silently drop the app: the #1 setup failure is proceeding without ever asking about a custom app the user typed. Carry each custom app **and** its content choice through the fetch (step 4) and the write (step 7).
 
-**If Slack is selected and the user has not already named their channels:**
+**If Slack is selected — no channel survey (metadata-first change).**
 
-Use the role captured in the form as the anchor for this whole discovery — it drives both the interest search (Step C) and how specialized channels are scored (Step D). The goal is to surface *this specific user's* channels, not a generic company list.
+The channel-discovery pass (Steps A–D) and the `show_widget` channel picker are **removed**. They were the direct cause of two problems: channels missing from the picker were never read at all, and capping coverage at "picked channels" is what made replies to older threads disappear. Ask the user **nothing** about channels and run **no** discovery here:
 
-**Step A — universal channels (every role).** Call `mcp__claude_ai_Slack__slack_search_channels` for each of these names: `general`, `all`, `team`, `company`, `announcements`, `product`. Collect every channel that actually exists — these are candidates for the shared/general slot, never for the specialized slot.
-
-**Step B — activity signal (the strongest relevance signal).** Call `mcp__claude_ai_Slack__slack_search_public_and_private` twice: once with query `from:me` (channels where the user actually posts) and once with query `to:me` (channels where the user is @mentioned or replied to). For every result, record the channel and the message timestamp. Per channel, track two things: **recency** — the timestamp of the user's most recent post or mention there, and **frequency** — total hit count across both queries. A channel the user posted or was mentioned in yesterday is more relevant right now than one with more total hits but nothing in weeks — recency is the primary activity signal, frequency only breaks ties between channels with similarly recent activity.
-
-**Step C — role & interest/affinity search.** Reason from the user's role: what does this person actually write and receive in Slack day-to-day? Derive 2–3 short phrases that would naturally appear in messages in their active channels and search for them. Then run a second, broader pass for interest and affinity-group channels that may exist regardless of role — e.g. terms like `women`, `parents`, `wellness`, `book club`, `volunteering`, `pride`, `remote`, `pets`, or other hobby/interest terms suggested by the role context. Do not use a fixed table for either pass — think from context. If the user explicitly named topics or interests, search those first.
-
-**Step D — merge, rank, and select.**
-1. Merge every channel found in Steps A–C, removing duplicates (a channel found in more than one step counts once, keeping its highest score).
-2. Drop low-signal: name contains `random`, `fun`, `off-topic`, `bots`, `test`, `hiring`, `onboarding`.
-3. Score each channel, in this order: **Step B activity ranks highest** — sort by recency of the user's last post/mention there first, then by frequency as the tiebreaker among similarly-recent channels; **then** role/interest/affinity matches from Step C; **then** bare universal presence from Step A alone. A channel where the user was just mentioned yesterday outranks a role-matched channel they never actually post in.
-4. Show every remaining discovered channel as a selectable card — cast a wide net across interests and affinity groups so the user has real options to add, not just a token list.
-5. **Pre-select (mark active) up to 5 total, no more:** at most 2 from the universal slot (highest-scoring first, e.g. general → all → team → announcements → company → product), and the rest from the highest-scoring specialized channels in Step D's ranking — the channels this specific user actually writes in, is mentioned in, or that match their role/interests. Every other discovered channel stays visible but unchecked — the user decides what else matters to them each morning.
-
-**Fallback:** if Steps B and C both return zero results — call `mcp__claude_ai_Slack__slack_search_public_and_private` with query `team update` and extract channels from those results.
-
-Generate an HTML multi-select widget with the discovered channels as selectable cards — mark the up-to-5 chosen in Step D.5 with the pre-selected `sel` state — and call `show_widget`. Include a free-text input for unlisted channels. Use `sendPrompt()` to submit. Template (inject one card per discovered channel; add `sel` to the class and keep `data-v` in sync for the pre-selected ones):
-
-```html
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
-.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
-.cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
-.card:hover{border-color:#aaa}
-.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
-input:focus{border-color:#aaa}
-.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
-</style>
-<div class="wrap">
-  <h2>Which channels do you open first each morning?</h2>
-  <p style="font-size:12px;color:#888;margin:-8px 0 12px">Pre-selected: your most active and relevant channels. Add any others you want to see.</p>
-  <div class="cards" id="ch">
-    <!-- inject: <div class="card[ sel]" data-v="#channelname" onclick="tog(this,'#channelname')">#channelname</div> — add " sel" to class for the up-to-5 pre-selected channels from Step D.5 -->
-  </div>
-  <input type="text" id="other-ch" placeholder="Other channel…">
-  <button class="btn" id="sub-ch" onclick="submit()">Confirm</button>
-</div>
-<script>
-var sel=new Set();
-document.querySelectorAll('#ch .card.sel').forEach(function(el){sel.add(el.dataset.v)});
-function tog(el,v){el.classList.toggle('sel');el.classList.contains('sel')?sel.add(v):sel.delete(v)}
-function submit(){var b=document.getElementById('sub-ch');b.disabled=true;b.style.opacity='0.5';b.style.cursor='default';b.textContent='⏳…';var o=document.getElementById('other-ch').value.trim();if(o)sel.add(o);sendPrompt('Selected channels: '+Array.from(sel).join(', '))}
-</script>
-```
+- Do **not** call `slack_search_channels` for discovery, do **not** build a channel-select widget, do **not** emit a `Selected channels: …` line.
+- The `role` from the survey is still captured (later steps use it); it just no longer drives channel selection.
+- If the user *volunteers* specific channels ("just #product and #eng"), keep them as an optional priority filter for §4. With nothing volunteered, §4 pulls from **every channel the user belongs to**, decided at fetch time from activity metadata — see §4's **Slack — metadata-first retrieval**.
 
 **If Newsletters is selected:**
 **Important:** if the user selected "Newsletters" in the survey widget (step 2), this discovery flow must still run — do not skip it because newsletters was pre-selected there. The survey captures the preference; this step discovers the actual sources.
@@ -268,10 +224,15 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
 
 ### 4. Silent data fetch
 
+**Metadata-first, no subagents.** Every connector below follows the same shape: **one server-side, window-scoped list/search call → triage on the metadata it returns (sender, subject, title, timestamps, status, counts) → open full content (`get_thread`, `slack_read_thread`, transcripts, event descriptions) only for the handful of items that will actually land in a tile.** Never pull bodies to decide relevance. Fire the selected connectors as **parallel** tool calls in one turn, then do the capped full-content reads.
+
+**Shared window for the whole fetch:** `oldest` = the previous successful brief's timestamp (from the most recent prior Daily page / scheduled-task last run); fall back to `now − 26 h`. `latest` = now. Resolve to the user's timezone via `xtiles_get_user_timezone`.
+
 **Silently, without messaging the user**, pull fresh data from connectors based on selected sections and content choices:
 
 - **Claude chats (yesterday)** — **only when the user selected Claude as a source; no connector needed**: read the user's own past conversations with `recent_chats`. This is the morning mirror of what `evening-reflection` does at night: it looks *forward*, not back — pull only what still needs the user today.
   - **The window.** Call `recent_chats` with `after` set to the previous digest's timestamp (fall back to 24 h ago), `before` set to now, and `sort_order: "desc"`. Both are ISO-8601 in the user's timezone from `xtiles_get_user_timezone` — never in UTC, or a late-evening chat lands on the wrong day. Ask for ~10 chats; if every returned chat sits at the edge of the window, page further back with `before` set to the oldest one you got. Stop as soon as a chat falls outside the window — this is a morning brief, not an archive sweep.
+  - **Triage the list first (metadata-first).** Look at each returned chat's title, last-updated time and any preview before opening it; give full attention only to conversations that read like an open loop (a task, a question, a decision), and skim past pure Q&A / research threads. Don't re-read every chat body just because it is in the window.
   - **Then go deeper only where it pays.** `recent_chats` returns the conversations themselves — read what comes back and stop there for most of them. Reach for `conversation_search` in exactly one case: a thread ends mid-task and clearly continues an earlier one — search its topic to find where the commitment was actually made, `max_results: 5`, keeping only hits inside the window. Never search speculatively — one query per real gap.
   - **Unfinished threads** — work started and not finished ("we drafted half the launch email"), or a next step the user named but hasn't done yet ("I'll send this to Stefan tomorrow").
   - **Unanswered questions** — something the user asked or was asked in chat that never got resolved.
@@ -281,11 +242,23 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Exclude the digest's own chats** — any conversation whose content is this skill running (setup, survey, digest writes) is machinery, not signal. They are usually the most recent chats in the window and the easiest to mistake for work. Never let the brief report on itself. Same for `evening-reflection` runs — yesterday's reflection is already on yesterday's page.
   - Ignore purely exploratory or abandoned threads, and anything already closed by an xTiles task.
   - **If `recent_chats` is unavailable in this environment, errors, or returns nothing in the window** — drop this source for the run: no tile, and on a scheduled run no message. On a manual run, note it once in the preview ("Couldn't read chat history in this environment"). Never fabricate chat content, and never substitute this session's own context for it.
-- **Gmail — unread emails**: `mcp__claude_ai_Gmail__search_threads` — query `is:important in:inbox newer_than:1d`. For each thread call `mcp__claude_ai_Gmail__get_thread` to get sender, subject, and threadId for the direct link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
-- **Gmail — newsletters**: `mcp__claude_ai_Gmail__search_threads` — query `from:({sender1} OR {sender2} ... OR @substack.com OR @beehiiv.com OR @convertkit.com) is:unread newer_than:1d` — combine user-named senders with common newsletter domains. Fetch each thread with `get_thread` for a one-line summary and `threadId` for the link.
-- **Slack**: two parallel reads:
-  1. `mcp__claude_ai_Slack__slack_read_channel` for each chosen channel (top 50 messages). Filter to last 24 hours (timestamp ≥ now − 24 h). Discard older messages. Skip channels with no messages silently.
-  2. `mcp__claude_ai_Slack__slack_search_public_and_private` with query `to:me` to find messages where the user was @mentioned or DM'd. Filter results to last 24 hours. This covers both public and private channels, including ones not in the chosen list.
+- **Gmail — unread emails (metadata-first).** Replaces "search `is:important newer_than:1d` then `get_thread` every result" — reading every unread body is the biggest waste in the old fetch.
+  1. **One tight server-side search.** `mcp__claude_ai_Gmail__search_threads`, query `is:unread in:inbox (is:important OR category:primary) -category:promotions -category:social -category:forums newer_than:2d` (window in days, min 2). The result list already carries `from`, `subject`, `snippet`, `date`, `threadId`, labels.
+  2. **Classify from that metadata alone** into the three buckets (🔴 Needs action / 🟡 FYI / ⚪ Noise). Sender + subject + snippet is enough to tell "reply needed" from "confirmation" from "automated alert"; `is:important` is a strong 🔴/🟡 signal, a no-reply/notification sender is ⚪.
+  3. **`get_thread` only for 🔴 Needs-action threads — hard cap 5** (highest-`is:important` first if more). This is the only place a body is read: to pin the exact next step and confirm the `threadId` for the link (`https://mail.google.com/mail/u/0/#inbox/{threadId}`).
+  4. **🟡 and ⚪ never get a `get_thread`.** 🟡 = one-liner retold from subject+snippet, no link. ⚪ = count only — take it straight from the search result (optionally `mcp__claude_ai_Gmail__list_labels` for the `UNREAD` total), never enumerate.
+  5. **"Awaiting my reply" follow-ups**, if selected: a second search `in:inbox is:unread -from:me newer_than:7d`, keep threads whose latest message is `to:me` with no reply from me — decided from metadata, no body read.
+- **Gmail — newsletters (metadata-first).** `mcp__claude_ai_Gmail__search_threads`, query `from:({user-named senders} OR @substack.com OR @beehiiv.com OR @convertkit.com OR @mailchimp.com) newer_than:2d` (drop `is:unread` — a newsletter read on the phone still belongs in the digest). **Summarise each from `subject` + `snippet`**; `get_thread` only when the snippet is too thin to say what the issue is about — cap 3. `threadId` for the link comes from the list result.
+- **Slack — metadata-first retrieval.** Replaces the old "two parallel reads" (read each chosen channel's top-50 and discard everything older than 24 h). Do **not** iterate a channel list, do **not** pull top-50-to-discard, do **not** hard-filter to "last 24 h". Coverage is a time-windowed search across every channel the user belongs to.
+  1. **Window.** `oldest` = the previous successful brief's timestamp (read from the most recent prior Daily page's Slack tiles / scheduled-task last run); if there is none, `now − 26 h`. `latest` = now. Resolve both to Unix seconds via `xtiles_get_user_timezone`. **Every call below is bounded by this window, filtered per message, not by the parent thread's timestamp** — a reply posted inside the window to a month-old thread *is* in scope; anything before `oldest` is not.
+  2. **Three windowed searches** — `mcp__claude_ai_Slack__slack_search_public_and_private`, `sort=timestamp`, `sort_dir=asc`, `response_format=concise`, `include_context=false`, `after`/`before` = the window:
+     - `query="to:me"` — @mentions + DMs. **Highest priority.** Feeds Mentions / Action Points.
+     - `query="after:<YYYY-MM-DD> before:<YYYY-MM-DD>"` with `only_my_channels=true` — the full activity stream across **all** member channels, public and private. Paginate with `cursor` until a result's timestamp falls before `oldest` (≈2–5 pages for an active workday).
+     - `query="from:me"` — threads the user replied in inside the window (active even without a mention).
+     - **Fallback:** if the modifier-only second query errors on this workspace (it is undocumented Slack behaviour, 20/page), take the ~8 channels with the most hits across the other two searches and `slack_read_channel` each with `oldest`/`latest` = window.
+  3. **Deduplicate** by `channel + ts` into one message set, keeping per message: channel, author, `ts`, `thread_ts`, `reply_count`, `latest_reply`, reactions, `permalink`.
+  4. **Expand threads — hard cap 8 reads.** Rank by, in order: (a) the user is @mentioned in the thread or a participant on its `thread_ts`; (b) `reply_count` × recency of `latest_reply`; (c) reaction count. Always also expand any message that is itself a team digest (text matches "… Daily за …", "Update по…", "TL;DR", "підсумок", "дайджест"). `slack_read_thread` per pick; skip threads already fully present in the search results.
+  5. **Never:** read a channel with no activity in the window · pull "top N" to discard most · keyword-search "just in case" · widen past the window to "catch up".
 
   After collecting, analyse all messages together and group semantically. For every item include a **direct permalink to the specific message** — extract `permalink` from the message object (or build `https://slack.com/archives/{channel_id}/p{ts_without_dot}`). Never link to the channel homepage — always to the individual message.
 
@@ -301,7 +274,8 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   - **Calendar (xTiles), if selected in step 2.** Call `mcp__xtiles__xtiles_list_calendar_events` for today — it aggregates whatever Google/Outlook calendars the user connected inside xTiles.
   - **Calendar (the existing Google Calendar connector), if also selected/connected.** Call `mcp__claude_ai_Google_Calendar__list_events` for today and add its events to the same list.
   - **Dedup across the two sources.** An event from the Calendar connector is a duplicate — and gets dropped — when an xTiles-calendar event already has the same start time and the same title (case-insensitive); this is the common case where the user's xTiles account is already synced to the same Google account they also connected directly. Keep every event that doesn't match one already in the list. Never show the same meeting twice.
-  - For each surviving event extract: start/end time, title, participant names (first name + last name or company), the event description, and the meeting link (Google Meet, Zoom, or other video URL from event data).
+  - **Metadata-first — the `list_events` response is already all metadata; one call per calendar source, no follow-up reads.** From it: **drop** events with `status: "cancelled"` and events the user `declined` (their `attendees[]` entry `responseStatus: "declined"`); **tag** from metadata, not content — `eventType: "focusTime"` → this *is* a focus block (feed the focus recommendation, not a meeting), `eventType: "outOfOffice"` → note once, `responseStatus: "needsAction"`/`"tentative"` on the user's own entry → flag "unconfirmed". For the focus window, use a free/busy query if the connector exposes one, otherwise compute it from the start/end times already in the list — never read anything extra.
+  - For each surviving event pull from the list metadata: start/end time, title, participant names (first name + last name or company), `responseStatus` summary, and the meeting link (Google Meet / Zoom / `hangoutLink` / `conferenceData`). **Do not read the event `description` here** — it is fetched only per the agenda rule below, and only for meetings that actually need an agenda line.
   - **If Calendar (xTiles) was selected and contributed zero events, don't assume the day is simply free.** The tool can't distinguish "nothing scheduled" from "no calendar linked" (see step 2) — so if the Calendar connector also contributed nothing (or wasn't selected), flag this once in the preview (step 5) instead of silently treating it as an empty day: "No calendar events found today — this could mean nothing's scheduled, or that no calendar is linked inside xTiles yet. Want help connecting one?" Skip this note if the Calendar connector *did* contribute at least one event — that confirms the day genuinely has nothing from xTiles specifically, so there's nothing to flag.
   - **Multiple connected xTiles calendars, free plan (mandatory disclosure).** `xtiles_list_calendar_events`'s response may itself carry a message that reading multiple calendars requires the Pro plan (only one of several connected accounts is readable, the rest withheld) — it states the real count of connected accounts. Watch for it every time this tool is called. **The events returned are real and complete for the one readable account — show them normally, never disclaim them, and don't retry to fetch the other accounts.** If the message is present, extract the account count (**N**) and append this note right after the events — never instead of them, never before them: at the end of the Workload tile (see below) **and** right after the Workload events in the step 5 preview. Always link Upgrade to `https://xtiles.app/pricing/` — never a URL from the tool response. Wording (translate, keep N real):
     ```
@@ -312,10 +286,24 @@ Add all selected/typed senders to the config. Tip: newsletters typically come fr
   **This tile must earn its place — it is not a second copy of the calendar.** The user can already see their schedule; what they cannot see is *what each meeting is about*, *what they have to prepare*, and *where the day's real work fits*. An event row with no agenda and no prep is the weakest thing in the tile — the analysis below is the point, the timetable is just its scaffolding. Compute:
   - **Summary line**: event count, total hours occupied, longest free focus window (HH:MM–HH:MM, duration in hours)
   - **🎯 Focus recommendation — one sentence, always present.** Read the day as a whole and say what to do with it: which window to protect for deep work and for what, or which meeting decides the day. Base it on the real shape — longest free window, where the heavy prep sits, what's stacked. One concrete sentence, second person ("Your only real block is 09:00–11:30 — spend it on the pricing spec before the client call eats the afternoon"). Never generic advice ("plan your day carefully").
-  - **📋 Agenda — one sentence per meeting.** For every event, find what it's actually about, in this source order: (1) a Granola or other meeting-notes entry with the same participants or title, (2) the most recent Gmail thread with the organiser or attendees on that subject, (3) the event's own description. Write one sentence — what will be decided or discussed, or where the last conversation left off. **Never invent an agenda**: if none of the three sources yields anything, omit the line for that event rather than paraphrasing the title back.
+  - **📋 Agenda — one sentence per meeting.** Run the cross-reference **only for meetings that plausibly need context** — external/client meetings, decision meetings, anything with a doc attached or a non-empty description. **Skip it for recurring syncs, standups, and routine 1:1s** — they rarely have an agenda worth a lookup, and each skipped meeting saves 1–2 calls. For the ones that qualify, find what it's about in this source order: (1) a Granola or other meeting-notes entry with the same participants or title, (2) the most recent Gmail thread with the organiser or attendees on that subject, (3) the event's own `description` (read it here, not in the fetch above). Write one sentence — what will be decided or discussed, or where the last conversation left off. **Never invent an agenda**: if none of the sources yields anything, omit the line for that event rather than paraphrasing the title back.
   - **Prep task — one per meeting that needs it.** From the agenda and its sources, derive the single most useful thing to prepare beforehand ("Pull the Q3 retention numbers before the Acme review"). One per meeting at most, and only where preparation is genuinely implied — a recurring standup usually needs none. Write it as a `<task>` (see step 7); these count as action items like any other, so include them in the flat action-item list.
   - **Grouping by purpose**: cluster the events into 2–4 groups derived from the actual day, not a fixed taxonomy — e.g. ⭐ Important · 🤝 Client & external · 🔁 Recurring syncs · 🧑‍🤝‍🧑 1:1s · 🧠 Focus blocks. Derive each group's name from what's actually in the day and the user's role. **Skip grouping entirely when there are fewer than 4 events** — splitting three meetings into groups is noise, not structure.
   - **⚠️ anomalies** — collect all, show at the bottom of the tile (not inline): overlapping events, back-to-back with no gap, events after 20:00, events without description/agenda, potential duplicate titles close together
+
+- **Granola — meeting notes, if selected (metadata-first).** Granola has no tile of its own — it feeds the Workload agenda above.
+  - **One call:** `mcp__claude_ai_Granola__list_meetings` scoped to the window. The list carries the metadata that decides relevance — title, date, attendees, and (usually) a short summary.
+  - **Triage on that.** Keep only meetings inside the window whose summary/title implies a decision, a commitment, or an action item for the user.
+  - **Read the full note/transcript only for those — cap 3.** Anything with no decision-shaped summary is not opened.
+  - A zero-result Granola fetch still surfaces in the Workload tile per the "never silently omit a selected source" rule.
+
+- **Catalog connectors — Google Drive · Linear · GitHub · Gamma · Figma, each only if selected (metadata-first).** Identical shape for all five, and it is **pure metadata — never read an item body, diff, doc, or file content.** Each produces one tile (`### [emoji] [Connector]`, same formatting rules as every other tile; a zero-result selected connector still gets its one-line placeholder tile). **One server-side "updated in window" list call per connector:**
+  - **Google Drive** — `mcp__claude_ai_Google_Drive__list_recent_files`; keep files whose `modifiedTime` is in the window. Line: `**Name** — updated by X · [open](webViewLink)`.
+  - **Linear** — `mcp__claude_ai_Linear__list_issues` filtered to `updatedAt` in window and (assignee = me OR subscriber = me). Grouped by state, one line each with `[IDENT](url)`.
+  - **GitHub** — PRs where `review-requested:@me` or `assignee:@me`, `updated` in window. Line: `**repo#N** — title — <state> · [open](url)`.
+  - **Gamma** — decks with `updatedTime` in window. One line per deck.
+  - **Figma** — recent files + comments since the window. One line per file with the new-comment count.
+  - **No pagination past the window.** If a list call returns nothing in range, stop — do not widen. These items are **not** cross-deduped against Slack/Gmail and do **not** generate `<task>` action items unless the user explicitly asked for that connector's items as tasks in step 3.
 
 **Cross-source dedup (Slack ↔ Gmail) — run once, after both are fetched, before either is classified into tiles or turned into action items.** The same ask sometimes arrives twice — a Slack message and a follow-up (or lead-in) email about the same specific thing, from the same person, close together in time. When a Slack message and a Gmail email clearly describe the same underlying ask:
 - **Slack is primary** — it gets the full treatment in Mentions (and the resulting task in Action Points) as usual.
@@ -1156,7 +1144,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
 - Never put example names, example events, or example messages into the preview — only real data from connectors
-- **All clarifying questions and approvals after the main survey form** (channel selection, newsletter names, approval, change requests) — use `show_widget` with HTML, never `AskUserQuestion` or plain text
+- **All clarifying questions and approvals after the main survey form** (newsletter names, approval, change requests — there is no channel-selection step, see §3) — use `show_widget` with HTML, never `AskUserQuestion` or plain text
 - **In Cowork, every terminal-sequence step (CTA, Schedule offer) is a `show_widget` HTML widget, never `AskUserQuestion` and never plain text** — `AskUserQuestion` is for step 9 (Related workflows) only
 - If context is missing — ask, don't guess
 - If the user gives new information along the way — pick it up, don't wait for the "right step"
