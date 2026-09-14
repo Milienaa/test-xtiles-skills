@@ -170,7 +170,8 @@ real answer (see Stage 1 and Stage 6). Free text is kept
 every stage.
 
 **The chain: Entry + Connector check (if needed) → Today News (if
-triggered) → Silent fetch → write + layout → CTA → Schedule → Related.**
+triggered) → Fetch (with progress updates) → write + layout → CTA →
+Schedule → Related.**
 There is no preview form and no approval form anywhere in this chain.
 
 ---
@@ -216,7 +217,7 @@ Two ways this skill starts:
   anything. Then go to **Stage 2**
   (a mandatory checkpoint — it triggers Today News only if the resolved set
   is still empty or `additional: news` carried forward, otherwise it's a
-  no-op) **and then Stage 3 (Silent fetch)**, using the resulting resolved
+  no-op) **and then Stage 3 (Fetch)**, using the resulting resolved
   set.
 
   **What actually runs after the write on a recurring run — spelled out
@@ -464,12 +465,40 @@ When either applies:
 
 ---
 
-## Stage 3 — Silent fetch
+## Stage 3 — Fetch, with progress updates
 
-No messages while fetching. Record a connector **error** separately from an
-empty **result** — they render differently. Pull fresh data from every
-connector in the resolved set, and — if Stage 2 triggered — research (or
-read mail for) the Today News tile too.
+**On a manual run** (first run, or any run someone is actually watching in
+chat) — before calling each connector's fetch, output one short plain-text
+status line in chat, e.g. "📩 Reading Gmail…", "📅 Checking your
+calendar…", "💬 Catching up on Slack…", "📰 Researching today's news…"
+(translated into the user's language). This is what keeps the 5-7 minute
+fetch from reading as dead silence. Rules for these lines:
+- **One line per connector**, sent immediately before that connector's
+  fetch call — never batched into one block up front, never sent after the
+  fact.
+- **Process connectors in the same order as Stage 1's probe** (Gmail/
+  Calendar first, then the rest), so the lines land in that same order.
+- **Reuse that connector's own tile emoji** from Stage 4 (📩 Gmail/Email,
+  📅 Calendar, 💬 Slack, 📧 Newsletters) so the line already hints at the
+  tile it's building toward; for anything without a dedicated emoji, use a
+  generic 🔎 ("🔎 Checking {name}…").
+- **If Stage 2 triggered Today News**, send one more line for it (📰) — in
+  whatever order that research actually happens relative to the connectors.
+- **These are plain status lines, never a form.** Never wrap one in the
+  `genui`/sentinel form protocol, and never wait for a reply — output the
+  line as ordinary assistant text, then immediately make that connector's
+  fetch call.
+- Keep each line short — a few words, no elaboration on what was found;
+  what was found is what the written tile is for.
+
+**On a silent recurring run**, skip every one of these lines — nobody is
+watching chat there, exactly like the rest of the recurring path (see Run
+modes).
+
+Either way: record a connector **error** separately from an empty
+**result** — they render differently. Pull fresh data from every connector
+in the resolved set, and — if Stage 2 triggered — research (or read mail
+for) the Today News tile too.
 
 **There is no single grouping that fits every connector — the right shape
 follows the nature of the data itself, never a template repeated for each

@@ -160,9 +160,19 @@ When either applies:
 
 ---
 
-### 4. Silent data fetch
+### 4. Data fetch — with progress updates
 
-**Silently, without messaging the user**, pull fresh data from every connector in the resolved set, and — if step 3 triggered — research (or read mail for) the Today News tile too.
+**On a manual run** (first run, or any run someone is actually watching in chat) — before calling each connector's fetch, send one short status line in chat, e.g. "📩 Reading Gmail…", "📅 Checking your calendar…", "💬 Catching up on Slack…", "📰 Researching today's news…" (translated into the user's language). This is what keeps the 5-7 minute fetch from reading as dead silence. Rules for these lines:
+- **One line per connector**, sent immediately before that connector's fetch call — never batched into one block up front, never sent after the fact.
+- **Process connectors in the same order as step 2's probe** (Gmail/Calendar first, then the rest), so the lines land in that same order.
+- **Reuse that connector's own tile emoji** from step 5 (📩 Gmail/Email, 📅 Calendar, 💬 Slack, 📧 Newsletters) so the line already hints at the tile it's building toward; for anything without a dedicated emoji, use a generic 🔎 ("🔎 Checking {name}…").
+- **If step 3 triggered Today News**, send one more line for it (📰) — in whatever order that research actually happens relative to the connectors.
+- **These are plain status lines, never a question.** Don't call `AskUserQuestion` or `show_widget` for them, and don't wait for a reply — send the line, then immediately make that connector's fetch call.
+- Keep each line short — a few words, no elaboration on what was found; what was found is what the written tile is for.
+
+**On a silent recurring run**, skip every one of these lines — nobody is watching chat there, exactly like the rest of step 1's recurring path.
+
+Either way, pull fresh data from every connector in the resolved set, and — if step 3 triggered — research (or read mail for) the Today News tile too.
 
 **There is no single grouping that fits every connector — the right shape follows the nature of the data itself, never a template repeated for each one.** Before building a tile, ask what *this specific kind of data* actually needs, not "which of the usual three buckets does this go in."
 
