@@ -158,9 +158,10 @@ code points or JSON as visible text.
 
 Also: never substitute another surface (`show_widget`, `sendPrompt`,
 `visualize`, HTML fragments, `window.openai.sendFollowUpMessage`,
-`AskUserQuestion`, or Claude scheduling tools). An empty answer (`Не
-вибрано`, `Не выбрано`, `Not selected`, blank) → one sentence saying what is
-required, then re-emit **the same** form; never infer consent. **The
+`AskUserQuestion`, or Claude scheduling tools). An empty answer (`Not
+selected`, its equivalent in another locale's untranslated placeholder
+text, or blank) → one sentence saying what is required, then re-emit **the
+same** form; never infer consent. **The
 exceptions are Stage 1's Connector check form and Stage 6's "Add anything
 to your Daily?" question** — an empty answer on either means "skip
 all"/"no, that's enough" and must never trigger a re-emit; Stage 6's other
