@@ -243,7 +243,11 @@ name the same way:
    list/search call, never a write). A response with no auth error means
    it's connected right now; an auth error or a missing capability means it
    isn't. **This probe result — not the questionnaire answer — is the only
-   source of truth for "connected."**
+   source of truth for "connected."** **Never surface that probe call's raw
+   response as its own rendered card or embed in chat — Todoist and
+   Calendly in particular are known to auto-render one the instant their
+   data appears. Read the response purely to decide connected/not-connected,
+   nothing else this early in the flow.**
 2. **Gmail and Calendar are probed first**, since they tend to carry the
    richest everyday signal.
 3. For an unfamiliar connector name, **check the known-bundle table below
@@ -488,7 +492,11 @@ fetch from reading as dead silence. Rules for these lines:
 - **These are plain status lines, never a form.** Never wrap one in the
   `genui`/sentinel form protocol, and never wait for a reply — output the
   line as ordinary assistant text, then immediately make that connector's
-  fetch call.
+  fetch call. **The fetch call's raw response is never itself shown or
+  echoed in chat** — Todoist and Calendly in particular are known to
+  auto-render their own rich preview/card the moment their data appears;
+  read the response silently and only ever surface it later, reshaped into
+  your own tile (Stage 4).
 - Keep each line short — a few words, no elaboration on what was found;
   what was found is what the written tile is for.
 
@@ -904,16 +912,14 @@ each time" when `notify:true`), translated into the user's language.
 
 ## Stage 7 — Related workflows
 
-**Branches on Stage 6's outcome — never the same treatment regardless of the
-answer:**
-
-- **If Stage 6 ended in a schedule actually being created** — the user is in
-  a "yes" mood; offer the other three workflows, each with a one-line
-  description of what it does — never a bare list of names. Never offer
-  `brief-onboarding-with-gpt` itself here — its own digest and schedule are
-  already handled in Stage 6. **Omit the Today News option entirely if
-  Stage 2 already built a Today News tile this run** — offering it again
-  reads as duplicating what the user just got.
+**Always the same treatment, regardless of Stage 6's outcome** (schedule
+created, declined, or unavailable) — never substitute a passive text line
+for it: offer the other three workflows, each with a one-line description
+of what it does — never a bare list of names. Never offer
+`brief-onboarding-with-gpt` itself here — its own digest and schedule are
+already handled in Stage 6. **Omit the Today News option entirely if
+Stage 2 already built a Today News tile this run** — offering it again
+reads as duplicating what the user just got.
 
 ```
 genui{"ask_user_input":{"questions":[
@@ -921,14 +927,8 @@ genui{"ask_user_input":{"questions":[
 ]}}
 ```
 
-  Drop the Today News option from the options array above when it doesn't
-  apply — never send it as a disabled or dead choice.
-
-- **If Stage 6 ended in "No schedule", or the scheduling capability was
-  unavailable** — the user just declined one piece of automation; don't
-  immediately ask them to consider another. No form here. Send one short,
-  low-pressure line instead and stop: "You can also set up Evening
-  Reflection, Today News, or Weekly Review anytime — just ask."
+Drop the Today News option from the options array above when it doesn't
+apply — never send it as a disabled or dead choice.
 
 **When the form above was shown**, treat the selection as a direct
 invocation: **in the same turn**, call `xtiles_get_workflow` with the

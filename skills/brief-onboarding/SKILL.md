@@ -96,7 +96,7 @@ Two ways this skill starts:
 
 **There is no fixed catalog of connectors in this skill.** `used_connectors` can name anything — Gmail, Calendar, Slack, a tool invented after this file was written, or `other` with a name typed by the user. Treat every name the same way:
 
-1. For each connector in `used_connectors`, make one lightweight, read-only probe call using whatever MCP tool that connector exposes (a minimal list/search call, never a write). A response with no auth error means it's connected right now; an auth error or a missing tool means it isn't. **This probe result — not the questionnaire answer — is the only source of truth for "connected."**
+1. For each connector in `used_connectors`, make one lightweight, read-only probe call using whatever MCP tool that connector exposes (a minimal list/search call, never a write). A response with no auth error means it's connected right now; an auth error or a missing tool means it isn't. **This probe result — not the questionnaire answer — is the only source of truth for "connected."** **Never surface that probe call's raw response as its own rendered card or embed in chat — Todoist and Calendly in particular are known to auto-render one the instant their data appears. Read the response purely to decide connected/not-connected, nothing else this early in the flow.**
 2. **Gmail and Calendar are probed first**, since they tend to carry the richest everyday signal. Everything else follows.
 3. For an unfamiliar connector name, **check the known-bundle table below first** — only once it's confirmed the name isn't a known alias do you fall back to guessing a namespace match (e.g. a connector called `{Name}` would expose `mcp__claude_ai_{Name}__*` tools) and use the least invasive read call available. If no matching tool exists at all *and* no bundle row covers it, treat it as not connected — it becomes a candidate to connect natively or to skip. **Never report "no native connector available" for a name that appears in the table below** — that's a wrong answer, not a missing one.
 
@@ -167,7 +167,7 @@ When either applies:
 - **Process connectors in the same order as step 2's probe** (Gmail/Calendar first, then the rest), so the lines land in that same order.
 - **Reuse that connector's own tile emoji** from step 5 (📩 Gmail/Email, 📅 Calendar, 💬 Slack, 📧 Newsletters) so the line already hints at the tile it's building toward; for anything without a dedicated emoji, use a generic 🔎 ("🔎 Checking {name}…").
 - **If step 3 triggered Today News**, send one more line for it (📰) — in whatever order that research actually happens relative to the connectors.
-- **These are plain status lines, never a question.** Don't call `AskUserQuestion` or `show_widget` for them, and don't wait for a reply — send the line, then immediately make that connector's fetch call.
+- **These are plain status lines, never a question.** Don't call `AskUserQuestion` or `show_widget` for them, and don't wait for a reply — send the line, then immediately make that connector's fetch call. **The fetch call's raw response is never itself shown or echoed in chat** — Todoist and Calendly in particular are known to auto-render their own rich preview/card the moment their data appears; read the response silently and only ever surface it later, reshaped into your own tile (step 5).
 - Keep each line short — a few words, no elaboration on what was found; what was found is what the written tile is for.
 
 **On a silent recurring run**, skip every one of these lines — nobody is watching chat there, exactly like the rest of step 1's recurring path.
@@ -367,25 +367,21 @@ In Claude Code (no Cowork), ask the same two things as plain text if `AskUserQue
   > ```
   > Try opening a new chat in Cowork and pasting this into the schedule — your Daily Brief here is already ready, and other workflows (Evening Reflection, Today News, Weekly Review) still work fine in this chat.
 
-  Translate the surrounding sentences into the user's language, but **never translate the config block itself** — it must stay in its literal `field: value` form so it's paste-ready as-is. If `notify:true` was requested, still send today's notification per the bullet above — that part never depended on the schedule actually being created. **Then continue to step 7 in the same turn, treated the same as if the user had said "No, thanks"** — no automation was actually created, so step 7's branch reads it that way too. A missing scheduling tool skips the schedule itself, never the mandatory closing step, and never means throwing away the config already assembled.
+  Translate the surrounding sentences into the user's language, but **never translate the config block itself** — it must stay in its literal `field: value` form so it's paste-ready as-is. If `notify:true` was requested, still send today's notification per the bullet above — that part never depended on the schedule actually being created. **Then continue to step 7 in the same turn** — step 7 asks the same closing question regardless of this outcome. A missing scheduling tool skips the schedule itself, never the mandatory closing step, and never means throwing away the config already assembled.
 
 ### 7. Related workflows
 
-**Mandatory closing step of every manual run** (skip only on a silent recurring run, which ends after step 5's notification). **Branches on step 6's outcome — never the same question regardless of the answer:**
+**Mandatory closing step of every manual run** (skip only on a silent recurring run, which ends after step 5's notification). **Always the same question, regardless of step 6's outcome** (schedule created, declined, or unavailable) — never substitute a passive text line for it: ask via `AskUserQuestion` (single select): "Want to set up anything else?"
+- 🌙 Evening Reflection — a quick end-of-day recap that sets tomorrow up for you
+- 📰 Today News — a daily news digest on topics you care about (**omit this option entirely if step 3 already built a Today News tile this run** — offering it again reads as duplicating what they just got)
+- 📊 Weekly Review — a recap of what moved forward this week
+- Nothing else, thanks
 
-- **If step 6 ended in a schedule actually being created** — the user is in a "yes" mood; ask the full question via `AskUserQuestion` (single select): "Want to set up anything else?"
-  - 🌙 Evening Reflection — a quick end-of-day recap that sets tomorrow up for you
-  - 📰 Today News — a daily news digest on topics you care about (**omit this option entirely if step 3 already built a Today News tile this run** — offering it again reads as duplicating what they just got)
-  - 📊 Weekly Review — a recap of what moved forward this week
-  - Nothing else, thanks
-
-  On selection, send the exact matching phrase to hand off (never run it yourself):
-  - Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
-  - Today News → `Set workflow of Today News (today-news) on xTiles MCP`
-  - Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
-  - "Nothing else" — acknowledge briefly and stop.
-
-- **If step 6 ended in "No, thanks", or the scheduling tool was unavailable** — the user just declined one piece of automation; don't immediately ask them to consider another. No `AskUserQuestion` here. Send one short, low-pressure line instead and stop: "You can also set up Evening Reflection, Today News, or Weekly Review anytime — just ask."
+On selection, send the exact matching phrase to hand off (never run it yourself):
+- Evening Reflection → `Set workflow of Evening Reflection (evening-reflection) on xTiles MCP`
+- Today News → `Set workflow of Today News (today-news) on xTiles MCP`
+- Weekly Review → `Set workflow of Weekly Review (weekly-review) on xTiles MCP`
+- "Nothing else" — acknowledge briefly and stop.
 
 ---
 
