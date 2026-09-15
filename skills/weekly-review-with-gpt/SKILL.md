@@ -107,8 +107,7 @@ or JSON as visible text.
 
 Also: never substitute another surface (`show_widget`, `sendPrompt`,
 `visualize`, HTML fragments, widgets, scripts, `AskUserQuestion`, or Claude
-scheduling tools). An empty answer (`Не вибрано`, `Не выбрано`, `Not selected`,
-blank) → one sentence saying what is required, then re-emit **the same** form;
+scheduling tools). An empty answer (blank, or the host's "not selected" token in any language) → one sentence saying what is required, then re-emit **the same** form;
 never infer a remembered preference in place of an answer. Free text is kept
 **verbatim**; the accumulated config carries across turns.
 

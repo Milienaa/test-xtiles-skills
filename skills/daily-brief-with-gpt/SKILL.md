@@ -107,11 +107,19 @@ or JSON as visible text.
 
 Also: never substitute another surface (`show_widget`, `sendPrompt`,
 `visualize`, HTML fragments, `window.openai.sendFollowUpMessage`,
-`AskUserQuestion`, or Claude scheduling tools). An empty answer (`Не вибрано`,
-`Не выбрано`, `Not selected`, blank) → one sentence saying what is required,
+`AskUserQuestion`, or Claude scheduling tools). An empty answer (blank, or the host's "not selected" token in any language) → one sentence saying what is required,
 then re-emit **the same** form; never infer consent. Free text is kept
 **verbatim** for any "Other …" value. Carry the accumulated config through every
 stage.
+
+**Sentinel self-check before ending the turn.** A form only renders as clickable
+when the literal U+E200/U+E202/U+E201 characters wrap the `genui` directive; the
+same directive without them shows as raw, non-clickable text. So: emit the
+sentinel-wrapped `genui` as the **last thing in the message**, with nothing after
+the closing U+E201, and never inside a code fence or quote. If you built the form
+dynamically, re-check that all three sentinels are present and correctly placed
+before sending — a missing or misplaced sentinel is the direct cause of a
+"form shown as plain text / not clickable" failure.
 
 The chain: **Setup → Content + Slack consent → Channels (if needed) →
 Newsletters (if needed) → preview → Approval → write + layout → CTA → Schedule →
@@ -135,6 +143,14 @@ Classify before opening any form.
   If something essential is missing, show the **smallest** relevant form, not
   the full setup.
 - **Full setup** — everything else. Start at Stage 1.
+
+**Form-first is mandatory on every non-scheduled run.** On a manual run (full
+setup or fast-track) you MUST emit a form and receive its answer **before any
+fetch, preview, or write** — never skip straight to execution. Fetching or
+writing on a manual run without having shown a form first is a failed run. If you
+are ever about to call a connector or `xtiles_create_tiles_*` on a manual run and
+no form has been answered yet, stop and emit the Stage 1 form instead. Only a
+**scheduled run** (config present) runs formless.
 
 ---
 
@@ -329,8 +345,9 @@ channel the user belongs to:
    `latest_reply`, reactions, `permalink`.
 4. **Expand threads — hard cap 8 reads**, ranked: (a) user @mentioned/participant;
    (b) `reply_count` × recency of `latest_reply`; (c) reactions. Always expand a
-   team digest ("… Daily за …", "Update по…", "TL;DR", "підсумок"). `slack_read_thread`
-   per pick.
+   team digest — a message that rounds up a channel or standup (e.g. titled
+   "Daily", "Update", "TL;DR", "Summary", in whatever language the workspace
+   uses). `slack_read_thread` per pick.
 5. **Never** read an inactive channel, pull top-N to discard, keyword-search "just
    in case", or widen past the window.
 
