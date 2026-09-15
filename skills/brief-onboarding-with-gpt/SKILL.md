@@ -336,8 +336,9 @@ name the same way:
      "nothing to do" option:
      - **If the 🔌 line is non-empty** — question 1: `"Want to connect
        anything before I build your brief?"`, one `Connect {name}` option
-       per connector on the 🔌 line, plus the fixed final option `"Skip
-       all — show my brief now"`.
+       per connector on the 🔌 line, plus the fixed final option
+       `"✅ All connected, let's go"` — proceed now with whatever's
+       already connected, stop offering to connect the rest this run.
      - **If point 4 found extra candidates** — question 2: `"I also see
        {names} connected. What should I add to the brief?"`, one `Add
        {name}` option per extra candidate, plus the fixed final option
@@ -349,7 +350,7 @@ name the same way:
 
 ```
 genui{"ask_user_input":{"questions":[
-  {"question":"Want to connect anything before I build your brief?","options":["Connect Gmail","Connect Calendar","Skip all — show my brief now"],"type":"multi_select","free_text_placeholder":"Name another connector"},
+  {"question":"Want to connect anything before I build your brief?","options":["Connect Gmail","Connect Calendar","✅ All connected, let's go"],"type":"multi_select","free_text_placeholder":"Name another connector"},
   {"question":"I also see Notion connected. What should I add to the brief?","options":["Add Notion","Add nothing"],"type":"multi_select","free_text_placeholder":"Something else"}
 ]}}
 ```
