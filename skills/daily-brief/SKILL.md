@@ -187,18 +187,17 @@ If publications found — call `show_widget` with an HTML multi-select listing t
 
 ```html
 <style>
-:root{--color-background-primary:#fff;--color-background-secondary:#f5f5f5;--color-background-tertiary:#f8f8f8;--color-text-primary:#1a1a1a;--color-text-secondary:#888;--color-border-secondary:#aaa;--color-border-tertiary:#e0e0e0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:var(--color-background-tertiary);color:var(--color-text-primary)}
-.wrap{max-width:480px;margin:0 auto;background:var(--color-background-primary);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-h2{font-size:15px;font-weight:700;margin-bottom:14px;color:var(--color-text-primary)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h2{font-size:15px;font-weight:700;margin-bottom:14px;color:#1a1a1a}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.card{padding:6px 14px;border-radius:20px;border:1.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);user-select:none;transition:all .15s}
-.card:hover{border-color:var(--color-border-secondary)}
-.card.sel{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
-input{width:100%;padding:8px 12px;border:1.5px solid var(--color-border-tertiary);border-radius:8px;font-size:13px;margin-bottom:14px;outline:none;background:var(--color-background-primary);color:var(--color-text-primary)}
-input:focus{border-color:var(--color-border-secondary)}
-.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--color-text-primary);color:var(--color-background-primary)}
+.card{padding:6px 14px;border-radius:20px;border:1.5px solid #e0e0e0;font-size:13px;cursor:pointer;background:#fff;user-select:none;transition:all .15s}
+.card:hover{border-color:#aaa}
+.card.sel{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+input{width:100%;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;margin-bottom:14px;outline:none}
+input:focus{border-color:#aaa}
+.btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#1a1a1a;color:#fff}
 </style>
 <div class="wrap">
   <h2>Which newsletters do you want in your Daily?</h2>
@@ -669,32 +668,31 @@ a different rendering surface, not a relaxation of those rules.
 
 ```html
 <style>
-:root{--color-background-primary:#fff;--color-background-secondary:#f5f5f5;--color-background-tertiary:#f8f8f8;--color-text-primary:#1a1a1a;--color-text-secondary:#888;--color-border-secondary:#aaa;--color-border-tertiary:#e0e0e0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:var(--color-background-tertiary);color:var(--color-text-primary)}
-.wrap{max-width:560px;margin:0 auto;background:var(--color-background-primary);border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-h2{font-size:16px;font-weight:700;color:var(--color-text-primary)}
-.cnt{font-size:12px;color:var(--color-text-secondary);background:var(--color-background-secondary);padding:2px 9px;border-radius:20px}
+h2{font-size:16px;font-weight:700}
+.cnt{font-size:12px;color:#888;background:#f5f5f5;padding:2px 9px;border-radius:20px}
 .scroll{max-height:420px;overflow-y:auto;margin-bottom:16px;display:flex;flex-direction:column;gap:12px}
-.section{border-radius:12px;padding:14px;background:var(--color-background-secondary)}
-.section-head{font-size:12px;font-weight:700;color:var(--color-text-primary);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--color-border-tertiary)}
-.sub-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--color-text-secondary);margin:10px 0 6px}
+.section{border-radius:12px;padding:14px;background:#f7f7f7}
+.section-head{font-size:12px;font-weight:700;color:#1a1a1a;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(0,0,0,.07)}
+.sub-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#888;margin:10px 0 6px}
 .sub-head:first-of-type{margin-top:0}
-.item{font-size:12px;color:var(--color-text-primary);line-height:1.5;margin-bottom:6px}
+.item{font-size:12px;color:#333;line-height:1.5;margin-bottom:6px}
 .item:last-child{margin-bottom:0}
-.item-title{font-weight:600;color:var(--color-text-primary)}
+.item-title{font-weight:600;color:#1a1a1a}
 .notice{border-radius:12px;padding:12px 14px;background:#fff6e5;border:1px solid #f3d9a4;color:#7a5a00;font-size:12px;line-height:1.5}
 .notice a{color:#7a5a00;font-weight:600}
 .feedback{display:none;margin-bottom:12px}
-textarea{width:100%;padding:10px;border:1.5px solid var(--color-border-tertiary);border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit;background:var(--color-background-primary);color:var(--color-text-primary)}
+textarea{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:13px;outline:none;resize:none;height:68px;font-family:inherit}
 .btns{display:flex;flex-direction:column;gap:8px}
 .btn{width:100%;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.btn-save{background:#1a5fb4;color:#fff;border:1.5px solid #1a5fb4}
-.btn-save:hover{opacity:.9}
-.btn-edit{background:var(--color-background-secondary);color:var(--color-text-primary)}
-.btn-edit:hover{opacity:.85}
-.btn-cancel{background:transparent;color:var(--color-text-secondary);font-size:13px;font-weight:400}
+.btn-save{background:#eef6ff;color:#1a5fb4;border:1.5px solid #c3d9f7}
+.btn-save:hover{background:#deeeff;border-color:#a8c8f0}
+.btn-edit{background:#f0f0f0;color:#444}
+.btn-edit:hover{background:#e0e0e0}
+.btn-cancel{background:transparent;color:#bbb;font-size:13px;font-weight:400}
 </style>
 <div class="wrap">
   <div class="header">
@@ -1072,29 +1070,28 @@ After the user clicks a button, the widget calls `sendPrompt()` and the response
 
 ```html
 <style>
-:root{--color-background-primary:#fff;--color-background-secondary:#f5f5f5;--color-background-tertiary:#f8f8f8;--color-text-primary:#1a1a1a;--color-text-secondary:#888;--color-border-secondary:#aaa;--color-border-tertiary:#e0e0e0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:var(--color-background-tertiary);color:var(--color-text-primary)}
-.wrap{max-width:480px;margin:0 auto;background:var(--color-background-primary);border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px;background:#f8f8f8;color:#1a1a1a}
+.wrap{max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.08);text-align:center}
 .icon{font-size:36px;margin-bottom:12px}
-h2{font-size:17px;font-weight:700;margin-bottom:6px;color:var(--color-text-primary)}
-.sub{font-size:13px;color:var(--color-text-secondary);margin-bottom:20px;line-height:1.5}
-.time-row{display:inline-flex;align-items:center;gap:8px;background:var(--color-background-secondary);border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--color-text-primary);margin-bottom:16px}
-.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:var(--color-text-primary);outline:none;cursor:pointer}
-.notify-row{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 14px;border-radius:10px;background:var(--color-background-secondary);border:1.5px solid var(--color-border-tertiary);cursor:pointer;user-select:none;margin-bottom:24px}
+h2{font-size:17px;font-weight:700;margin-bottom:6px}
+.sub{font-size:13px;color:#888;margin-bottom:20px;line-height:1.5}
+.time-row{display:inline-flex;align-items:center;gap:8px;background:#f3f3f3;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;color:#444;margin-bottom:16px}
+.time-row select,.time-row input[type=time]{border:none;background:transparent;font-size:15px;font-weight:700;color:#1a1a1a;outline:none;cursor:pointer}
+.notify-row{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:12px 14px;border-radius:10px;background:#f8f8f8;border:1.5px solid #eee;cursor:pointer;user-select:none;margin-bottom:24px}
 .notify-info{flex:1;margin-right:12px}
-.notify-label{font-size:13px;font-weight:600;color:var(--color-text-primary)}
-.notify-desc{font-size:11px;color:var(--color-text-secondary);margin-top:2px;line-height:1.4}
-.sw{width:40px;height:22px;background:var(--color-border-tertiary);border-radius:11px;position:relative;transition:background .2s;flex-shrink:0}
-.sw.on{background:#1a5fb4}
+.notify-label{font-size:13px;font-weight:600}
+.notify-desc{font-size:11px;color:#888;margin-top:2px;line-height:1.4}
+.sw{width:40px;height:22px;background:#e0e0e0;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0}
+.sw.on{background:#1a1a1a}
 .knob{width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .sw.on .knob{left:20px}
 .btns{display:flex;flex-direction:column;gap:10px}
 .btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
-.btn-yes{background:#1a5fb4;color:#fff}
-.btn-yes:hover{opacity:.9}
-.btn-no{background:var(--color-background-secondary);color:var(--color-text-primary)}
-.btn-no:hover{opacity:.85}
+.btn-yes{background:#1a1a1a;color:#fff}
+.btn-yes:hover{background:#333}
+.btn-no{background:#f0f0f0;color:#555}
+.btn-no:hover{background:#e0e0e0}
 </style>
 
 <div class="wrap">
@@ -1142,7 +1139,7 @@ function noThanks(){collapse('✓ Got it');sendPrompt('No schedule needed');}
 
 ## How to behave
 
-- **In Cowork, every question is an interactive surface — never a plain-text question.** Setup = the Survey widget; newsletter/other clarifications = a `show_widget` HTML form; approval = the Preview widget's own buttons; Related workflows = `AskUserQuestion`. Do **not** ask any of these as plain chat text in Cowork. The "ask inline as plain text" fallbacks in this file apply **only** to Claude Code (no Cowork / no `show_widget`); when `show_widget` is available, always use it.
+- Use the survey widget for setup; ask inline for approval and any follow-up clarifications
 - **Never output the digest as plain text in chat** and ask the user to copy it manually — always write to xTiles directly, or walk through connecting xTiles first
 - **Never skip a connector** the user selected — if it's not connected, walk through the connection before continuing, don't silently drop it
 - Never create anything without preview and explicit approval
