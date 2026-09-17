@@ -19,12 +19,6 @@ description: >
   "what's the status of <project>", "how far is <project> from done",
   "what's left on <project>".
 
-  Not for: turning a chat into a brand-new project (use `create-project`), the
-  user's personal day or week (use `daily-brief` / `weekly-review`), or
-  restyling one page (use `reorganize`). Closing a project out — a final retro,
-  task cleanup, archiving — is deliberately **not** covered yet: report what the
-  project's state is and let the user close it in the app.
-
   Environment: this is the Claude / Cowork variant. It is deliberately light —
   `AskUserQuestion` only where a choice is genuinely ambiguous or irreversible,
   everything else reported in chat with markdown links. No HTML widgets. There
@@ -112,7 +106,7 @@ Its job is not to report activity. Its job is to move a project to its close.
    things a person would want a ping for — a new page, milestones, a finished
    setup — never about one appended tile.
 
-7. **Two languages, two rules.** Everything written **into** the project follows
+7. **Language rules.** Everything written **into** the project follows
    the language of the project's own content. Everything said **in chat** follows
    the language the user wrote in. They usually agree; when they don't, each keeps
    its own rule. Every template and label in this file is an English placeholder —
