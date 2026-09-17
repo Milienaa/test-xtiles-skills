@@ -1,28 +1,29 @@
 ---
 name: project-tracker
 description: >
-  Track, advance and close ONE specific xTiles project the user owns. Reads that
+  Track and advance ONE specific xTiles project the user owns. Reads that
   project's own pages, tasks and project planner, then records what was done,
   what comes next, what has stalled or been forgotten, and the links and
   insights worth keeping — as real tasks and tiles inside that project, not as a
   chat summary.
 
-  Five modes, detected from the request rather than asked about:
+  Four modes, detected from the request rather than asked about:
   `pulse` (the default) — "how is the project doing", "where are we", "what did
   we forget", "what's blocking", or an empty launch;
   `capture` — "log what we did", "save this to the project", "record this
   insight", "keep this link";
   `plan` — "what's next", "plan the next steps", "break this down";
-  `setup` — "set up tracking for this project", "start tracking it";
-  `close` — "we're closing this project", "wrap it up", "final retro".
+  `setup` — "set up tracking for this project", "start tracking it".
 
   Triggers: "track my project", "update the project", "log this to <project>",
   "what's the status of <project>", "how far is <project> from done",
-  "what's left on <project>", "close the project".
+  "what's left on <project>".
 
   Not for: turning a chat into a brand-new project (use `create-project`), the
   user's personal day or week (use `daily-brief` / `weekly-review`), or
-  restyling one page (use `reorganize`).
+  restyling one page (use `reorganize`). Closing a project out — a final retro,
+  task cleanup, archiving — is deliberately **not** covered yet: report what the
+  project's state is and let the user close it in the app.
 
   Environment: this is the Claude / Cowork variant. It is deliberately light —
   `AskUserQuestion` only where a choice is genuinely ambiguous or irreversible,
@@ -40,7 +41,6 @@ allowed-tools: >
   mcp__xtiles__xtiles_list_tasks,
   mcp__xtiles__xtiles_create_tasks,
   mcp__xtiles__xtiles_update_task,
-  mcp__xtiles__xtiles_delete_tasks,
   mcp__xtiles__xtiles_create_view_from_markdown,
   mcp__xtiles__xtiles_create_tiles_from_markdown_by_view,
   mcp__xtiles__xtiles_create_tiles_from_markdown_in_project_planner,
@@ -109,8 +109,8 @@ Its job is not to report activity. Its job is to move a project to its close.
 
 6. **Light touch.** Ask only when a choice is genuinely ambiguous or
    irreversible. Recommend in chat rather than opening forms. Notify only about
-   things a person would want a ping for — a new page, milestones, a closed
-   project — never about one appended tile.
+   things a person would want a ping for — a new page, milestones, a finished
+   setup — never about one appended tile.
 
 7. **Two languages, two rules.** Everything written **into** the project follows
    the language of the project's own content. Everything said **in chat** follows
@@ -128,7 +128,6 @@ Its job is not to report activity. Its job is to move a project to its close.
 | **capture** | "log what we did", "save this", "fix this as done", "keep this link", "record this insight" | tasks + tiles + planner entry |
 | **plan** | "what's next", "plan the next steps", "break this down", "what should I do this week" | tasks + a plan tile |
 | **setup** | "set up tracking", "start tracking this project", "make this project trackable" | pages + milestones + status line |
-| **close** | "we're closing this", "the project is done", "wrap it up", "final retro" | retro page + task cleanup + archiving |
 
 **Resolution rules:**
 
@@ -197,8 +196,8 @@ are slow ("Reading {project}…"); a play-by-play is not.
   tasks that are already closed.
 - `mcp__xtiles__xtiles_get_project_content(projectId, limit: 5)` → the actual
   page bodies. Page further with `start_view_id: next_view_id` **only** when the
-  mode needs it (`close` reads the whole project; `pulse` and `capture` stop at
-  two pages and say so if content was left unread).
+  mode needs it — `pulse` and `capture` stop at two pages and say so if content
+  was left unread.
 - `mcp__xtiles__xtiles_get_planner_content(projectId, period: "week", date: today)`
   and the same for last week → the recent dated history. Add
   `period: "day"` reads only when a specific day matters.
@@ -565,26 +564,6 @@ Omit any section with no real content. Never keep a heading to hold a placeholde
    the cron, and the timezone from step 1. Be explicit that the schedule runs on
    Claude's side — xTiles itself runs nothing.
 
-### close — finish the project properly
-
-1. **Read everything**: page through `xtiles_get_project_content` to the end, all
-   tasks including completed, and the planner across the project's span. A retro
-   built on a partial read is worse than none.
-2. **Compose a retro page** (`xtiles_create_view_from_markdown`) from real data
-   only: the goal as stated · what was delivered · what was dropped and why · the
-   decisions that shaped it · an index of the materials collected · what to do
-   differently. Quote the project's own wording where you can.
-3. **Open tasks — ask.** One `AskUserQuestion`: complete them as done, leave them
-   open, or delete them. This is genuinely ambiguous and partly irreversible, so
-   it is never decided for the user. **`xtiles_delete_tasks` runs only on an
-   explicit yes**, and never on tasks the user hasn't seen listed.
-4. **Archiving**, only if asked: `xtiles_update_page(is_archived: true)` hides a
-   page and keeps it findable in `xtiles_get_project_structure`. **This workflow
-   never calls `xtiles_delete_page` or `xtiles_delete_page_group`** — deletion is
-   irreversible and closing a project is not a reason for it.
-5. Layout pass, then a short closing summary with the retro link, and a
-   **notification**.
-
 ---
 
 ## Reporting back in chat
@@ -616,7 +595,7 @@ characters maximum** (longer is rejected), `url` is an absolute page URL on the
 xTiles host (a page, never a tile deep link), `agent_source` is `"Claude"`.
 
 **Yes:** a page was created · milestones were created or one was reached · setup
-completed · the project was closed · any scheduled run that wrote something
+completed · any scheduled run that wrote something
 (nobody is watching chat for those).
 
 **No:** a tile was appended · tasks were completed in a manual run · a pulse run ·
@@ -662,6 +641,8 @@ anything the user is looking at right now anyway.
 - Ask only when genuinely ambiguous or irreversible; otherwise recommend in one
   line and proceed.
 - Notify only what a person would want a ping about.
-- Never delete a page or page group. Never delete tasks without an explicit yes.
+- Never delete anything — a page, a page group or a task. Removing content is
+  not this workflow's job, and archiving (`xtiles_update_page(is_archived: true)`)
+  is the reversible answer when the user asks for a page to go away.
 - Project content in the project's language; chat in the user's.
 - Every run ends with the next step and an honest distance to done.
