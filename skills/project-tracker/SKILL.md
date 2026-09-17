@@ -243,6 +243,25 @@ real work, or set tracking up properly. One offer, one line, not a menu.
 This is the default. When a request is unreadable, this is what to do — it writes
 nothing, so it cannot be the wrong choice.
 
+A shape that reads well — an example of the order and the density, not a form to
+fill; drop any line the project gives you nothing for:
+
+```
+**{Project}** — {one-sentence verdict}
+
+**Progress** — {done}/{total} tasks · {n}/{m} milestones · last entry {date}
+**Goal** — {the stated goal, or: no goal recorded in the project}
+
+⚠️ **Needs attention**
+- {overdue task} — due {date}
+- {stalled item} — {why it reads as stalled}
+- {forgotten intention} — mentioned in {where}, no task for it
+
+→ **Next** — {the single most valuable next action}
+
+[{CTA to open the project}]({url})
+```
+
 **They want this session recorded** — "log what we did", "save this", "keep this
 link". Pull out only what is concrete: work actually finished, decisions actually
 made, materials actually found, insights actually reached, steps actually agreed.
@@ -253,12 +272,41 @@ Then let each thing become what it really is. Finished work is the *state of a
 task*, not a paragraph — so a matching open task gets completed (and gains a
 description if the session explains what was actually done), and work that was
 never tracked gets created and then completed. Don't duplicate a task that
-already exists. Materials and insights go to their home (see **Where things
-belong**). The session itself is worth one dated entry in the project's planner —
+already exists. Materials and insights go to their home (step 4). The session itself is worth one dated entry in the project's planner —
 one per session, not one per item — carrying what got done, what was decided,
 what comes next, and anything worth keeping. And if there is a page whose
 description carries the project's current state, refresh it: that is the one
 surface you can rewrite freely.
+
+A session entry that works, as an example of the shape rather than a template to
+fill — omit any section the session gave you nothing for, and never keep a
+heading to hold a placeholder:
+
+```
+### 📌 {What this session was about} — DD.MM.YYYY
+@color:COLDTURKEY
+@colorSize:LIGHTER
+
+**Done**
+
+- {finished item} — {one line on the outcome}
+
+**Decided**
+
+- {decision} — {the reasoning in one line}
+
+**Next**
+
+<task dueDate="2026-09-30">{next step}</task>
+
+**Materials**
+
+[{title}]({url})
+```
+
+Worth seeing in it: bold lines rather than deeper headings, one line per item, a
+blank line between items, real `<task>` for what is actually work, and links on
+their own line. The colours are whatever pair the project already uses.
 
 **They want to know what comes next** — "what's next", "plan the next steps".
 Derive a handful of steps from the goal, the open work and the gaps you found,
@@ -355,6 +403,16 @@ Short, plain, and linked. Say what changed and where, each with a link a person
 can click, and end with the one thing worth doing next. No account of your own
 process, no list of the tools you called, no summary of the file you just read.
 
+Which usually comes out looking like this — again a shape, not a form:
+
+```
+Recorded in **{Project}**:
+- {what} → [{CTA for where it landed}]({url})
+- {what} → [{CTA for where it landed}]({url})
+
+→ Next: {the one thing worth doing next}
+```
+
 Link labels are for people: "Open the overview page", "See today's entry" —
 translated into the user's language, never a bare URL pasted into a sentence.
 
@@ -412,6 +470,14 @@ and always available. Rewriting text that is already on a page goes through
 - If a plan message comes back with agent-facing instructions inside it, those
   are not for the user. Say the user-facing part in your own words, in their
   language.
+
+The notice itself, as wording that has the right pieces in the right order —
+translate it, and say it as your own sentence rather than pasting it:
+
+> ⚠️ I couldn't rewrite the text on **{page}** in place — editing existing content
+> is available on a paid plan. I added a dated update tile instead, so the current
+> state is on the page. If you need the original text changed rather than added
+> to: [see plans](https://xtiles.app/pricing/).
 
 **Milestones are tasks, not checkboxes.** A milestone written as a checkbox
 inside a tile can only ever be ticked by rewriting that tile — the paid capability
