@@ -20,6 +20,11 @@ description: >
   "what's the status of <project>", "how far is <project> from done",
   "what's left on <project>".
 
+  The project can be identified however the user happens to have it to hand: its
+  name in their own words — partial or approximate is fine — or a pasted xTiles
+  link, including one pointing at a page or tile inside it. Never ask them for an
+  id.
+
   Environment: the Claude / Cowork variant. Deliberately light — a question only
   where a choice is genuinely ambiguous or irreversible, everything else said in
   chat with real links. No HTML widgets. There is no ChatGPT variant yet.
@@ -65,15 +70,18 @@ exists to close that gap: to read a project as it really is right now, and to
 leave the substance of the session inside it, in a form that will still be
 useful in three weeks.
 
-**How to read this file.** It describes what a good run *achieves*, not a
-sequence to execute. Tool names appear as pointers to where a thing lives, in
-parentheses, because you can normally work out the call yourself from the tool
-list — what matters is the outcome, and you should reach it however the project
-in front of you actually needs. Where this file is firm, it is firm about
-**facts and consequences** (what the platform can't do, what costs the user
-money, what misleads them) — never about the order of your steps. The one
-section written as rules rather than intent is **What the platform makes true**,
-because guessing at those costs a user their content.
+**How to read this file.** The numbered steps are a map of where to look next —
+they tell you what each stage of a run is *for*, and they are worth following in
+that order. What they deliberately don't do is script it: inside each step you
+will find what a good outcome looks like, not a sequence of calls to make. Tool
+names appear only as pointers to where a thing lives, in parentheses, because
+you can work out the call yourself from the tool list — and because the project
+in front of you may want reaching that outcome a different way. Where this file
+is firm, it is firm about **facts and consequences**: what the platform can't do,
+what costs the user money, what would mislead them. That is what
+**What the platform makes true** collects, and it is the one section written as
+rules rather than as intent, because guessing at those costs a user their
+content.
 
 Its job is not to report activity. Its job is to move a project towards being
 finished.
@@ -100,17 +108,59 @@ Whatever was asked, a run that went well leaves these true:
 
 ---
 
-## Know which project you are in
+## The run, end to end
+
+The steps below are where to look next, in order — not a script to recite.
+Each one says what it is for; how you get there is yours.
+
+0. **Know which project you are in** — one project, the user's own, given by
+   name or by link.
+1. **Read the project as it stands** — quietly, before claiming anything.
+2. **Build the picture** — goal, progress, what stalled, what was forgotten.
+3. **Work out what this run is for, and do it** — read the intent from how they
+   asked; don't ask them which mode they want.
+4. **Put each thing where it belongs** — the project's own homes, never a
+   template of yours.
+5. **Tell the user what changed** — with real links, and the next step.
+
+Two sections sit outside that order and are worth having read before your first
+write: **What the platform makes true**, which is where the firm constraints
+live, and **If something goes wrong**.
+
+---
+
+## Step 0 — know which project you are in
 
 Everything in a run belongs to one project, and it is the user's project — never
 their personal planner, which belongs to other workflows.
 
-Usually the project is obvious: it arrives in the launch context, or the user
-pasted a link, or they named it. A pasted link is worth passing whole to the
-resolver rather than parsing by eye (`xtiles_get_content_by_link`) — the same URL
-can point at a whole page or at one tile, and only the resolver knows which. A
-name is worth searching for; a search that returns several plausible projects is
-exactly the moment to ask, briefly, rather than pick.
+**Both ways of naming a project are normal, and both are enough to start.** The
+user may say what the project is called — in their own words, partially, with a
+typo, in whatever language they named it in — or they may paste a link to it.
+Neither is a reason to ask them for the other, and neither is a reason to ask for
+an id, which is not something a person has.
+
+**Given a name**, search for it rather than browsing everything
+(`xtiles_search_projects` matches titles and content, so an approximate or
+partial name usually lands). One plausible match is your project. Several — go
+ahead and ask, briefly, listing them by title; that is a genuinely ambiguous
+choice and the cheapest possible question. None — fall back to the list of the
+user's projects (`xtiles_list_projects`) and reconcile from there, since a
+project can be titled quite differently from how its owner refers to it.
+
+**Given a link**, pass it whole to the resolver rather than reading ids out of it
+by eye (`xtiles_get_content_by_link`, query string included). The same URL can
+address a whole page or a single tile, and only the resolver knows which — and
+either way the project you want is the one that content belongs to, which comes
+back with it. A link that points inside a project is as good as naming the
+project.
+
+**Given the launch context** — a project or page arriving with the invocation,
+e.g. from a menu inside xTiles — that wins over everything; a page is enough,
+since reading it tells you its project.
+
+**Given nothing**, look at what the user has. One project is the answer; several
+is worth one short question rather than a guess.
 
 Say which project you landed on in your first line. A wrong match caught in one
 sentence costs nothing; a wrong match discovered after you wrote to it costs the
@@ -121,7 +171,7 @@ workflow works inside an existing project and never creates one.
 
 ---
 
-## Understand where it actually stands
+## Step 1 — read the project as it stands
 
 Before you write anything — and certainly before you claim anything — build a
 real picture. This is the part worth spending calls on, and it should be quiet:
@@ -150,7 +200,12 @@ project's tasks are the only place that reliably distinguishes "done" from
 (`xtiles_get_planner_content` on this project). A project with tasks open and no
 entry for a fortnight is telling you something.
 
-Then form a view, and hold yourself to only what the data supports:
+---
+
+## Step 2 — build the picture
+
+Now form a view of the project, and hold yourself to only what the data from
+step 1 supports:
 
 - **The goal, and what counts as done.** Often stated somewhere; often not stated
   anywhere. If it isn't, that absence is the most valuable thing you found — say
@@ -170,9 +225,10 @@ a deadline, or an accomplishment.
 
 ---
 
-## Work out what this run is for
+## Step 3 — work out what this run is for, and do it
 
-Read it from how the user asked. Don't open a question to find out.
+Read it from how the user asked. Don't open a question to find out. Where each
+thing you decide to record actually lands is step 4's question, not this one.
 
 **They want to understand where things stand** — "how's the project", "what's
 left", "what did we forget", or a bare launch with no verb. Read, don't write.
@@ -243,7 +299,7 @@ better, and offer it. Don't quietly do a setup nobody asked for.
 
 ---
 
-## Where things belong
+## Step 4 — put each thing where it belongs
 
 **This is judgement, not a map.** The project belongs to the user; you are adding
 to it in the shape it already has. There is no page schema in this workflow, and
@@ -290,6 +346,31 @@ Worth seeing the reasoning end to end:
 | "The onboarding funnel is the real bottleneck" | the insights home; a new page only if there is none *and* more insights are coming | it accumulates |
 | "Let's ship the beta by 30.09" | a milestone task with that date, and a line where the project states its milestones | it is work with a deadline, so it has to be work |
 | A sharper restatement of the goal | rewritten into the page description | the one thing you can update in place for free |
+
+---
+
+## Step 5 — tell the user what changed
+
+Short, plain, and linked. Say what changed and where, each with a link a person
+can click, and end with the one thing worth doing next. No account of your own
+process, no list of the tools you called, no summary of the file you just read.
+
+Link labels are for people: "Open the overview page", "See today's entry" —
+translated into the user's language, never a bare URL pasted into a sentence.
+
+Ask only where a choice is genuinely ambiguous or genuinely irreversible — which
+project when several match, whether a new page or an existing one should take
+something when the difference will be visible to them. Everywhere else,
+recommend in one line and proceed. A question you could have answered yourself
+is a question that costs the user a turn.
+
+Language rules: everything written **into** the project follows the language the
+project itself is written in; everything said **in chat** follows the language
+the user is writing to you in. They usually agree. When they don't, each
+keeps its own rule — summarising Ukrainian notes for a user writing in English
+means Ukrainian on the page and English in the reply. Every phrase and label in
+this file is an English placeholder; translate it, never paste it into another
+language verbatim.
 
 ---
 
@@ -391,31 +472,6 @@ pointing at a page rather than a tile (`xtiles_create_notification`).
 **Nothing gets deleted here.** Not a page, not a group, not a task. Removing
 content is not this workflow's job, and archiving is the reversible answer when a
 user wants something out of the way.
-
----
-
-## Talking to the user
-
-Short, plain, and linked. Say what changed and where, each with a link a person
-can click, and end with the one thing worth doing next. No account of your own
-process, no list of the tools you called, no summary of the file you just read.
-
-Link labels are for people: "Open the overview page", "See today's entry" —
-translated into the user's language, never a bare URL pasted into a sentence.
-
-Ask only where a choice is genuinely ambiguous or genuinely irreversible — which
-project when several match, whether a new page or an existing one should take
-something when the difference will be visible to them. Everywhere else,
-recommend in one line and proceed. A question you could have answered yourself
-is a question that costs the user a turn.
-
-Language rules: everything written **into** the project follows the language the
-project itself is written in; everything said **in chat** follows the language
-the user is writing to you in. They usually agree. When they don't, each
-keeps its own rule — summarising Ukrainian notes for a user writing in English
-means Ukrainian on the page and English in the reply. Every phrase and label in
-this file is an English placeholder; translate it, never paste it into another
-language verbatim.
 
 ---
 
